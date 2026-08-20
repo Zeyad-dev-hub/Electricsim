@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Electricsim - 2D Charge Physics</title>
+    <meta name="theme-color" content="#030405">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="research-theme.css">
+    <meta name="description"
+        content="A beautiful 2D electric charge physics simulation demonstrating electric fields, potentials, and forces.">
+</head>
+
+<body>
+    <canvas id="bgCanvas"></canvas>
+    <!-- Simulation Canvas -->
+    <canvas id="simulationCanvas"></canvas>
+
+    <!-- Welcome overlay for empty state -->
+    <div id="welcomeOverlay" class="welcome-overlay">
+        <div class="welcome-content">
+            <div class="welcome-icon">⚡</div>
+            <h2>Welcome to Electricsim</h2>
+            <p>Click <strong>+ Add Object</strong> to place your first charge and begin exploring electric fields.</p>
+            <div class="welcome-hints">
+                <span>🖱️ Drag to pan</span>
+                <span>🔍 Scroll to zoom</span>
+                <span>📌 Right-click to remove</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- UI Overlay container -->
+    <div class="ui-overlay">
+        <!-- Header / Info -->
+        <header class="glass-panel">
+            <div style="display: flex; justify-content: space-between; align-items: start;">
+                <h1>⚡ Electricsim</h1>
+                <a href="index.html" class="btn-icon"
+                    style="position: relative; top: 0; right: 0; text-decoration: none; width: auto; padding: 0 10px; font-size: 0.8rem; height: 28px; display: inline-flex; border-radius: 6px;">⌂
+                    Hub</a>
+            </div>
+            <p>Drag charges to observe the electric field. <b>Right-click</b> to remove. <b>Delete</b> removes selected.
+            </p>
+            <div class="stats">
+                <span id="chargeCount">Objects: 0 | Total Charges: 0</span>
+            </div>
+
+            <div class="btn-group">
+                <button id="addChargeBtn" class="btn-primary">+ Add Object</button>
+                <button id="clearAllBtn" class="btn-danger">🗑 Clear All</button>
+            </div>
+
+            <button id="shortcutsBtn" class="btn-icon" title="Keyboard Shortcuts">
+                <span>?</span>
+            </button>
+        </header>
+
+        <!-- Shortcuts popover -->
+        <div id="shortcutsPanel" class="shortcuts-panel glass-panel-small hidden">
+            <h3>Keyboard Shortcuts</h3>
+            <div class="shortcut-row"><kbd>Ctrl</kbd>+<kbd>Z</kbd> <span>Undo</span></div>
+            <div class="shortcut-row"><kbd>Ctrl</kbd>+<kbd>Y</kbd> <span>Redo</span></div>
+            <div class="shortcut-row"><kbd>Delete</kbd> <span>Remove selected</span></div>
+            <div class="shortcut-row"><kbd>Escape</kbd> <span>Close modal / Deselect</span></div>
+            <div class="shortcut-row"><kbd>Shift</kbd>+Drag <span>Snap to grid</span></div>
+        </div>
+
+        <!-- Measurement HUD (Fixed to bottom left) -->
+        <div class="hud glass-panel-small">
+            <h3>Probe Readings</h3>
+            <div class="reading"><strong>Position:</strong> <span id="hudPos">(0.00, 0.00)</span> <span
+                    class="hud-unit-label">m</span></div>
+            <div class="reading"><strong>Electric Field (E):</strong> <span id="hudE">0</span></div>
+            <div class="reading"><strong>Electric Potential (V):</strong> <span id="hudV">0</span></div>
+            <div class="reading"><strong>Camera Zoom:</strong> <span id="hudZoom">1.0</span>x</div>
+            <div id="selectedInfo" class="selected-info hidden">
+                <div class="reading-divider"></div>
+                <h3>Selected Object</h3>
+                <div class="reading"><strong>Type:</strong> <span id="selType">—</span></div>
+                <div class="reading"><strong>Charge:</strong> <span id="selCharge">—</span></div>
+                <div class="reading"><strong>Position:</strong> <span id="selPos"
+                        title="Double click to edit coordinates"
+                        style="cursor: pointer; text-decoration: underline dashed rgba(255,255,255,0.4); text-underline-offset: 3px;">—</span>
+                </div>
+                <div class="reading"><strong>Net Force:</strong> <span id="selForce">—</span></div>
+                <div class="reading"><strong>Potential (V):</strong> <span id="selPotential">—</span></div>
+            </div>
+        </div>
+
+        <!-- Visualization Toggle panel (bottom right) -->
+        <div class="toggle-panel glass-panel-small">
+            <h3>Visualization</h3>
+            <label class="toggle-row">
+                <span>Field Lines</span>
+                <input type="checkbox" id="toggleFieldLines" checked>
+                <span class="toggle-switch"></span>
+            </label>
+            <label class="toggle-row">
+                <span>Equipotential</span>
+                <input type="checkbox" id="toggleEquipotential" checked>
+                <span class="toggle-switch"></span>
+            </label>
+            <label class="toggle-row">
+                <span>Force Vectors</span>
+                <input type="checkbox" id="toggleForceVectors" checked>
+                <span class="toggle-switch"></span>
+            </label>
+            <label class="toggle-row">
+                <span>Grid</span>
+                <input type="checkbox" id="toggleGrid" checked>
+                <span class="toggle-switch"></span>
+            </label>
+            <label class="toggle-row">
+                <span>Connectors</span>
+                <input type="checkbox" id="toggleConnectors" checked>
+                <span class="toggle-switch"></span>
+            </label>
+
+            <div class="scale-divider"></div>
+            <div class="scale-selector-group">
+                <label class="scale-label">Distance Scale</label>
+                <select id="scaleUnit" class="scale-select">
+                    <option value="m">Meters (m)</option>
+                    <option value="cm">Centimeters (cm)</option>
+                    <option value="mm">Millimeters (mm)</option>
+                    <option value="um">Micrometers (μm)</option>
+                    <option value="nm">Nanometers (nm)</option>
+                    <option value="pm">Picometers (pm)</option>
+                </select>
+                <div class="scale-readout">
+                    <span class="scale-readout-label">100 px = 1</span>
+                    <span id="scaleReadoutUnit" class="scale-readout-unit">m</span>
+                </div>
+            </div>
+
+            <div class="scale-selector-group">
+                <label class="scale-label">Charge Unit</label>
+                <select id="chargeUnit" class="scale-select">
+                    <option value="C">Coulombs (C)</option>
+                    <option value="mC">Millicoulombs (mC)</option>
+                    <option value="uC" selected>Microcoulombs (μC)</option>
+                    <option value="nC">Nanocoulombs (nC)</option>
+                    <option value="pC">Picocoulombs (pC)</option>
+                    <option value="fC">Femtocoulombs (fC)</option>
+                </select>
+                <div class="scale-readout">
+                    <span class="scale-readout-label">Charge in</span>
+                    <span id="chargeReadoutUnit" class="scale-readout-unit">μC</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Charge Modal -->
+    <div id="addChargeModal" class="modal-backdrop hidden">
+        <div class="glass-modal">
+            <button id="closeModalBtn" class="close-btn">&times;</button>
+            <h2>New Object Properties</h2>
+
+            <div class="form-group">
+                <label for="shapeType">Shape Type</label>
+                <select id="shapeType" class="modern-select">
+                    <option value="point">Point Charge</option>
+                    <option value="rod">Charged Rod</option>
+                    <option value="ring">Ring Charge</option>
+                    <option value="sphere_non_cond">Non-Conducting Sphere</option>
+                    <option value="sphere_cond">Conducting Sphere</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="chargeMagnitude">Total Charge Magnitude (|Q|)</label>
+                <div class="slider-container">
+                    <input type="range" id="chargeMagnitude" min="1" max="100" value="20">
+                    <span id="magnitudeVal">20 <span class="charge-unit-label">μC</span></span>
+                </div>
+            </div>
+
+            <div class="form-group" id="dimensionGroup" style="opacity: 0.4; pointer-events: none;">
+                <label for="shapeDimension">Dimension (Radius/Length)</label>
+                <div class="slider-container">
+                    <input type="range" id="shapeDimension" min="20" max="200" value="60">
+                    <span id="dimensionVal">0.60 m</span>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label>Charge Sign</label>
+                <div class="sign-selector">
+                    <input type="radio" id="signPositive" name="chargeSign" value="1" checked>
+                    <label for="signPositive" class="sign-btn positive-btn">+ Positive</label>
+
+                    <input type="radio" id="signNegative" name="chargeSign" value="-1">
+                    <label for="signNegative" class="sign-btn negative-btn">- Negative</label>
+                </div>
+            </div>
+
+            <div class="form-actions">
+                <button id="createChargeBtn" class="btn-submit">Add to Simulation</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="shared-bg.js"></script>
+    <script src="script.js"></script>
+</body>
+
+</html>

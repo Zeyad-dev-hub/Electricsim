@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Conductivity & Resistivity Explorer</title>
+    <meta name="description" content="Explore the Drude model of electron drift through a conducting material. Adjust temperature, materials, and geometry to see real-time resistance and current calculations.">
+    <meta name="theme-color" content="#030405">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="conductivity.css">
+    <link rel="stylesheet" href="research-theme.css">
+</head>
+<body>
+    <canvas id="bgCanvas"></canvas>
+
+    <!-- Main Workspace -->
+    <div class="workspace">
+        <!-- Top bar -->
+        <div class="top-bar">
+            <a href="index.html" class="hub-btn">⌂ Hub</a>
+            <span class="page-title">⚡ Conductivity & Resistivity Explorer</span>
+        </div>
+
+        <!-- Visualization Area -->
+        <div class="canvas-wrap">
+            <canvas id="simCanvas"></canvas>
+        </div>
+
+        <!-- Controls Panel (Right Side) -->
+        <div class="side-panel glass-panel-small">
+            <h3 class="panel-heading">Wire Properties</h3>
+
+            <div class="ctrl-group">
+                <label for="materialSelect">Material</label>
+                <select id="materialSelect" class="modern-select">
+                    <option value="cu">Copper (Cu)</option>
+                    <option value="al">Aluminum (Al)</option>
+                    <option value="au">Gold (Au)</option>
+                    <option value="fe">Iron (Fe)</option>
+                    <option value="c">Carbon (Graphite)</option>
+                    <option value="con">Constantan</option>
+                </select>
+            </div>
+
+            <div class="ctrl-group">
+                <label for="lengthSlider">Length (L)</label>
+                <div class="slider-container">
+                    <input type="range" id="lengthSlider" min="0.1" max="10" step="0.1" value="1.0">
+                    <span id="lengthVal" class="slider-value">1.0 m</span>
+                </div>
+            </div>
+
+            <div class="ctrl-group">
+                <label for="areaSlider">Cross-Sectional Area (A)</label>
+                <div class="slider-container">
+                    <input type="range" id="areaSlider" min="0.1" max="5.0" step="0.1" value="1.0">
+                    <span id="areaVal" class="slider-value">1.0 mm²</span>
+                </div>
+            </div>
+
+            <div class="ctrl-group">
+                <label for="tempSlider">Temperature (T)</label>
+                <div class="slider-container">
+                    <input type="range" id="tempSlider" min="-100" max="1000" step="5" value="20">
+                    <span id="tempVal" class="slider-value">20 °C</span>
+                </div>
+            </div>
+
+            <div class="ctrl-group">
+                <label for="voltageSlider">Applied Voltage (V)</label>
+                <div class="slider-container">
+                    <input type="range" id="voltageSlider" min="0" max="240" step="0.1" value="5.0">
+                    <span id="voltageVal" class="slider-value">5.0 V</span>
+                </div>
+            </div>
+
+            <button id="resetBtn" class="reset-btn">↻ Reset Defaults</button>
+        </div>
+
+        <!-- Calculations HUD (Bottom Left) -->
+        <div id="readingsHud" class="hud-panel glass-panel-small">
+            <h3 class="panel-heading hud-heading">Calculations</h3>
+
+            <div class="hud-row">
+                <span class="hud-label">Base Resistivity (ρ₂₀)</span>
+                <span id="baseResVal" class="hud-val">—</span>
+            </div>
+            <div class="hud-row">
+                <span class="hud-label">Resistivity at T (ρ<sub>T</sub>)</span>
+                <span id="currResVal" class="hud-val">—</span>
+            </div>
+
+            <div class="hud-divider"></div>
+
+            <div class="hud-row hud-highlight">
+                <span class="hud-label">Resistance (R)</span>
+                <span id="resVal" class="hud-val accent-val">—</span>
+            </div>
+            <div class="hud-row hud-highlight">
+                <span class="hud-label">Current (I)</span>
+                <span id="currVal" class="hud-val accent-val">—</span>
+            </div>
+            <div class="hud-row hud-highlight">
+                <span class="hud-label">Power (P)</span>
+                <span id="powerVal" class="hud-val accent-val">—</span>
+            </div>
+
+            <div class="hud-divider"></div>
+
+            <div class="hud-row">
+                <span class="hud-label">Drift Velocity (v<sub>d</sub>)</span>
+                <span id="driftVal" class="hud-val">—</span>
+            </div>
+        </div>
+
+        <!-- Formula Reference (optional overlay) -->
+        <div class="formula-badge glass-panel-small">
+            <span>R = ρL/A</span>
+            <span class="formula-sep">|</span>
+            <span>ρ(T) = ρ₂₀[1 + α(T − 20)]</span>
+            <span class="formula-sep">|</span>
+            <span>I = V/R</span>
+        </div>
+    </div>
+
+    <script src="shared-bg.js"></script>
+    <script src="conductivity.js"></script>
+</body>
+</html>

@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Gauss's Law Explorer</title>
+    <meta name="description" content="Visualize and explore Gauss's Law. Adjust Gaussian surface radius, charge densities, and geometries to see real-time electric field and flux calculations.">
+    <meta name="theme-color" content="#030405">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="gauss.css">
+    <link rel="stylesheet" href="research-theme.css">
+</head>
+<body>
+    <!-- Background Canvas (Animated grid & wave rings) -->
+    <canvas id="bgCanvas"></canvas>
+
+    <!-- Main Workspace -->
+    <div class="workspace">
+        <!-- Top bar -->
+        <div class="top-bar">
+            <a href="index.html" class="hub-btn">⌂ Hub</a>
+            <span class="page-title">Φ Gauss's Law Explorer</span>
+        </div>
+
+        <!-- Simulation Canvas Wrapper -->
+        <div class="canvas-wrap">
+            <canvas id="gaussCanvas"></canvas>
+        </div>
+
+        <!-- Configuration Sidebar (Right Side) -->
+        <div class="side-panel glass-panel-small">
+            <h3 class="panel-heading">Surface Configuration</h3>
+
+            <div class="ctrl-group">
+                <label for="geometrySelect">Charge Geometry</label>
+                <select id="geometrySelect" class="modern-select">
+                    <option value="point">Point Charge</option>
+                    <option value="line">Infinite Line Charge</option>
+                    <option value="plane">Infinite Plane Charge</option>
+                    <option value="sphere_cond">Conducting Sphere</option>
+                    <option value="sphere_solid">Non-Conducting Sphere</option>
+                </select>
+            </div>
+
+            <div class="ctrl-group">
+                <label for="chargeSlider">Total Charge (Q)</label>
+                <div class="slider-container">
+                    <input type="range" id="chargeSlider" min="-20" max="20" step="0.5" value="10">
+                    <span id="chargeVal" class="slider-value">10.0 μC</span>
+                </div>
+            </div>
+
+            <!-- Gaussian Surface Radius (r) -->
+            <div class="ctrl-group" id="groupGaussRadius">
+                <label for="radiusSlider">Gaussian Radius (r)</label>
+                <div class="slider-container">
+                    <input type="range" id="radiusSlider" min="0.5" max="5.0" step="0.1" value="2.5">
+                    <span id="radiusVal" class="slider-value">2.5 m</span>
+                </div>
+            </div>
+
+            <!-- Gaussian Cylinder Length (L) - Line Charge only -->
+            <div class="ctrl-group" id="groupCylinderLength" style="display: none;">
+                <label for="lengthSlider">Cylinder Length (L)</label>
+                <div class="slider-container">
+                    <input type="range" id="lengthSlider" min="1.0" max="8.0" step="0.1" value="4.0">
+                    <span id="lengthVal" class="slider-value">4.0 m</span>
+                </div>
+            </div>
+
+            <!-- Gaussian Pillbox Area (A) - Plane Charge only -->
+            <div class="ctrl-group" id="groupPillboxArea" style="display: none;">
+                <label for="areaSlider">Pillbox End Area (A)</label>
+                <div class="slider-container">
+                    <input type="range" id="areaSlider" min="1.0" max="10.0" step="0.5" value="4.0">
+                    <span id="areaVal" class="slider-value">4.0 m²</span>
+                </div>
+            </div>
+
+            <!-- Sphere Physical Radius (R) - Spheres only -->
+            <div class="ctrl-group" id="groupSphereRadius" style="display: none;">
+                <label for="sphereRadiusSlider">Physical Sphere Radius (R)</label>
+                <div class="slider-container">
+                    <input type="range" id="sphereRadiusSlider" min="0.5" max="4.0" step="0.1" value="1.5">
+                    <span id="sphereRadiusVal" class="slider-value">1.5 m</span>
+                </div>
+            </div>
+
+            <div class="hud-divider"></div>
+            <h3 class="panel-heading">Visualization</h3>
+
+            <div class="toggle-row">
+                <label class="ctrl-group">
+                    <input type="checkbox" id="toggleFieldLines" checked>
+                    <span>Show Field Lines</span>
+                </label>
+            </div>
+            
+            <div class="toggle-row">
+                <label class="ctrl-group">
+                    <input type="checkbox" id="toggleFluxMarkers" checked>
+                    <span>Flux Intersection Glow</span>
+                </label>
+            </div>
+
+            <div class="toggle-row">
+                <label class="ctrl-group">
+                    <input type="checkbox" id="toggleNormals" checked>
+                    <span>Surface Normals (dA)</span>
+                </label>
+            </div>
+
+            <div class="toggle-row">
+                <label class="ctrl-group">
+                    <input type="checkbox" id="toggleAnimate" checked>
+                    <span>Animate Flow</span>
+                </label>
+            </div>
+
+            <button id="resetBtn" class="reset-btn">↻ Reset Defaults</button>
+        </div>
+
+        <!-- Calculations HUD (Bottom Left) -->
+        <div id="readingsHud" class="hud-panel glass-panel-small">
+            <h3 class="panel-heading hud-heading" style="color: var(--research-emerald) !important; border-bottom-color: rgba(55, 224, 161, 0.15) !important;">Live Measurements</h3>
+
+            <div class="hud-row">
+                <span class="hud-label">Enclosed Charge (Q<sub>enc</sub>)</span>
+                <span id="gaussQenc" class="hud-val">—</span>
+            </div>
+            
+            <div class="hud-row">
+                <span class="hud-label">Gaussian Surface Area (A)</span>
+                <span id="gaussArea" class="hud-val">—</span>
+            </div>
+
+            <div class="hud-row">
+                <span class="hud-label">Electric Field at Surface (E)</span>
+                <span id="gaussE" class="hud-val">—</span>
+            </div>
+
+            <div class="hud-divider"></div>
+
+            <div class="hud-row hud-highlight">
+                <span class="hud-label">Computed Flux (Φ<sub>E</sub>)</span>
+                <span id="gaussFlux" class="hud-val accent-val">—</span>
+            </div>
+
+            <div class="hud-row hud-highlight">
+                <span class="hud-label">Gauss Check (Q<sub>enc</sub>/ε₀)</span>
+                <span id="gaussFluxCheck" class="hud-val accent-val">—</span>
+            </div>
+            
+            <div style="font-size: 0.65rem; color: rgba(255, 255, 255, 0.35); text-align: center; margin-top: 6px;" id="gaussCheckStatus">
+                ✓ Flux matches enclosed charge / ε₀
+            </div>
+        </div>
+
+        <!-- Dynamic Rule Info Panel (Bottom Center) -->
+        <div class="formula-badge glass-panel-small" id="formulaPanel">
+            <div class="formula-title" id="formulaTitle">Point Charge Rule</div>
+            <div class="formula-content" id="formulaText">E = Q / (4πε₀r²)</div>
+            <div class="formula-details" id="formulaCalculation">E = ...</div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="shared-bg.js"></script>
+    <script src="gauss.js"></script>
+</body>
+</html>

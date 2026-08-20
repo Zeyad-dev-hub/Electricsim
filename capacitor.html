@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Electricsim - Capacitor Lab</title>
+    <meta name="theme-color" content="#030405">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=SF+Mono&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="capacitor.css">
+    <link rel="stylesheet" href="research-theme.css">
+</head>
+<body>
+    <canvas id="bgCanvas"></canvas>
+    <!-- Main Simulation Canvas -->
+    <canvas id="capacitorCanvas"></canvas>
+
+    <!-- Top Navigation -->
+    <header class="top-nav glass-panel">
+        <div class="nav-left">
+            <a href="index.html" class="hub-btn" title="Back to Hub">⌂ Hub</a>
+            <div class="title-group">
+                <h1>🔋 Capacitor Lab</h1>
+            </div>
+        </div>
+        
+        <div class="nav-center controls">
+            <button id="btnModePhysics" class="btn-primary" title="Switch to Physics Explorer">🔭 Physics Explorer</button>
+            <div class="divider"></div>
+            <button id="btnModeNetwork" class="btn-secondary" title="Switch to Network Builder">🔗 Network Builder</button>
+        </div>
+
+        <div class="nav-right">
+            <button id="btnFormulas" class="btn-icon" title="Physics Formulas (MathJax)">?</button>
+        </div>
+    </header>
+
+    <!-- ============================================== -->
+    <!-- PHYSICS EXPLORER MODE UI                       -->
+    <!-- ============================================== -->
+
+    <!-- Sidebar - Physics Controls -->
+    <aside class="sidebar-left glass-panel" id="physicsSidebar">
+        <h3>Geometry Model</h3>
+        <div class="prop-group">
+            <label>Type</label>
+            <div class="custom-select">
+                <select id="selGeometry">
+                    <option value="parallel">Parallel Plate</option>
+                    <option value="cylindrical">Cylindrical</option>
+                    <option value="spherical">Spherical</option>
+                </select>
+            </div>
+        </div>
+        <div class="prop-group mt-2">
+            <label>Dielectric Material</label>
+            <div class="custom-select">
+                <select id="selDielectric">
+                    <option value="1">Vacuum/Air (k ≈ 1)</option>
+                    <option value="2.1">Teflon (k = 2.1)</option>
+                    <option value="3.4">Nylon (k = 3.4)</option>
+                    <option value="3.7">Paper (k = 3.7)</option>
+                    <option value="5">Glass (k = 5.0)</option>
+                    <option value="custom">Custom (Input below)</option>
+                </select>
+            </div>
+        </div>
+        <div class="prop-group hidden" id="customDielectricGroup">
+            <label>Dielectric Constant (k)</label>
+            <div class="prop-input-wrap slider-wrap">
+                <input type="range" id="sliderK" min="1" max="100" step="0.1" value="1.0">
+                <span class="prop-unit val-readout" id="valK">1.0</span>
+            </div>
+        </div>
+        
+        <div class="divider mt-2 mb-2" style="width:100%; height:1px; margin: 15px 0;"></div>
+        
+        <h3>Parameters</h3>
+        <div class="prop-group">
+            <label>Voltage Source (V)</label>
+            <div class="prop-input-wrap slider-wrap">
+                <input type="range" id="sliderV" min="0" max="100" step="1" value="12">
+                <span class="prop-unit val-readout" id="valV">12V</span>
+            </div>
+        </div>
+
+        <!-- Dynamic Parameter Sliders -->
+        <div id="controls-parallel" class="dynamic-controls">
+            <div class="prop-group mt-2">
+                <label>Plate Area (A)</label>
+                <div class="prop-input-wrap slider-wrap">
+                    <input type="range" id="sliderArea" min="0.01" max="2.0" step="0.01" value="0.05">
+                    <span class="prop-unit val-readout" id="valArea">0.05m²</span>
+                </div>
+            </div>
+            <div class="prop-group mt-2">
+                <label>Separation (d)</label>
+                <div class="prop-input-wrap slider-wrap">
+                    <input type="range" id="sliderDist" min="1" max="50" step="0.1" value="10.0">
+                    <span class="prop-unit val-readout" id="valDist">10mm</span>
+                </div>
+            </div>
+        </div>
+
+        <div id="controls-cylindrical" class="dynamic-controls hidden">
+            <div class="prop-group mt-2">
+                <label>Inner Radius (a)</label>
+                <div class="prop-input-wrap slider-wrap">
+                    <input type="range" id="sliderCylA" min="1" max="20" step="0.1" value="5">
+                    <span class="prop-unit val-readout" id="valCylA">5mm</span>
+                </div>
+            </div>
+            <div class="prop-group mt-2">
+                <label>Outer Radius (b)</label>
+                <div class="prop-input-wrap slider-wrap">
+                    <input type="range" id="sliderCylB" min="2" max="40" step="0.1" value="15">
+                    <span class="prop-unit val-readout" id="valCylB">15mm</span>
+                </div>
+            </div>
+            <div class="prop-group mt-2">
+                <label>Length (L)</label>
+                <div class="prop-input-wrap slider-wrap">
+                    <input type="range" id="sliderCylL" min="0.05" max="1.0" step="0.01" value="0.5">
+                    <span class="prop-unit val-readout" id="valCylL">0.5m</span>
+                </div>
+            </div>
+        </div>
+
+        <div id="controls-spherical" class="dynamic-controls hidden">
+            <div class="prop-group mt-2">
+                <label>Inner Radius (a)</label>
+                <div class="prop-input-wrap slider-wrap">
+                    <input type="range" id="sliderSphA" min="1" max="20" step="0.1" value="5">
+                    <span class="prop-unit val-readout" id="valSphA">5mm</span>
+                </div>
+            </div>
+            <div class="prop-group mt-2">
+                <label>Outer Radius (b)</label>
+                <div class="prop-input-wrap slider-wrap">
+                    <input type="range" id="sliderSphB" min="2" max="40" step="0.1" value="15">
+                    <span class="prop-unit val-readout" id="valSphB">15mm</span>
+                </div>
+            </div>
+        </div>
+        
+    </aside>
+
+    <!-- Measurement HUD (Physics) -->
+    <div class="hud bottom-left glass-panel-small" id="physicsHud">
+        <h3>Live Measurements</h3>
+        <div class="reading"><strong>Capacitance (C):</strong> <span id="hudC" class="color-cyan">0.00 pF</span></div>
+        <div class="reading"><strong>St. Charge (Q):</strong> <span id="hudQ" class="color-pink">0.00 pC</span></div>
+        <div class="reading"><strong>Energy (U):</strong> <span id="hudU" class="color-yellow">0.00 pJ</span></div>
+        <div class="reading" id="rowE"><strong>Elec. Field (E):</strong> <span id="hudE" class="color-green">0.00 V/m</span></div>
+    </div>
+
+
+    <!-- ============================================== -->
+    <!-- NETWORK BUILDER MODE UI                        -->
+    <!-- ============================================== -->
+
+    <!-- Sidebar - Network Controls -->
+    <aside class="sidebar-left glass-panel hidden" id="networkSidebar">
+        <h3>Network Tools</h3>
+        <p style="font-size: 0.8rem; color:#94a3b8; margin-bottom: 0.8rem;">Build complex capacitor networks with nested series & parallel groups. Select nodes in the tree below to add relative to them.</p>
+        
+        <div class="prop-group">
+            <label>Master Source (V)</label>
+            <div class="prop-input-wrap slider-wrap">
+                <input type="range" id="netSliderV" min="1" max="100" step="1" value="12">
+                <span class="prop-unit val-readout" id="valNetV">12V</span>
+            </div>
+        </div>
+
+        <div class="divider mt-2 mb-2" style="width:100%; height:1px; margin: 15px 0;"></div>
+
+        <h3>Add Single Capacitor</h3>
+        <div class="prop-group">
+            <label>Capacitance (&mu;F)</label>
+            <div class="prop-input-wrap slider-wrap">
+                <input type="range" id="netSliderC" min="1" max="100" step="1" value="10">
+                <span class="prop-unit val-readout" id="valNetC">10&mu;F</span>
+            </div>
+        </div>
+        
+        <div class="btn-group mt-2">
+            <button id="btnAddSeries" class="btn-primary w-full" style="padding: 0.5rem; margin-bottom: 6px;">⊕ Series</button>
+            <button id="btnAddParallel" class="btn-secondary w-full" style="padding: 0.5rem;">⊕ Parallel</button>
+        </div>
+
+
+
+        <div class="divider mt-2 mb-2" style="width:100%; height:1px; margin: 12px 0;"></div>
+
+        <h3>Network Tree</h3>
+        <div id="networkList" class="network-tree-list">
+            <p style="color:#64748b; font-size:0.75rem; text-align:center;">No components yet</p>
+        </div>
+        
+        <div class="btn-group mt-2">
+            <button id="btnRemoveNode" class="btn-danger w-full" style="padding: 0.5rem; margin-bottom: 6px;">✕ Remove Selected</button>
+            <button id="btnClearNetwork" class="btn-danger w-full" style="padding: 0.5rem; opacity: 0.7;">🗑 Clear All</button>
+        </div>
+    </aside>
+
+    <!-- Network HUD -->
+    <div class="hud bottom-left glass-panel-small hidden" id="networkHud">
+        <h3>Equivalent Circuit</h3>
+        <div class="reading"><strong>Total C (C<sub>eq</sub>):</strong> <span id="hudNetC" class="color-cyan">0.00 &mu;F</span></div>
+        <div class="reading"><strong>Tot. Charge (Q):</strong> <span id="hudNetQ" class="color-pink">0.00 &mu;C</span></div>
+        <div class="reading"><strong>Tot. Energy (U):</strong> <span id="hudNetU" class="color-yellow">0.00 mJ</span></div>
+        
+        <div id="selCapInfoWrapper" class="hidden" style="margin-top: 15px; padding-top: 15px; border-top: 1px solid rgba(255,255,255,0.1);">
+            <h3 style="color: #6ee7b7;">Selected Element <span id="selNodeTitle" style="font-size: 0.8em; color: rgba(255,255,255,0.6); font-weight: normal;"></span></h3>
+            <div class="reading"><strong>Capacitance:</strong> <span id="selNetC" class="color-cyan">0.00 &mu;F</span></div>
+            <div class="reading"><strong>Voltage (V):</strong> <span id="selNetV" class="color-green">0.00 V</span></div>
+            <div class="reading"><strong>Charge (Q):</strong> <span id="selNetQ" class="color-pink">0.00 &mu;C</span></div>
+            <div class="reading"><strong>Energy (U):</strong> <span id="selNetU" class="color-yellow">0.00 mJ</span></div>
+        </div>
+    </div>
+
+    <!-- Toggle Overlays -->
+    <div class="view-controls bottom-right glass-panel-small">
+        <label class="toggle-row">
+            <span>Show Field Lines</span>
+            <input type="checkbox" id="toggleEField" checked>
+            <span class="toggle-switch"></span>
+        </label>
+        <label class="toggle-row">
+            <span>Show Charges</span>
+            <input type="checkbox" id="toggleCharges" checked>
+            <span class="toggle-switch"></span>
+        </label>
+
+        <div class="zoom-controls">
+            <button id="btnZoomOut" class="btn-icon small">-</button>
+            <span id="zoomLabel">100%</span>
+            <button id="btnZoomIn" class="btn-icon small">+</button>
+            <button id="btnZoomReset" class="btn-icon small" title="Reset View">⤢</button>
+        </div>
+    </div>
+
+    <!-- Modals -->
+    <div id="formulasModal" class="modal-overlay hidden">
+        <div class="modal-content glass-panel">
+            <h2 style="color:var(--accent); margin-bottom: 1rem;">Capacitor Physics Formulas</h2>
+            <div class="formula-grid">
+                <div class="formula-card">
+                    <h4>Parallel Plate</h4>
+                    <p>$$ C = \frac{\kappa \epsilon_0 A}{d} $$</p>
+                    <p>$$ E = \frac{V}{d} $$</p>
+                </div>
+                <div class="formula-card">
+                    <h4>Cylindrical</h4>
+                    <p>$$ C = \frac{2\pi \kappa \epsilon_0 L}{\ln(b/a)} $$</p>
+                    <p>$$ E_{max} = \frac{V}{a \ln(b/a)} $$</p>
+                </div>
+                <div class="formula-card">
+                    <h4>Spherical</h4>
+                    <p>$$ C = 4\pi \kappa \epsilon_0 \left( \frac{ab}{b - a} \right) $$</p>
+                    <p>$$ E_{max} = \frac{V}{a^2 \cdot (1/a - 1/b)} $$</p>
+                </div>
+                <div class="formula-card">
+                    <h4>General & Circuits</h4>
+                    <p>$$ Q = CV \quad\quad U = \frac{1}{2}CV^2 $$</p>
+                    <p>$$ C_{Series} = \left( \sum \frac{1}{C_i} \right)^{-1} $$</p>
+                    <p>$$ C_{Parallel} = \sum C_i $$</p>
+                </div>
+            </div>
+            <button id="btnCloseFormulas" class="btn-primary mt-2">Close</button>
+        </div>
+    </div>
+
+    <!-- MathJax -->
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+
+    <script src="shared-bg.js"></script>
+    <script src="capacitor.js"></script>
+</body>
+</html>
