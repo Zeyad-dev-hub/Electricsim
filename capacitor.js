@@ -1574,40 +1574,6 @@ function drawDynamicWire(x1, y1, x2, y2) {
     ctx.moveTo(x1, y1);
     ctx.lineTo(x2, y2);
     ctx.stroke();
-
-    if (nState.voltage > 0 && dist > 15) {
-        // Speed proportional to voltage
-        const speed = 0.25 + (nState.voltage / 24) * 1.1;
-        const spacing = 50;
-        const numParticles = Math.max(1, Math.floor(dist / spacing));
-
-        for (let i = 0; i < numParticles; i++) {
-            let t = ((simTime * speed) + (i / numParticles)) % 1.0;
-
-            // Fade at endpoints
-            let alpha = 1.0;
-            if (t < 0.1) alpha = t / 0.1;
-            if (t > 0.9) alpha = (1.0 - t) / 0.1;
-
-            // Main arrow — solid, no shadow, smaller, slate
-            const ax = x1 + dx * t;
-            const ay = y1 + dy * t;
-            ctx.save();
-            ctx.globalAlpha = alpha;
-            ctx.translate(ax, ay);
-            ctx.rotate(angle);
-            ctx.fillStyle = '#94a3b8';
-            const s = 4;
-            ctx.beginPath();
-            ctx.moveTo(s, 0);
-            ctx.lineTo(-s * 0.8, -s * 0.55);
-            ctx.lineTo(-s * 0.4, 0);
-            ctx.lineTo(-s * 0.8, s * 0.55);
-            ctx.closePath();
-            ctx.fill();
-            ctx.restore();
-        }
-    }
 }
 
 // 2D voltage source symbol — standard circle with +/- polarity signs
