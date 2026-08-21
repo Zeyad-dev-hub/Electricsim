@@ -1,254 +1,76 @@
 # Electricsim Platform: Scientific Research Simulation Suite
 
-## Project Overview
+## Comprehensive Project Overview
 
-Electricsim is a vanilla HTML, CSS, and JavaScript web platform for interactive scientific physics simulations. The project now uses a four-module hub-and-spoke architecture focused on electrostatics, Gauss's law, capacitance, and material conductivity.
+Electricsim is an advanced, high-fidelity web-based physics simulation platform built entirely with vanilla JavaScript ES6+, HTML5 Canvas 2D, and CSS3. Designed with a sophisticated black research-lab aesthetic, the platform provides interactive computational laboratories for exploring classical electromagnetism, electrostatics, capacitance, and charge transport phenomena. 
 
-The visual direction is a black, modern, professional research-lab interface with matte panels, fine grid textures, restrained glow accents, and high-contrast scientific readouts.
+The application architecture utilizes a modular hub-and-spoke design where each simulation operates as an independent, self-contained engine supported by a unified design system (`research-theme.css`). Performance is optimized through batched rendering primitives, Path2D caching, custom Runge-Kutta (RK4) numerical integration for electric field lines, marching-squares algorithms for equipotential contour generation, and boundary-element method (BEM) linear solvers for conducting geometries.
 
-## Architecture
+---
 
-```text
-index.html
-  +-- electrostatics.html   + script.js        + style.css
-  +-- gauss.html            + gauss.js         + gauss.css
-  +-- capacitor.html        + capacitor.js     + capacitor.css
-  +-- conductivity.html     + conductivity.js  + conductivity.css + style.css
-  +-- research-theme.css
-```
-
-Each simulation module remains self-contained and keeps its own JavaScript engine. The shared `research-theme.css` file is loaded after module stylesheets so the new design can be applied without rewriting the physics logic.
-
-## Current File Layout
+## Architecture & File Directory
 
 ```text
 Project Root
 |
-+-- index.html             Hub page for the four simulations
-+-- research-theme.css     Shared black scientific research theme
-+-- style.css              Shared electrostatics/conductivity base styles
-+-- script.js              Electrostatics physics engine
-+-- electrostatics.html    Electrostatics page
-+-- gauss.html             Gauss's Law explorer page
-+-- gauss.css              Gauss's Law base styles
-+-- gauss.js               Gauss's Law physics & visualization engine
-+-- capacitor.html         Capacitor lab page
-+-- capacitor.css          Capacitor base styles
-+-- capacitor.js           Capacitor physics and network engine
-+-- conductivity.html      Conductivity explorer page
-+-- conductivity.css       Conductivity base styles
-+-- conductivity.js        Drude-model conductivity simulation
-+-- me.md                  Project summary
-+-- Documentation.md       Current technical documentation
++-- index.html             Central hub interface with animated canvas background
++-- research-theme.css     Unified black research-lab design system
++-- style.css              Shared base styles for electrostatics and transport
++-- shared-bg.js           Background animation engine for hub
+|
++-- Electrostatics Module
+    +-- electrostatics.html
+    +-- script.js          Electrostatics simulation engine & BEM solver
+|
++-- Gauss's Law Module
+    +-- gauss.html
+    +-- gauss.css
+    +-- gauss.js           Flux explorer & pseudo-3D Gaussian surfaces
+|
++-- Capacitor Lab Module
+    +-- capacitor.html
+    +-- capacitor.css
+    +-- capacitor.js       Capacitance models & network builder engine
+|
++-- Conductivity Explorer Module
+    +-- conductivity.html
+    +-- conductivity.css
+    +-- conductivity.js    Drude-model electron drift & temperature transport
+|
++-- Documentation.md       Technical specifications and project documentation
 ```
 
-## Technology Stack
+---
 
-- Vanilla JavaScript ES6+
-- HTML5 Canvas 2D rendering
-- CSS custom properties, responsive layouts, and layered theme overrides
-- MathJax on the Capacitor Lab page
-- Google Fonts: Inter
-- Native JavaScript math and data structures
-- `requestAnimationFrame` animation loops
+## Technology Stack & Engineering Standards
 
-## Design System
+- **Core Runtime**: Vanilla JavaScript (ES6+ classes, typed arrays, floating-point numerical methods).
+- **Graphics Pipeline**: HTML5 Canvas 2D context with `requestAnimationFrame`, Path2D batching, and device-pixel-ratio awareness.
+- **Mathematical Rendering**: MathJax integration for precise typesetting of physical formulas on laboratory pages.
+- **Typography & Styling**: Google Fonts (Inter), CSS Custom Properties, and responsive flex/grid layouts.
+- **Interaction Model**: Pointer/touch event handling with `touch-action: none` to guarantee smooth dragging, inertial camera panning, pinch-to-zoom, and real-time HUD overlays.
 
-### Visual Direction
+---
 
-The interface uses a black research-instrument style:
+## Detailed Module Specifications
 
-- Matte black background: `#000000`
-- Graphite panels with thin borders and top specular highlight
-- Subtle scientific grid overlays
-- Compact professional controls
-- Monospace numeric readouts
-- Restrained accent colors per module
-- Reduced decorative motion compared with the former glassmorphism-heavy style
+### 1. Electrostatics Simulator (`electrostatics.html` / `script.js`)
+Models discrete point charges, charged rods, rings, and conducting/non-conducting spheres. Implements real-time Coulomb force vectors, RK4 electric field line tracing, marching-squares equipotential contour mapping, and a partial-pivoting Gaussian elimination solver to simulate surface charge induction on conducting bodies.
 
-### Shared Theme File
+### 2. Gauss's Law Explorer (`gauss.html` / `gauss.js`)
+Visualizes electric flux through spherical, cylindrical, and planar Gaussian surfaces enclosing diverse charge geometries. Features active flowing chevron field lines, real-time calculation of enclosed charge ($Q_{enc}$), surface area ($A$), electric field ($E$), and direct verification of Gauss's Law ($\Phi = Q_{enc}/\varepsilon_0$).
 
-`research-theme.css` centralizes the look:
+### 3. Capacitor Lab (`capacitor.html` / `capacitor.js`)
+Analyzes parallel-plate, cylindrical, and spherical capacitor geometries under variable dielectrics, voltages, and plate separations. Includes an interactive series-parallel network builder with dynamic schematic layout rendering, energy storage calculations, and MathJax formula integration.
 
-- Theme variables
-- Panel and HUD styling
-- Button and input styling
-- Range slider styling
-- Toggle styling
-- Hub card styling
-- Reduced-motion support
-- Module-specific accent overrides
+### 4. Conductivity Explorer (`conductivity.html` / `conductivity.js`)
+Simulates microscopic electron drift velocity under the Drude scattering model across various material presets. Explores how temperature, cross-sectional area, length, and applied voltage impact resistivity $\rho(T)$, total resistance $R$, current $I$, and power dissipation $P$.
 
-### Module Accent Colors
+---
 
-| Module | Accent | Usage |
-|---|---:|---|
-| Electrostatics | `#8b9dff` | Electric field / physics engine identity (Slate Blue) |
-| Gauss's Law Explorer | `#37e0a1` | Gauss's Law and flux highlights (Emerald Green) |
-| Capacitor Lab | `#3dd9ff` | Capacitance and measurement highlights (Cyan) |
-| Conductivity Explorer | `#f6b944` | Material transport and resistance highlights (Amber Yellow) |
+## Module Summaries
 
-## Hub Page
-
-`index.html` is the central navigation surface. It contains:
-
-- A full-screen animated scientific canvas background
-- A research-suite heading
-- Four launch cards
-- A footer credit line
-
-The hub exposes:
-
-1. Electrostatics Simulator
-2. Gauss's Law Explorer
-3. Capacitor Simulator
-4. Conductivity Explorer
-
-On desktop, the hub uses a single-page no-scroll layout where all elements fit dynamically within the viewport.
-
-## Electrostatics Simulator
-
-Files:
-
-- `electrostatics.html`
-- `script.js`
-- `style.css`
-- `research-theme.css`
-
-Core capabilities:
-
-- Point charges
-- Charged rods
-- Charged rings
-- Conducting and non-conducting spheres
-- Electric field line visualization
-- Equipotential contour visualization
-- Force vectors
-- Probe HUD
-- Distance and charge unit controls
-- Undo/redo interactions
-- Camera pan and zoom
-
-Important formulas:
-
-```text
-F = k q1 q2 / r^2
-E = k q / r^2
-V = k q / r
-```
-
-Rendering and numerical methods include Runge-Kutta field-line integration, marching-squares equipotential contours, and a boundary-element style solver for conducting sphere behavior.
-
-## Gauss's Law Explorer
-
-Files:
-
-- `gauss.html`
-- `gauss.css`
-- `gauss.js`
-- `research-theme.css`
-
-Core capabilities:
-
-- 5 interactive charge geometries: Point Charge, Infinite Line Charge, Infinite Plane Charge, Conducting Sphere, and Non-Conducting Sphere.
-- Pseudo-3D wireframe models for spherical, cylindrical, and planar Gaussian surfaces.
-- Active flowing field lines using continuously moving chevron arrowheads showing field/flux direction.
-- Geometry-constrained field line rendering to ensure visual comfort and clarity.
-- Live calculations HUD showing enclosed charge ($Q_{enc}$), Gaussian surface area ($A$), field strength ($E$), electric flux ($\Phi_E$), and a real-time Gauss's Law verification check ($Q_{enc}/\varepsilon_0$).
-- Toggleable surface normal ($dA$) vectors, electric field ($E$) vectors, and flux intersection glows.
-- Mathematical rule overlay with real-time value substitution.
-
-Important formulas:
-
-```text
-Point Charge / Spherical outside: E = q / (4 * pi * eps0 * r^2)
-Conducting Sphere inside: E = 0
-Non-conducting Sphere inside: E = (q * r) / (4 * pi * eps0 * R^3)
-Line Charge: E = lambda / (2 * pi * eps0 * r)
-Plane Charge: E = sigma / (2 * eps0)
-Gauss's Law: Phi = Q_enc / eps0
-```
-
-## Capacitor Lab
-
-Files:
-
-- `capacitor.html`
-- `capacitor.css`
-- `capacitor.js`
-- `research-theme.css`
-
-Core capabilities:
-
-- Parallel plate capacitor model
-- Cylindrical capacitor model
-- Spherical capacitor model
-- Dielectric material selector
-- Custom dielectric constant
-- Voltage, geometry, and material controls
-- Live capacitance, charge, energy, and field readouts
-- Series and parallel capacitor network builder
-- Formula modal with MathJax rendering
-
-Important formulas:
-
-```text
-C = k eps0 A / d
-Q = C V
-U = 1/2 C V^2
-C_parallel = sum(C_i)
-1 / C_series = sum(1 / C_i)
-```
-
-## Conductivity Explorer
-
-Files:
-
-- `conductivity.html`
-- `conductivity.css`
-- `conductivity.js`
-- `style.css`
-- `research-theme.css`
-
-Core capabilities:
-
-- Drude-model electron drift visualization
-- Material presets for common conductors
-- Temperature-dependent resistivity
-- Length, area, voltage, and temperature controls
-- Live resistance, current, power, and drift velocity readouts
-- Animated lattice atoms and electron motion
-
-Important formulas:
-
-```text
-rho(T) = rho0 [1 + alpha(T - 20)]
-R = rho L / A
-I = V / R
-P = V I
-vd = I / (n e A)
-```
-
-## Responsive Behavior
-
-The project is fully responsive and optimized for touch interactions on mobile phones and tablets. On smaller screens:
-
-- **Touch Action Overrides**: All simulator canvases enforce `touch-action: none` to prevent browser scrolling, panning, or viewport bounce while dragging charges or adjusting nodes, providing extremely smooth touch controls.
-- **Vertical Layout Stacking**: In both the Gauss's Law Explorer and Conductivity Explorer, the canvas, control sidebars, and HUD panels stack vertically in a clean scrollable flow on screens ≤768px, preventing clashing or overlapping overlays.
-- **Capacitor Mobile Drawer**: The Capacitor Lab's control sidebar automatically transforms into a compact bottom drawer on mobile devices, maximizing canvas workspace.
-- **Tablet Optimization (769px–1100px)**: Custom media queries scale down control panels and sidebar widths (e.g., in Electrostatics and Capacitor Lab) to prevent HUD collisions and maintain canvas visibility on iPads and mid-sized tablets.
-- **Page Title Truncation**: Page headers automatically scale down and use text-overflow truncation on narrow screens (≤480px) to prevent layout wrapping.
-- **Touch-Friendly Controls**: Slider tracks are optimized and slider thumbs are enlarged to 22px on touch devices for easier dragging.
-- **Responsive Hub Grid**: The hub home page uses a 4-column grid on desktops, a 2x2 grid on tablets, and stacks into a single column on mobile.
-- **Reduced Motion Support**: Detects `prefers-reduced-motion` to disable expensive CSS background animations and particle flow.
-
-## Verification Notes
-
-Current expected pages:
-
-- `index.html`
-- `electrostatics.html`
-- `gauss.html`
-- `capacitor.html`
-- `conductivity.html`
-
+- **Electrostatics Simulator**: Models point charges, continuous distributions, and conducting spheres using RK4 field lines, equipotential contours, and BEM potential solvers.
+- **Gauss's Law Explorer**: Illustrates electric flux through spherical, cylindrical, and planar Gaussian surfaces with real-time verification against enclosed charge.
+- **Capacitor Lab**: Evaluates capacitance, stored energy, and dielectric boundary conditions across parallel-plate, cylindrical, and spherical geometries alongside network builder circuits.
+- **Conductivity Explorer**: Simulates microscopic Drude electron drift velocity, lattice scattering, and temperature-dependent resistivity to analyze material resistance and power.
