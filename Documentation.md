@@ -60,10 +60,13 @@ Models discrete point charges, charged rods, rings, and conducting/non-conductin
 ### 2. Gauss's Law Explorer (`gauss.html` / `gauss.js`)
 Visualizes electric flux through spherical, cylindrical, and planar Gaussian surfaces enclosing diverse charge geometries. Features active flowing chevron field lines, real-time calculation of enclosed charge ($Q_{enc}$), surface area ($A$), electric field ($E$), and direct verification of Gauss's Law ($\Phi = Q_{enc}/\varepsilon_0$).
 
-### 3. Capacitor Lab (`capacitor.html` / `capacitor.js`)
-Analyzes parallel-plate, cylindrical, and spherical capacitor geometries under variable dielectrics, voltages, and plate separations. Includes an interactive series-parallel network builder with dynamic schematic layout rendering, energy storage calculations, and MathJax formula integration.
+### 3. Capacitor Physics Explorer (`capacitor.html` / `capacitor.js`)
+Analyzes parallel-plate, cylindrical, and spherical capacitor geometries under variable dielectrics, voltages, and plate separations. Computes live capacitance, electric field strength, stored charge, and energy density with MathJax formula rendering.
 
-### 4. Conductivity Explorer (`conductivity.html` / `conductivity.js`)
+### 4. Capacitor Network Builder (`capacitor.html` / `capacitor.js`)
+Provides an interactive schematic canvas to construct and evaluate series and parallel capacitor networks. Computes equivalent capacitance, branch currents, and node voltages across multi-element circuits with clean PCB-style routing traces.
+
+### 5. Conductivity Explorer (`conductivity.html` / `conductivity.js`)
 Simulates microscopic electron drift velocity under the Drude scattering model across various material presets. Explores how temperature, cross-sectional area, length, and applied voltage impact resistivity $\rho(T)$, total resistance $R$, current $I$, and power dissipation $P$.
 
 ---
@@ -72,5 +75,6 @@ Simulates microscopic electron drift velocity under the Drude scattering model a
 
 - **Electrostatics Simulator**: Models point charges, continuous distributions, and conducting spheres using RK4 field lines, equipotential contours, and BEM potential solvers.
 - **Gauss's Law Explorer**: Illustrates electric flux through spherical, cylindrical, and planar Gaussian surfaces with real-time verification against enclosed charge.
-- **Capacitor Lab**: Evaluates capacitance, stored energy, and dielectric boundary conditions across parallel-plate, cylindrical, and spherical geometries alongside network builder circuits.
+- **Capacitor Physics Explorer**: Evaluates capacitance, stored energy, and dielectric boundary conditions across parallel-plate, cylindrical, and spherical geometries.
+- **Capacitor Network Builder**: Computes equivalent capacitance and analyzes voltage distribution across complex series-parallel capacitor circuit diagrams.
 - **Conductivity Explorer**: Simulates microscopic Drude electron drift velocity, lattice scattering, and temperature-dependent resistivity to analyze material resistance and power.
