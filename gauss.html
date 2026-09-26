@@ -9,7 +9,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="gauss.css">
-    <link rel="stylesheet" href="research-theme.css">
+    <link rel="stylesheet" href="research-theme.css?v=2">
 </head>
 <body>
     <!-- Background Canvas (Animated grid & wave rings) -->
@@ -22,6 +22,12 @@
             <a href="index.html" class="hub-btn">⌂ Hub</a>
             <span class="page-title">Φ Gauss's Law Explorer</span>
         </div>
+
+        <aside class="concept-guide" aria-label="Gauss's law concept map">
+            <span class="concept-kicker">Concept map</span>
+            <div class="concept-flow"><span>Enclosed charge</span><b>→</b><span>Surface flux</span><b>→</b><span>Φ = Q<sub>enc</sub>/ε₀</span></div>
+            <span class="concept-detail"><i class="legend-dot surface-dot"></i>Green = Gaussian surface <i class="legend-dot flux-dot"></i>Glow = flux crossing</span>
+        </aside>
 
         <!-- Simulation Canvas Wrapper -->
         <div class="canvas-wrap">
@@ -90,33 +96,29 @@
             <div class="hud-divider"></div>
             <h3 class="panel-heading">Visualization</h3>
 
-            <div class="toggle-row">
-                <label class="ctrl-group">
-                    <input type="checkbox" id="toggleFieldLines" checked>
-                    <span>Show Field Lines</span>
-                </label>
-            </div>
+            <label class="toggle-row">
+                <span>Show Field Lines</span>
+                <input type="checkbox" id="toggleFieldLines" checked>
+                <span class="toggle-switch"></span>
+            </label>
             
-            <div class="toggle-row">
-                <label class="ctrl-group">
-                    <input type="checkbox" id="toggleFluxMarkers" checked>
-                    <span>Flux Intersection Glow</span>
-                </label>
-            </div>
+            <label class="toggle-row">
+                <span>Flux Intersection Glow</span>
+                <input type="checkbox" id="toggleFluxMarkers" checked>
+                <span class="toggle-switch"></span>
+            </label>
 
-            <div class="toggle-row">
-                <label class="ctrl-group">
-                    <input type="checkbox" id="toggleNormals" checked>
-                    <span>Surface Normals (dA)</span>
-                </label>
-            </div>
+            <label class="toggle-row">
+                <span>Surface Normals (dA)</span>
+                <input type="checkbox" id="toggleNormals" checked>
+                <span class="toggle-switch"></span>
+            </label>
 
-            <div class="toggle-row">
-                <label class="ctrl-group">
-                    <input type="checkbox" id="toggleAnimate" checked>
-                    <span>Animate Flow</span>
-                </label>
-            </div>
+            <label class="toggle-row">
+                <span>Animate Flow</span>
+                <input type="checkbox" id="toggleAnimate" checked>
+                <span class="toggle-switch"></span>
+            </label>
 
             <button id="resetBtn" class="reset-btn">↻ Reset Defaults</button>
         </div>

@@ -174,6 +174,7 @@ let fieldLinesDirty = true;
 
 // Aurora animation time
 let auroraTime = 0;
+let lastFrameTime = 0;
 
 function screenToWorld(sx, sy) {
     return {
@@ -624,6 +625,8 @@ class PointCharge {
         this.x = x;
         this.y = y;
         this.q = q;
+        this.displayQ = q;
+        this.parent = null;
         const absQ = Math.abs(q);
         this.radius = Math.max(8, minRadius + (absQ / 100) * (maxRadius - minRadius));
     }
@@ -676,11 +679,78 @@ class RigidBody {
         this.dimension = 60;
         this.charges = [];
         this.surfacePotential = null;
+        // Visual-only indicator for the brief surface redistribution transient.
+        // It never participates in the electrostatic calculations.
+        this.surfaceFlowActivity = 0;
+        this.surfaceFlowPhase = 0;
+        this.surfaceFlowDirection = 0;
+        this.surfaceChargeMoving = false;
+    }
+
+    updateSurfaceFlow(deltaSeconds) {
+        if (this.type !== 'sphere_cond') return;
+        let nearest = null;
+        let nearestDistance = Infinity;
+        for (const other of objects) {
+            if (other === this) continue;
+            const dx = other.cx - this.cx;
+            const dy = other.cy - this.cy;
+            const distance = Math.hypot(dx, dy);
+            if (distance < nearestDistance) {
+                nearestDistance = distance;
+                nearest = { dx, dy };
+            }
+        }
+
+        const targetActivity = this.surfaceChargeMoving ? 1 : 0;
+        const responseRate = targetActivity > this.surfaceFlowActivity ? 12 : 3.5;
+        const response = 1 - Math.exp(-deltaSeconds * responseRate);
+        this.surfaceFlowActivity += (targetActivity - this.surfaceFlowActivity) * response;
+        if (nearest) {
+            const targetDirection = Math.atan2(nearest.dy, nearest.dx);
+            const turn = Math.atan2(
+                Math.sin(targetDirection - this.surfaceFlowDirection),
+                Math.cos(targetDirection - this.surfaceFlowDirection)
+            );
+            this.surfaceFlowDirection += turn * response;
+        }
+        this.surfaceFlowPhase = (this.surfaceFlowPhase + deltaSeconds * 1.8) % 1;
+    }
+
+    drawSurfaceRedistribution(ctx) {
+        const activity = this.surfaceFlowActivity;
+        if (this.type !== 'sphere_cond' || activity < 0.01) return;
+
+        // A short-lived surface shimmer indicates carriers settling into a new
+        // equilibrium. Nothing is drawn in the conductor's interior.
+        ctx.save();
+        ctx.globalCompositeOperation = 'lighter';
+        for (let i = 0; i < 3; i++) {
+            const pulse = (this.surfaceFlowPhase + i / 3) % 1;
+            const halfSpan = 0.12 + pulse * 0.48;
+            ctx.beginPath();
+            ctx.arc(
+                this.cx,
+                this.cy,
+                this.dimension - 2.5 - i * 0.7,
+                this.surfaceFlowDirection - halfSpan,
+                this.surfaceFlowDirection + halfSpan
+            );
+            ctx.strokeStyle = `rgba(125, 211, 252, ${activity * (1 - pulse) * 0.48})`;
+            ctx.lineWidth = 1.4 + activity;
+            ctx.shadowColor = '#38bdf8';
+            ctx.shadowBlur = 5 * activity;
+            ctx.stroke();
+        }
+        ctx.restore();
     }
 
     addToWorld() {
         objects.push(this);
-        this.charges.forEach(c => primitiveCharges.push(c));
+        this.charges.forEach(c => {
+            c.parent = this;
+            primitiveCharges.push(c);
+        });
         updateStats();
     }
 
@@ -725,13 +795,13 @@ class RigidBody {
     }
 
     updateConductingPhysics() {
-        if (this.type !== 'sphere_cond') return;
+        if (this.type !== 'sphere_cond') return false;
 
         const N = this.charges.length;
         const radius = this.dimension;
         const absQTotal = Math.max(Math.abs(this.totalQ), 1);
         // Maximum any single sub-charge can hold (prevents runaway)
-        const qClamp = absQTotal * 5;
+        const qClamp = Math.max(absQTotal * 0.35, (absQTotal / Math.max(N, 1)) * 8);
 
         // Pin charges to exact positions on the sphere circumference
         for (let i = 0; i < N; i++) {
@@ -757,17 +827,12 @@ class RigidBody {
         // Use half the sphere radius as floor (not 1px)
         const minExtDist = Math.max(radius * 0.5, 10);
 
-        // Compute external potential at each surface point
+        // Compute external potential at each surface point. Sphere-aware
+        // contributions keep volume distributions rotationally symmetric.
         const Vext = new Array(N).fill(0);
         for (let i = 0; i < N; i++) {
             const ci = this.charges[i];
-            for (const extC of primitiveCharges) {
-                if (this.charges.includes(extC)) continue;
-                const dx = ci.x - extC.x;
-                const dy = ci.y - extC.y;
-                const dist = Math.max(Math.sqrt(dx * dx + dy * dy), minExtDist);
-                Vext[i] += (k * extC.q) / dist;
-            }
+            Vext[i] = calculatePotentialFromObjects(ci.x, ci.y, this, minExtDist * minExtDist);
         }
 
         // Build (N+1) x (N+1) BEM system:
@@ -780,11 +845,17 @@ class RigidBody {
         for (let i = 0; i < N; i++) {
             const row = new Array(size).fill(0);
             for (let j = 0; j < N; j++) {
-                if (i === j) continue;
-                const dx = this.charges[i].x - this.charges[j].x;
-                const dy = this.charges[i].y - this.charges[j].y;
-                const dist = Math.sqrt(dx * dx + dy * dy);
-                row[j] = k / Math.max(dist, 0.1);
+                if (i === j) {
+                    // Approximate the finite potential of one spherical surface
+                    // patch instead of dropping the singular self term.
+                    const patchRadius = Math.max((2 * radius) / Math.sqrt(N), 1);
+                    row[j] = (2 * k) / patchRadius;
+                } else {
+                    const dx = this.charges[i].x - this.charges[j].x;
+                    const dy = this.charges[i].y - this.charges[j].y;
+                    const dist = Math.sqrt(dx * dx + dy * dy);
+                    row[j] = k / Math.max(dist, 0.1);
+                }
             }
             row[N] = -1;
             A.push(row);
@@ -815,16 +886,23 @@ class RigidBody {
         // Smooth lerp factor
         const lerpSpeed = 0.12;
 
+        let distributionChanged = false;
         if (valid) {
+            const targets = solution.slice(0, N).map(q => Math.max(-qClamp, Math.min(qClamp, q)));
+            const correction = (this.totalQ - targets.reduce((sum, q) => sum + q, 0)) / N;
             for (let i = 0; i < N; i++) {
-                // Clamp target to prevent extreme oscillation
-                const targetQ = Math.max(-qClamp, Math.min(qClamp, solution[i]));
+                const targetQ = targets[i] + correction;
+                const before = this.charges[i].q;
                 this.charges[i].q += (targetQ - this.charges[i].q) * lerpSpeed;
                 // Guard against NaN creep
                 if (!isFinite(this.charges[i].q)) this.charges[i].q = this.totalQ / N;
+                if (Math.abs(this.charges[i].q - before) > 0.0005) distributionChanged = true;
                 this.charges[i].displayQ += (this.charges[i].q - this.charges[i].displayQ) * lerpSpeed * 0.8;
                 if (!isFinite(this.charges[i].displayQ)) this.charges[i].displayQ = this.charges[i].q;
             }
+            const sumQ = this.charges.reduce((sum, c) => sum + c.q, 0);
+            const conservationFix = (this.totalQ - sumQ) / N;
+            for (const c of this.charges) c.q += conservationFix;
             this.surfacePotential = solution[N];
             if (!isFinite(this.surfacePotential)) this.surfacePotential = null;
         } else {
@@ -838,6 +916,8 @@ class RigidBody {
             }
             this.surfacePotential = null;
         }
+        this.surfaceChargeMoving = distributionChanged;
+        return distributionChanged;
     }
 
     draw(ctx, showForceVectors) {
@@ -864,15 +944,172 @@ class RigidBody {
             ctx.fill();
         }
 
+        // --- Draw the physical body beneath its charge markers ---
+        if (this.type === 'sphere_cond' || this.type === 'sphere_non_cond') {
+            const isConductor = this.type === 'sphere_cond';
+            const positive = this.totalQ >= 0;
+            const sphereGradient = ctx.createRadialGradient(
+                this.cx - this.dimension * 0.34,
+                this.cy - this.dimension * 0.38,
+                this.dimension * 0.03,
+                this.cx,
+                this.cy,
+                this.dimension * 1.04
+            );
+            if (isConductor) {
+                sphereGradient.addColorStop(0, 'rgba(186, 230, 253, 0.26)');
+                sphereGradient.addColorStop(0.24, 'rgba(51, 65, 85, 0.5)');
+                sphereGradient.addColorStop(0.7, 'rgba(8, 20, 39, 0.78)');
+                sphereGradient.addColorStop(1, 'rgba(2, 6, 23, 0.94)');
+                ctx.strokeStyle = 'rgba(125, 211, 252, 0.62)';
+            } else {
+                sphereGradient.addColorStop(0, positive ? 'rgba(254, 202, 202, 0.3)' : 'rgba(191, 219, 254, 0.3)');
+                sphereGradient.addColorStop(0.48, positive ? 'rgba(239, 68, 68, 0.14)' : 'rgba(59, 130, 246, 0.14)');
+                sphereGradient.addColorStop(1, positive ? 'rgba(69, 10, 10, 0.19)' : 'rgba(23, 37, 84, 0.19)');
+                ctx.strokeStyle = positive ? 'rgba(252, 165, 165, 0.64)' : 'rgba(147, 197, 253, 0.64)';
+            }
+            ctx.beginPath();
+            ctx.arc(this.cx, this.cy, this.dimension, 0, Math.PI * 2);
+            ctx.fillStyle = sphereGradient;
+            ctx.fill();
+            ctx.lineWidth = 2;
+            ctx.stroke();
+
+            ctx.save();
+            ctx.beginPath();
+            ctx.arc(this.cx, this.cy, this.dimension * 0.94, 0, Math.PI * 2);
+            ctx.clip();
+            if (isConductor) {
+                // A single cool-toned sheen matches the surrounding field UI
+                // without implying structure or charge inside the conductor.
+                const sheen = ctx.createLinearGradient(
+                    this.cx - this.dimension,
+                    this.cy - this.dimension,
+                    this.cx + this.dimension,
+                    this.cy + this.dimension
+                );
+                sheen.addColorStop(0, 'rgba(125, 211, 252, 0)');
+                sheen.addColorStop(0.38, 'rgba(125, 211, 252, 0.025)');
+                sheen.addColorStop(0.5, 'rgba(186, 230, 253, 0.11)');
+                sheen.addColorStop(0.62, 'rgba(125, 211, 252, 0.018)');
+                sheen.addColorStop(1, 'rgba(125, 211, 252, 0)');
+                ctx.fillStyle = sheen;
+                ctx.fillRect(
+                    this.cx - this.dimension,
+                    this.cy - this.dimension,
+                    this.dimension * 2,
+                    this.dimension * 2
+                );
+            }
+            ctx.restore();
+
+            if (isConductor) this.drawSurfaceRedistribution(ctx);
+
+            // Bright upper-left rim and shaded lower rim improve the 3D read.
+            ctx.beginPath();
+            ctx.arc(this.cx, this.cy, this.dimension - 1.2, Math.PI * 0.82, Math.PI * 1.72);
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.32)';
+            ctx.lineWidth = 1.5;
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.arc(this.cx, this.cy, this.dimension - 1.2, -0.12, Math.PI * 0.72);
+            ctx.strokeStyle = 'rgba(2, 6, 23, 0.34)';
+            ctx.stroke();
+
+        } else if (this.type === 'ring') {
+            const tubeWidth = Math.max(3.5, Math.min(7, this.dimension * 0.075));
+            const ringGradient = ctx.createLinearGradient(
+                this.cx - this.dimension,
+                this.cy - this.dimension,
+                this.cx + this.dimension,
+                this.cy + this.dimension
+            );
+            ringGradient.addColorStop(0, 'rgba(186, 230, 253, 0.72)');
+            ringGradient.addColorStop(0.3, 'rgba(71, 85, 105, 0.72)');
+            ringGradient.addColorStop(0.68, 'rgba(15, 23, 42, 0.9)');
+            ringGradient.addColorStop(1, 'rgba(56, 189, 248, 0.52)');
+
+            // Dark under-stroke separates the physical ring from field and
+            // equipotential lines while leaving its interior truly empty.
+            ctx.beginPath();
+            ctx.arc(this.cx, this.cy, this.dimension, 0, Math.PI * 2);
+            ctx.strokeStyle = 'rgba(2, 6, 23, 0.88)';
+            ctx.lineWidth = tubeWidth + 2.5;
+            ctx.stroke();
+
+            ctx.beginPath();
+            ctx.arc(this.cx, this.cy, this.dimension, 0, Math.PI * 2);
+            ctx.strokeStyle = ringGradient;
+            ctx.lineWidth = tubeWidth;
+            ctx.stroke();
+
+            // One restrained highlight and one shaded arc give the wire depth
+            // without turning the ring into a decorative torus.
+            ctx.beginPath();
+            ctx.arc(this.cx, this.cy, this.dimension - tubeWidth * 0.18, Math.PI * 0.86, Math.PI * 1.74);
+            ctx.strokeStyle = 'rgba(224, 242, 254, 0.34)';
+            ctx.lineWidth = Math.max(0.8, tubeWidth * 0.22);
+            ctx.stroke();
+
+            ctx.beginPath();
+            ctx.arc(this.cx, this.cy, this.dimension + tubeWidth * 0.18, -0.1, Math.PI * 0.72);
+            ctx.strokeStyle = 'rgba(2, 6, 23, 0.48)';
+            ctx.lineWidth = Math.max(0.8, tubeWidth * 0.2);
+            ctx.stroke();
+        } else if (this.type === 'rod') {
+            const halfLength = this.dimension / 2;
+            const rodGradient = ctx.createLinearGradient(
+                this.cx,
+                this.cy - 5,
+                this.cx,
+                this.cy + 5
+            );
+            rodGradient.addColorStop(0, 'rgba(186, 230, 253, 0.72)');
+            rodGradient.addColorStop(0.38, 'rgba(71, 85, 105, 0.82)');
+            rodGradient.addColorStop(1, 'rgba(8, 20, 39, 0.94)');
+
+            ctx.save();
+            ctx.lineCap = 'round';
+            // A dark under-stroke keeps the rod readable where field and
+            // equipotential lines pass behind it.
+            ctx.beginPath();
+            ctx.moveTo(this.cx - halfLength, this.cy);
+            ctx.lineTo(this.cx + halfLength, this.cy);
+            ctx.strokeStyle = 'rgba(2, 6, 23, 0.9)';
+            ctx.lineWidth = 10;
+            ctx.stroke();
+
+            ctx.beginPath();
+            ctx.moveTo(this.cx - halfLength, this.cy);
+            ctx.lineTo(this.cx + halfLength, this.cy);
+            ctx.strokeStyle = rodGradient;
+            ctx.lineWidth = 7;
+            ctx.stroke();
+
+            ctx.beginPath();
+            ctx.moveTo(this.cx - halfLength + 2.5, this.cy - 1.6);
+            ctx.lineTo(this.cx + halfLength - 2.5, this.cy - 1.6);
+            ctx.strokeStyle = 'rgba(224, 242, 254, 0.34)';
+            ctx.lineWidth = 1.1;
+            ctx.stroke();
+            ctx.restore();
+        }
+
         // --- Draw charge bodies ---
         for (let c of this.charges) {
             ctx.beginPath();
             ctx.arc(c.x, c.y, c.radius, 0, Math.PI * 2);
-            ctx.fillStyle = c.q > 0 ? '#ef4444' : '#3b82f6';
+            const visualQ = Number.isFinite(c.displayQ) ? c.displayQ : c.q;
+            const chargeAlpha = this.type === 'sphere_cond'
+                ? Math.min(1, 0.35 + Math.abs(visualQ) / Math.max(Math.abs(this.totalQ) / this.charges.length, 0.01) * 0.16)
+                : 0.82;
+            ctx.fillStyle = visualQ >= 0
+                ? `rgba(239, 68, 68, ${chargeAlpha})`
+                : `rgba(59, 130, 246, ${chargeAlpha})`;
             ctx.fill();
 
-            ctx.strokeStyle = c.q > 0 ? '#b91c1c' : '#1d4ed8';
-            ctx.lineWidth = 1.5;
+            ctx.strokeStyle = visualQ >= 0 ? 'rgba(254, 202, 202, 0.72)' : 'rgba(191, 219, 254, 0.72)';
+            ctx.lineWidth = this.type.startsWith('sphere_') ? 0.8 : 1.5;
             ctx.stroke();
 
             if (this.charges.length === 1) {
@@ -882,32 +1119,6 @@ class RigidBody {
                 ctx.textBaseline = 'middle';
                 ctx.fillText(c.q > 0 ? '+' : '−', c.x, c.y + 1);
             }
-        }
-
-        // Draw structural outline
-        if (this.type === 'ring' || this.type === 'sphere_cond' || this.type === 'sphere_non_cond') {
-            ctx.beginPath();
-            ctx.arc(this.cx, this.cy, this.dimension, 0, Math.PI * 2);
-            if (this.type === 'sphere_non_cond') {
-                ctx.fillStyle = 'rgba(255, 255, 255, 0.03)';
-                ctx.fill();
-                ctx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
-            } else if (this.type === 'sphere_cond') {
-                ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
-            } else {
-                ctx.strokeStyle = 'rgba(255, 255, 255, 0.12)';
-            }
-            ctx.lineWidth = 1.5;
-            ctx.setLineDash([3, 4]);
-            ctx.stroke();
-            ctx.setLineDash([]);
-        } else if (this.type === 'rod') {
-            ctx.beginPath();
-            ctx.moveTo(this.cx - this.dimension / 2, this.cy);
-            ctx.lineTo(this.cx + this.dimension / 2, this.cy);
-            ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
-            ctx.lineWidth = 3;
-            ctx.stroke();
         }
 
         // --- Force Vector ---
@@ -991,6 +1202,8 @@ function addObject(x, y, totalQ, type, dimension = 60, skipRecordUndo = false) {
     }
     else if (type === 'ring') {
         const radius = dimension;
+        // A non-conducting charged ring has a fixed uniform linear density, so
+        // every sample carries the same charge at equal angular intervals.
         const nPoints = Math.max(8, Math.floor(radius / 4));
         const qPerPoint = totalQ / nPoints;
         for (let i = 0; i < nPoints; i++) {
@@ -1005,6 +1218,7 @@ function addObject(x, y, totalQ, type, dimension = 60, skipRecordUndo = false) {
     }
     else if (type === 'rod') {
         const length = dimension;
+        // Equal spacing and equal q preserve a uniform fixed linear density.
         const nPoints = Math.max(5, Math.floor(length / 8));
         const qPerPoint = totalQ / nPoints;
         for (let i = 0; i < nPoints; i++) {
@@ -1015,22 +1229,29 @@ function addObject(x, y, totalQ, type, dimension = 60, skipRecordUndo = false) {
     }
     else if (type === 'sphere_non_cond') {
         const radius = dimension;
-        const spacing = 12;
-        let points = [];
-        for (let dx = -radius; dx <= radius; dx += spacing) {
-            for (let dy = -radius; dy <= radius; dy += spacing) {
-                if (dx * dx + dy * dy <= radius * radius) {
-                    points.push({ x: x + dx, y: y + dy });
-                }
-            }
+        // Equal-area golden-angle sampling: sqrt(radius fraction) makes every
+        // particle represent the same area, so the fixed volume charge reads
+        // as uniform rather than concentrating near the center or the rim.
+        const nPoints = Math.max(18, Math.min(90, Math.round((Math.PI * radius * radius) / 115)));
+        const goldenAngle = Math.PI * (3 - Math.sqrt(5));
+        const qPerPoint = totalQ / nPoints;
+        for (let i = 0; i < nPoints; i++) {
+            const radial = radius * 0.92 * Math.sqrt((i + 0.5) / nPoints);
+            const angle = i * goldenAngle;
+            const charge = new PointCharge(
+                x + Math.cos(angle) * radial,
+                y + Math.sin(angle) * radial,
+                qPerPoint
+            );
+            charge.radius = 2.6;
+            obj.charges.push(charge);
         }
-        if (points.length === 0) points.push({ x, y });
-        const qPerPoint = totalQ / points.length;
-        points.forEach(p => obj.charges.push(new PointCharge(p.x, p.y, qPerPoint)));
-        obj.charges.forEach(c => c.radius = 3);
     }
     else if (type === 'sphere_cond') {
         const radius = dimension;
+        // Surface nodes use equal angular spacing. They remain evenly placed;
+        // induction is conveyed by their charge/color intensity, not by fake
+        // particles orbiting or entering the conductor.
         const nPoints = Math.max(12, Math.floor(radius / 4));
         const qPerPoint = totalQ / nPoints;
         for (let i = 0; i < nPoints; i++) {
@@ -1055,41 +1276,108 @@ function updateStats() {
 }
 
 // --- Field & Physics Math ---
-function calculateFieldAndPotential(x, y) {
-    let Ex = 0;
-    let Ey = 0;
-    let V = 0;
+function addPointContribution(result, charge, x, y, minRSq) {
+    const dx = x - charge.x;
+    const dy = y - charge.y;
+    const rawRSq = dx * dx + dy * dy;
+    const rSq = Math.max(rawRSq, minRSq);
+    const r = Math.sqrt(rSq);
+    const eMag = (k * charge.q) / rSq;
+    result.Ex += eMag * (dx / r);
+    result.Ey += eMag * (dy / r);
+    result.V += (k * charge.q) / r;
+}
 
-    for (let charge of primitiveCharges) {
-        const dx = x - charge.x;
-        const dy = y - charge.y;
-        const rSq = dx * dx + dy * dy;
+function addSphereContribution(result, obj, x, y, minRSq = 10) {
+    const dx = x - obj.cx;
+    const dy = y - obj.cy;
+    const r = Math.sqrt(dx * dx + dy * dy);
+    const R = Math.max(obj.dimension, 1);
+    const safeR = Math.max(r, 0.0001);
 
-        if (rSq < 10) continue;
-
-        const r = Math.sqrt(rSq);
-        const eMag = (k * charge.q) / rSq;
-        Ex += eMag * (dx / r);
-        Ey += eMag * (dy / r);
-        V += (k * charge.q) / r;
+    if (obj.type === 'sphere_non_cond') {
+        if (r < R) {
+            // Uniformly charged solid sphere:
+            // E(r)=kQr/R³, V(r)=kQ(3R²-r²)/(2R³).
+            const factor = (k * obj.totalQ) / (R * R * R);
+            result.Ex += factor * dx;
+            result.Ey += factor * dy;
+            result.V += (k * obj.totalQ * (3 * R * R - r * r)) / (2 * R * R * R);
+        } else {
+            const eMag = (k * obj.totalQ) / (safeR * safeR);
+            result.Ex += eMag * (dx / safeR);
+            result.Ey += eMag * (dy / safeR);
+            result.V += (k * obj.totalQ) / safeR;
+        }
+        return;
     }
 
-    return { Ex, Ey, V };
+    // An isolated conducting sphere is exactly point-like outside. With other
+    // bodies present, use its redistributed surface samples to visualize
+    // induction and polarization.
+    if (obj.type === 'sphere_cond' && objects.length === 1) {
+        if (r < R) {
+            result.V += (k * obj.totalQ) / R;
+        } else {
+            const eMag = (k * obj.totalQ) / (safeR * safeR);
+            result.Ex += eMag * (dx / safeR);
+            result.Ey += eMag * (dy / safeR);
+            result.V += (k * obj.totalQ) / safeR;
+        }
+    } else {
+        for (const charge of obj.charges) addPointContribution(result, charge, x, y, minRSq);
+    }
+}
+
+function calculateContributionFromObjects(x, y, excludeObject = null, minRSq = 10) {
+    const result = { Ex: 0, Ey: 0, V: 0 };
+    for (const obj of objects) {
+        if (obj === excludeObject) continue;
+        if (obj.type === 'sphere_non_cond' || obj.type === 'sphere_cond') {
+            addSphereContribution(result, obj, x, y, minRSq);
+        } else {
+            for (const charge of obj.charges) addPointContribution(result, charge, x, y, minRSq);
+        }
+    }
+    return result;
+}
+
+function calculatePotentialFromObjects(x, y, excludeObject = null, minRSq = 10) {
+    return calculateContributionFromObjects(x, y, excludeObject, minRSq).V;
+}
+
+function calculateFieldAndPotential(x, y, minRSq = 10) {
+    // The electric field is zero everywhere inside a conductor in static
+    // equilibrium. Its potential is constant and equal to the surface value.
+    const enclosingConductor = objects.find(obj => {
+        if (obj.type !== 'sphere_cond') return false;
+        const dx = x - obj.cx;
+        const dy = y - obj.cy;
+        return dx * dx + dy * dy < obj.dimension * obj.dimension;
+    });
+
+    if (enclosingConductor) {
+        let V = objects.length === 1
+            ? (k * enclosingConductor.totalQ) / Math.max(enclosingConductor.dimension, 1)
+            : enclosingConductor.surfacePotential;
+        if (!Number.isFinite(V)) {
+            V = (k * enclosingConductor.totalQ) / Math.max(enclosingConductor.dimension, 1);
+            V += calculatePotentialFromObjects(
+                enclosingConductor.cx,
+                enclosingConductor.cy,
+                enclosingConductor,
+                minRSq
+            );
+        }
+        return { Ex: 0, Ey: 0, V };
+    }
+
+    return calculateContributionFromObjects(x, y, null, minRSq);
 }
 
 // --- RK4 Field Line Integration ---
 function getFieldDirClamped(x, y, sign) {
-    let Ex = 0, Ey = 0;
-    for (let charge of primitiveCharges) {
-        const dx = x - charge.x;
-        const dy = y - charge.y;
-        let rSq = dx * dx + dy * dy;
-        if (rSq < 50) rSq = 50;
-        const r = Math.sqrt(rSq);
-        const eMag = (k * charge.q) / rSq;
-        Ex += eMag * (dx / r);
-        Ey += eMag * (dy / r);
-    }
+    const { Ex, Ey } = calculateFieldAndPotential(x, y, 50);
     const mag = Math.sqrt(Ex * Ex + Ey * Ey);
     if (mag < 0.0001) return { dx: 0, dy: 0, mag: 0 };
     return { dx: (Ex / mag) * sign, dy: (Ey / mag) * sign, mag };
@@ -1117,9 +1405,32 @@ function computeFieldLines() {
             : obj.dimension + 3;
 
         for (let i = 0; i < numLines; i++) {
-            const angle = i * angleStep;
-            let tx = obj.cx + Math.cos(angle) * emitRadius;
-            let ty = obj.cy + Math.sin(angle) * emitRadius;
+            const angle = obj.type === 'sphere_non_cond'
+                ? i * Math.PI * (3 - Math.sqrt(5))
+                : i * angleStep;
+            // A fixed volume distribution emits/terminates field lines
+            // throughout its interior; a conductor emits only at its surface.
+            const seedRadius = obj.type === 'sphere_non_cond'
+                ? obj.dimension * (0.2 + 0.72 * Math.sqrt((i + 0.5) / numLines))
+                : emitRadius;
+            let tx;
+            let ty;
+            if (obj.type === 'rod') {
+                // Seed directly along both faces of the rod. The old generic
+                // circular seed used the rod length as a radius, leaving a
+                // visible gap between the field lines and the component.
+                const pairCount = Math.ceil(numLines / 2);
+                const positionIndex = Math.floor(i / 2);
+                const fraction = pairCount === 1 ? 0.5 : positionIndex / (pairCount - 1);
+                const alongRod = (fraction - 0.5) * obj.dimension;
+                const side = i % 2 === 0 ? -1 : 1;
+                const surfaceOffset = Math.max(5, (obj.charges[0]?.radius || 4) + 0.75);
+                tx = obj.cx + alongRod;
+                ty = obj.cy + side * surfaceOffset;
+            } else {
+                tx = obj.cx + Math.cos(angle) * seedRadius;
+                ty = obj.cy + Math.sin(angle) * seedRadius;
+            }
 
             const pts = [{ x: tx, y: ty }];
             let stopped = false;
@@ -1141,6 +1452,17 @@ function computeFieldLines() {
 
                 for (const otherObj of objects) {
                     if (otherObj === obj) continue;
+                    const objDx = tx - otherObj.cx;
+                    const objDy = ty - otherObj.cy;
+                    const objDistSq = objDx * objDx + objDy * objDy;
+                    if ((otherObj.type === 'sphere_cond' || otherObj.type === 'ring')
+                        && objDistSq <= otherObj.dimension * otherObj.dimension) {
+                        stopped = true;
+                        break;
+                    }
+                    // Volume charge is a continuous distribution: field lines
+                    // pass through it instead of terminating on visual samples.
+                    if (otherObj.type === 'sphere_non_cond') continue;
                     for (const oc of otherObj.charges) {
                         const distSq = (tx - oc.x) ** 2 + (ty - oc.y) ** 2;
                         const stopR = Math.max(oc.radius, 6);
@@ -1152,7 +1474,7 @@ function computeFieldLines() {
                     if (stopped) break;
                 }
 
-                if (pts.length > 10) {
+                if (pts.length > 10 && obj.type !== 'sphere_non_cond') {
                     for (const sc of obj.charges) {
                         const distSq = (tx - sc.x) ** 2 + (ty - sc.y) ** 2;
                         if (distSq < sc.radius * sc.radius) {
@@ -1168,7 +1490,11 @@ function computeFieldLines() {
             }
 
             if (pts.length >= 2) {
-                lines.push({ pts, color: obj.totalQ > 0 ? [255, 69, 58] : [10, 132, 255] });
+                lines.push({
+                    pts,
+                    color: obj.totalQ > 0 ? [255, 69, 58] : [10, 132, 255],
+                    reverseArrows: obj.totalQ < 0
+                });
             }
         }
     }
@@ -1183,7 +1509,7 @@ function drawFieldLines(ctx) {
     }
 
     for (const line of fieldLineCache) {
-        const { pts, color } = line;
+        const { pts, color, reverseArrows } = line;
         const totalPts = pts.length;
         const segSize = Math.max(1, Math.floor(totalPts / 5));
 
@@ -1212,7 +1538,7 @@ function drawFieldLines(ctx) {
         for (let ai = arrowInterval; ai < totalPts - 2; ai += arrowInterval) {
             const p0 = pts[ai];
             const p1 = pts[ai + 1];
-            const angle = Math.atan2(p1.y - p0.y, p1.x - p0.x);
+            const angle = Math.atan2(p1.y - p0.y, p1.x - p0.x) + (reverseArrows ? Math.PI : 0);
             const headLen = 5;
             const progress = ai / totalPts;
             const alpha = 0.5 * (1 - progress * 0.7);
@@ -1229,11 +1555,12 @@ function drawFieldLines(ctx) {
     }
 }
 
-// --- Equipotential Lines (Enhanced) ---
+// --- Equipotential Lines ---
 function drawEquipotentialLines(ctx) {
     if (primitiveCharges.length === 0) return;
 
-    const cellSize = 14;
+    // Keep sampling density stable on screen as the camera zoom changes.
+    const cellSize = 12 / viewport.zoom;
     const wLeft = viewport.x;
     const wTop = viewport.y;
     const wRight = viewport.x + width / viewport.zoom;
@@ -1242,85 +1569,63 @@ function drawEquipotentialLines(ctx) {
     const cols = Math.ceil((wRight - wLeft) / cellSize) + 1;
     const rows = Math.ceil((wBottom - wTop) / cellSize) + 1;
 
-    if (cols * rows > 18000) return;
+    if (cols * rows > 26000) return;
 
-    // Compute potential grid
     const grid = new Float32Array(cols * rows);
-    let maxV = 0;
+    const positiveSamples = [];
+    const negativeSamples = [];
     for (let r = 0; r < rows; r++) {
         for (let c = 0; c < cols; c++) {
             const wx = wLeft + c * cellSize;
             const wy = wTop + r * cellSize;
-            let V = 0;
-            for (const charge of primitiveCharges) {
-                const dx = wx - charge.x;
-                const dy = wy - charge.y;
-                const rSq = dx * dx + dy * dy;
-                if (rSq < 50) { V += (k * charge.q) / Math.sqrt(50); continue; }
-                V += (k * charge.q) / Math.sqrt(rSq);
-            }
+            const V = calculateFieldAndPotential(wx, wy, 50).V;
             grid[r * cols + c] = V;
-            const absV = Math.abs(V);
-            if (absV > maxV && absV < 1e6) maxV = absV;
+            if (!Number.isFinite(V)) continue;
+            if (V > 0) positiveSamples.push(V);
+            else if (V < 0) negativeSamples.push(-V);
         }
     }
 
-    if (maxV < 1) return;
+    const percentile = (values, q) => {
+        if (values.length === 0) return 0;
+        values.sort((a, b) => a - b);
+        return values[Math.min(values.length - 1, Math.floor((values.length - 1) * q))];
+    };
+    // A robust cap prevents a near-charge singularity from compressing every
+    // useful contour into a tiny area around that charge.
+    const positiveCap = percentile(positiveSamples, 0.92);
+    const negativeCap = percentile(negativeSamples, 0.92);
+    if (Math.max(positiveCap, negativeCap) < 1) return;
 
-    // Logarithmic level spacing for better detail near charges
-    const numLevels = 16;
     const levels = [];
-    for (let i = 1; i <= numLevels; i++) {
-        const t = i / (numLevels + 1);
-        const v = maxV * (Math.pow(t, 0.6)); // power curve for more levels near zero
-        levels.push(v);
-        levels.push(-v);
-    }
-    levels.sort((a, b) => a - b);
-
-    // Color functions
-    const posColor = (alpha) => `rgba(239, 68, 68, ${alpha.toFixed(3)})`;
-    const negColor = (alpha) => `rgba(59, 130, 246, ${alpha.toFixed(3)})`;
-    const posColorFill = (alpha) => `rgba(239, 68, 68, ${alpha.toFixed(3)})`;
-    const negColorFill = (alpha) => `rgba(59, 130, 246, ${alpha.toFixed(3)})`;
-
-    // --- Draw filled contour bands (heat-map style) ---
-    for (let li = 0; li < levels.length - 1; li++) {
-        const lo = levels[li];
-        const hi = levels[li + 1];
-        const mid = (lo + hi) / 2;
-
-        // Skip the zero-crossing band
-        if (lo < 0 && hi > 0) continue;
-
-        const intensity = Math.abs(mid) / maxV;
-        const fillAlpha = Math.min(0.06, 0.005 + intensity * 0.055);
-
-        if (fillAlpha < 0.003) continue;
-
-        ctx.fillStyle = mid > 0 ? posColorFill(fillAlpha) : negColorFill(fillAlpha);
-
-        for (let r = 0; r < rows - 1; r++) {
-            for (let c = 0; c < cols - 1; c++) {
-                const v = grid[r * cols + c];
-                if (v >= lo && v < hi) {
-                    ctx.fillRect(
-                        wLeft + c * cellSize,
-                        wTop + r * cellSize,
-                        cellSize, cellSize
-                    );
-                }
-            }
+    const addLevels = (cap, sign) => {
+        if (cap < 1) return;
+        const count = 6;
+        for (let i = 0; i < count; i++) {
+            const t = i / (count - 1);
+            const strength = 0.1 + 0.9 * Math.pow(t, 1.35);
+            levels.push({ value: sign * cap * strength, strength, sign });
         }
+    };
+    addLevels(negativeCap, -1);
+    if (positiveCap >= 1 && negativeCap >= 1) {
+        levels.push({ value: 0, strength: 0, sign: 0 });
     }
+    addLevels(positiveCap, 1);
+    levels.sort((a, b) => a.value - b.value);
 
-    // --- Draw contour lines via marching squares ---
-    for (const level of levels) {
-        const isPositive = level > 0;
-        const relIntensity = Math.abs(level) / maxV;
-        const alpha = Math.min(0.55, 0.12 + 0.43 * relIntensity);
-        const lineW = 0.8 + relIntensity * 1.2;
+    const interpolate = (level, a, b) => {
+        const delta = b - a;
+        if (Math.abs(delta) < 1e-6) return 0.5;
+        return Math.max(0, Math.min(1, (level - a) / delta));
+    };
 
+    ctx.save();
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+
+    for (const contour of levels) {
+        const level = contour.value;
         ctx.beginPath();
 
         for (let r = 0; r < rows - 1; r++) {
@@ -1335,72 +1640,53 @@ function drawEquipotentialLines(ctx) {
                 if (tr > level) code |= 4;
                 if (br > level) code |= 2;
                 if (bl > level) code |= 1;
-
                 if (code === 0 || code === 15) continue;
 
                 const x0 = wLeft + c * cellSize;
                 const y0 = wTop + r * cellSize;
+                const top = { x: x0 + interpolate(level, tl, tr) * cellSize, y: y0 };
+                const right = { x: x0 + cellSize, y: y0 + interpolate(level, tr, br) * cellSize };
+                const bottom = { x: x0 + interpolate(level, bl, br) * cellSize, y: y0 + cellSize };
+                const left = { x: x0, y: y0 + interpolate(level, tl, bl) * cellSize };
+                const centerAbove = (tl + tr + br + bl) * 0.25 > level;
+                let segments;
 
-                const lerp = (a, b) => {
-                    const d = b - a;
-                    if (Math.abs(d) < 0.001) return 0.5;
-                    return (level - a) / d;
-                };
-
-                const top = { x: x0 + lerp(tl, tr) * cellSize, y: y0 };
-                const right = { x: x0 + cellSize, y: y0 + lerp(tr, br) * cellSize };
-                const bottom = { x: x0 + lerp(bl, br) * cellSize, y: y0 + cellSize };
-                const left = { x: x0, y: y0 + lerp(tl, bl) * cellSize };
-
-                const segments = [];
                 switch (code) {
-                    case 1: case 14: segments.push([left, bottom]); break;
-                    case 2: case 13: segments.push([bottom, right]); break;
-                    case 3: case 12: segments.push([left, right]); break;
-                    case 4: case 11: segments.push([top, right]); break;
-                    case 5: segments.push([left, top], [bottom, right]); break;
-                    case 6: case 9: segments.push([top, bottom]); break;
-                    case 7: case 8: segments.push([left, top]); break;
-                    case 10: segments.push([top, right], [left, bottom]); break;
+                    case 1: case 14: segments = [[left, bottom]]; break;
+                    case 2: case 13: segments = [[bottom, right]]; break;
+                    case 3: case 12: segments = [[left, right]]; break;
+                    case 4: case 11: segments = [[top, right]]; break;
+                    case 5:
+                        segments = centerAbove
+                            ? [[left, top], [bottom, right]]
+                            : [[top, right], [left, bottom]];
+                        break;
+                    case 6: case 9: segments = [[top, bottom]]; break;
+                    case 7: case 8: segments = [[left, top]]; break;
+                    case 10:
+                        segments = centerAbove
+                            ? [[top, right], [left, bottom]]
+                            : [[left, top], [bottom, right]];
+                        break;
+                    default: segments = [];
                 }
 
-                for (const seg of segments) {
-                    ctx.moveTo(seg[0].x, seg[0].y);
-                    ctx.lineTo(seg[1].x, seg[1].y);
+                for (const segment of segments) {
+                    ctx.moveTo(segment[0].x, segment[0].y);
+                    ctx.lineTo(segment[1].x, segment[1].y);
                 }
             }
         }
 
-        ctx.strokeStyle = isPositive ? posColor(alpha) : negColor(alpha);
-        ctx.lineWidth = lineW;
+        if (contour.sign > 0) {
+            ctx.strokeStyle = `rgba(248, 113, 113, ${(0.22 + contour.strength * 0.3).toFixed(3)})`;
+        } else if (contour.sign < 0) {
+            ctx.strokeStyle = `rgba(96, 165, 250, ${(0.22 + contour.strength * 0.3).toFixed(3)})`;
+        } else {
+            ctx.strokeStyle = 'rgba(203, 213, 225, 0.24)';
+        }
+        ctx.lineWidth = (contour.sign === 0 ? 1 : 0.85 + contour.strength * 0.35) / viewport.zoom;
         ctx.stroke();
-    }
-
-    // --- Draw contour voltage labels at right viewport edge ---
-    ctx.save();
-    ctx.font = `${9 / viewport.zoom}px Inter`;
-    ctx.textAlign = 'left';
-    ctx.textBaseline = 'middle';
-    for (const level of levels) {
-        if (Math.abs(level) < maxV * 0.05) continue; // skip near-zero labels
-        // Find where this contour intersects the right edge of viewport
-        const rightCol = cols - 2;
-        for (let r = 0; r < rows - 1; r++) {
-            const v0 = grid[r * cols + rightCol];
-            const v1 = grid[(r + 1) * cols + rightCol];
-            if ((v0 - level) * (v1 - level) < 0) {
-                const t = (level - v0) / (v1 - v0);
-                const labelY = wTop + (r + t) * cellSize;
-                const labelX = wRight - 2 * cellSize;
-                const isPos = level > 0;
-                const alpha = Math.min(0.7, 0.2 + 0.5 * (Math.abs(level) / maxV));
-                ctx.fillStyle = isPos ? posColor(alpha) : negColor(alpha);
-                const realV = level * getVoltageScale();
-                const labelText = formatSI(realV, 'V');
-                ctx.fillText(labelText, labelX, labelY);
-                break; // one label per level
-            }
-        }
     }
     ctx.restore();
 }
@@ -1430,9 +1716,26 @@ function drawGrid(ctx) {
 }
 
 // --- Render Loop ---
-function render() {
+function render(timestamp = 0) {
+    const deltaSeconds = lastFrameTime === 0
+        ? 1 / 60
+        : Math.min((timestamp - lastFrameTime) / 1000, 0.05);
+    lastFrameTime = timestamp || lastFrameTime;
+
     // Clear solid background transparently to show background canvas
     ctx.clearRect(0, 0, width, height);
+
+    // Update induced surface charge before any field or contour rendering.
+    // If the distribution moved, invalidate the cached lines so the visual
+    // field responds to polarization instead of lagging behind it.
+    let conductorChanged = false;
+    for (const obj of objects) {
+        if (obj.type === 'sphere_cond' && obj.updateConductingPhysics()) {
+            conductorChanged = true;
+        }
+        obj.updateSurfaceFlow(deltaSeconds);
+    }
+    if (conductorChanged) fieldLinesDirty = true;
 
     ctx.save();
     ctx.scale(viewport.zoom, viewport.zoom);
@@ -1498,7 +1801,6 @@ function render() {
     // Draw objects
     const showForce = toggleForceVectors.checked;
     for (let obj of objects) {
-        if (obj.type === 'sphere_cond') obj.updateConductingPhysics();
         obj.draw(ctx, showForce);
     }
 
@@ -1558,7 +1860,21 @@ function updateSelectedPhysics() {
     let realV;
     if (selectedObject.type === 'sphere_cond' && selectedObject.surfacePotential !== null) {
         // Conducting sphere: use exact surface potential from matrix solver
-        realV = selectedObject.surfacePotential * getVoltageScale();
+        const visualPotential = objects.length === 1
+            ? (k * selectedObject.totalQ) / Math.max(selectedObject.dimension, 1)
+            : selectedObject.surfacePotential;
+        realV = visualPotential * getVoltageScale();
+    } else if (selectedObject.type === 'sphere_non_cond') {
+        // Potential at the center of a uniformly charged solid sphere,
+        // including contributions from every external object.
+        const selfV = (3 * k * selectedObject.totalQ) / (2 * Math.max(selectedObject.dimension, 1));
+        const extV = calculatePotentialFromObjects(
+            selectedObject.cx,
+            selectedObject.cy,
+            selectedObject,
+            10
+        );
+        realV = (selfV + extV) * getVoltageScale();
     } else {
         let objV = 0;
         for (let extC of primitiveCharges) {

@@ -1713,4 +1713,8 @@ function drawCapacitorSymbol(x, y, node, isSelected) {
 }
 
 // Start sequence
-window.onload = init;
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init, { once: true });
+} else {
+    init();
+}

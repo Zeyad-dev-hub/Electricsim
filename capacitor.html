@@ -7,7 +7,7 @@
     <meta name="theme-color" content="#030405">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=SF+Mono&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="capacitor.css">
-    <link rel="stylesheet" href="research-theme.css">
+    <link rel="stylesheet" href="research-theme.css?v=2">
 </head>
 <body>
     <canvas id="bgCanvas"></canvas>
@@ -33,6 +33,12 @@
             <button id="btnFormulas" class="btn-icon" title="Physics Formulas (MathJax)">?</button>
         </div>
     </header>
+
+    <aside class="concept-guide" aria-label="Capacitance concept map">
+        <span class="concept-kicker">Concept map</span>
+        <div class="concept-flow"><span>Geometry or topology</span><b>→</b><span>Capacitance <em>C</em></span><b>→</b><span>Charge & energy</span></div>
+        <span class="concept-detail"><i class="legend-dot field-dot"></i>Lines = electric field · Q = CV · U = ½CV²</span>
+    </aside>
 
     <!-- ============================================== -->
     <!-- PHYSICS EXPLORER MODE UI                       -->
@@ -274,6 +280,6 @@
     <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
 
     <script src="shared-bg.js"></script>
-    <script src="capacitor.js"></script>
+    <script src="capacitor.js?v=2"></script>
 </body>
 </html>

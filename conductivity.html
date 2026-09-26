@@ -9,7 +9,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="conductivity.css">
-    <link rel="stylesheet" href="research-theme.css">
+    <link rel="stylesheet" href="research-theme.css?v=2">
 </head>
 <body>
     <canvas id="bgCanvas"></canvas>
@@ -21,6 +21,12 @@
             <a href="index.html" class="hub-btn">⌂ Hub</a>
             <span class="page-title">⚡ Conductivity & Resistivity Explorer</span>
         </div>
+
+        <aside class="concept-guide" aria-label="Conductivity concept map">
+            <span class="concept-kicker">Concept map</span>
+            <div class="concept-flow"><span>Material + temperature</span><b>→</b><span>Resistance <em>R</em></span><b>→</b><span>Current <em>I</em></span></div>
+            <span class="concept-detail"><i class="legend-dot atom-dot"></i>Lattice ions <i class="legend-dot electron-dot"></i>Drifting electrons · collisions resist flow</span>
+        </aside>
 
         <!-- Visualization Area -->
         <div class="canvas-wrap">

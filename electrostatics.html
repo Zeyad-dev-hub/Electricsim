@@ -8,7 +8,7 @@
     <meta name="theme-color" content="#030405">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
-    <link rel="stylesheet" href="research-theme.css">
+    <link rel="stylesheet" href="research-theme.css?v=2">
     <meta name="description"
         content="A beautiful 2D electric charge physics simulation demonstrating electric fields, potentials, and forces.">
 </head>
@@ -17,6 +17,14 @@
     <canvas id="bgCanvas"></canvas>
     <!-- Simulation Canvas -->
     <canvas id="simulationCanvas"></canvas>
+
+    <aside class="concept-guide electro-guide" aria-label="Electrostatics concept map">
+        <span class="concept-kicker">Concept map</span>
+        <div class="concept-flow">
+            <span><i class="legend-dot charge-dot"></i>Charge</span><b>→</b><span>Electric field <em>E</em></span><b>→</b><span>Force <em>F = qE</em></span>
+        </div>
+        <span class="concept-detail">Field lines show direction · contours connect equal potential</span>
+    </aside>
 
     <!-- Welcome overlay for empty state -->
     <div id="welcomeOverlay" class="welcome-overlay">
@@ -205,7 +213,7 @@
     </div>
 
     <script src="shared-bg.js"></script>
-    <script src="script.js"></script>
+    <script src="script.js?v=2"></script>
 </body>
 
 </html>

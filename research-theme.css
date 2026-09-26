@@ -129,6 +129,97 @@ p,
     box-shadow: 0 10px 36px rgba(0, 0, 0, 0.5) !important;
 }
 
+/* Shared visual-learning rail: keeps the governing relationship visible while
+   the learner changes inputs and watches the canvas respond. */
+.concept-guide {
+    position: fixed;
+    top: 64px;
+    left: 50%;
+    z-index: 18;
+    width: min(510px, calc(100vw - 680px));
+    min-width: 390px;
+    transform: translateX(-50%);
+    display: grid;
+    grid-template-columns: auto 1fr;
+    align-items: center;
+    column-gap: 12px;
+    row-gap: 5px;
+    padding: 9px 12px;
+    border: 1px solid rgba(255, 255, 255, 0.09);
+    border-top-color: color-mix(in srgb, var(--accent, #3dd9ff) 46%, rgba(255, 255, 255, 0.12));
+    border-radius: 8px;
+    background: rgba(5, 8, 12, 0.82);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.38), inset 0 1px 0 rgba(255, 255, 255, 0.035);
+    backdrop-filter: blur(14px) saturate(1.15);
+    -webkit-backdrop-filter: blur(14px) saturate(1.15);
+    pointer-events: none;
+}
+
+.concept-guide.electro-guide {
+    top: 24px;
+}
+
+.concept-kicker {
+    grid-row: 1 / span 2;
+    align-self: stretch;
+    display: flex;
+    align-items: center;
+    padding-right: 12px;
+    border-right: 1px solid rgba(255, 255, 255, 0.09);
+    color: var(--accent, #3dd9ff);
+    font-size: 0.61rem;
+    font-weight: 800;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+}
+
+.concept-flow {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    color: #f4f7fb;
+    font-size: 0.73rem;
+    font-weight: 650;
+    white-space: nowrap;
+}
+
+.concept-flow b {
+    color: var(--accent, #3dd9ff);
+    font-size: 0.86rem;
+    font-weight: 500;
+}
+
+.concept-flow em {
+    color: var(--accent, #3dd9ff);
+    font-family: "SF Mono", "Cascadia Code", monospace;
+    font-style: normal;
+}
+
+.concept-detail {
+    color: #7f8da1;
+    font-size: 0.61rem;
+    line-height: 1.25;
+    text-align: center;
+    white-space: nowrap;
+}
+
+.legend-dot {
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    margin: 0 5px 1px 7px;
+    border-radius: 50%;
+    background: var(--accent, #3dd9ff);
+    box-shadow: 0 0 8px currentColor;
+}
+
+.legend-dot:first-child { margin-left: 0; }
+.charge-dot { color: #ff625b; background: #ff625b; }
+.surface-dot { color: #37e0a1; background: #37e0a1; }
+.flux-dot, .field-dot, .electron-dot { color: #38a3ff; background: #38a3ff; }
+.atom-dot { color: #f6b944; background: #f6b944; }
+
 .hud h3,
 .panel-heading,
 .glass-panel h3,
@@ -341,10 +432,62 @@ input[type="range"]::-webkit-slider-thumb:hover {
     border: 1px solid rgba(255, 255, 255, 0.14) !important;
 }
 
+/* Consistent, visible switch treatment on every lab. */
+.toggle-row {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    gap: 12px;
+    cursor: pointer;
+}
+
+.toggle-row input[type="checkbox"] {
+    position: absolute !important;
+    width: 1px !important;
+    height: 1px !important;
+    opacity: 0 !important;
+    pointer-events: none;
+}
+
+.toggle-switch {
+    flex: 0 0 auto;
+    position: relative;
+    width: 34px;
+    height: 19px;
+    border-radius: 999px !important;
+}
+
+.toggle-switch::after {
+    content: "";
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 13px;
+    height: 13px;
+    border-radius: 50%;
+    background: #9aa8bb;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.45);
+    transition: transform 0.2s ease, background 0.2s ease;
+}
+
 .toggle-row input:checked + .toggle-switch {
     background: rgba(61, 217, 255, 0.25) !important;
     border-color: rgba(61, 217, 255, 0.52) !important;
     box-shadow: none !important;
+}
+
+.toggle-row input:checked + .toggle-switch::after {
+    transform: translateX(15px);
+    background: #f7fbff;
+}
+
+button:focus-visible,
+a:focus-visible,
+select:focus-visible,
+input:focus-visible,
+.toggle-row:has(input:focus-visible) {
+    outline: 2px solid var(--accent, var(--research-cyan)) !important;
+    outline-offset: 3px !important;
 }
 
 kbd {
@@ -562,6 +705,39 @@ body:has(#gaussCanvas) {
 }
 
 @media (max-width: 768px) {
+    .concept-guide,
+    .concept-guide.electro-guide {
+        top: 56px;
+        left: 8px;
+        right: 8px;
+        width: auto;
+        min-width: 0;
+        transform: none;
+        grid-template-columns: auto 1fr;
+        padding: 7px 9px;
+    }
+
+    .concept-kicker {
+        grid-row: auto;
+        padding-right: 9px;
+        font-size: 0.55rem;
+    }
+
+    .concept-flow {
+        gap: 5px;
+        font-size: 0.62rem;
+        overflow: hidden;
+    }
+
+    .concept-flow span {
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .concept-detail {
+        display: none;
+    }
+
     .nav-card {
         min-height: 0;
         padding: 1.2rem !important;
