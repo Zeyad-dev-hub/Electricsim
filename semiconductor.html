@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#000000">
+    <meta name="description" content="See how bonding electrons become free, how electron transfers move holes, and how heat, doping and voltage change one semiconductor crystal.">
+    <title>Electricsim · Inside a semiconductor</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="research-theme.css?v=2">
+    <link rel="stylesheet" href="semiconductor.css?v=6">
+</head>
+<body>
+    <canvas id="bgCanvas" aria-hidden="true"></canvas>
+    <header class="topbar">
+        <a class="hub-link" href="index.html">← Electricsim</a>
+        <span class="lab-label">SEMICONDUCTOR LAB</span>
+        <button id="resetBtn" class="quiet-button" type="button">Reset sample</button>
+    </header>
+    <main>
+        <section class="intro">
+            <div><p class="eyebrow">ONE CRYSTAL. EVERY ELECTRON HAS A ROLE.</p>
+                <h1>Inside a semiconductor</h1>
+                <p>Warm it. Replace an atom. Apply voltage. Follow what the electrons actually do.</p>
+            </div>
+            <div class="sample-tag"><span class="status-light"></span> Silicon · 2D bonding model</div>
+        </section>
+        <div class="lab-layout">
+            <section class="crystal-panel" aria-labelledby="crystalTitle">
+                <div class="panel-heading">
+                    <div><p class="eyebrow">THE SAME STRUCTURE, DIFFERENT CONDITIONS</p><h2 id="crystalTitle">The silicon crystal</h2></div>
+                    <span id="sampleType" class="type-badge">Intrinsic</span>
+                </div>
+                <div class="presets" role="group" aria-label="Try an experiment">
+                    <span>Try it</span><button type="button" data-preset="cold">Frozen · 0 K</button>
+                    <button type="button" data-preset="warm">Warm crystal</button>
+                    <button type="button" data-preset="n">N-type</button>
+                    <button type="button" data-preset="p">P-type + current</button>
+                </div>
+                <div class="legend" aria-label="Visual legend">
+                    <span><i class="dot bound"></i> Bond electron</span>
+                    <span><i class="dot free"></i> Free electron −</span>
+                    <span><i class="dot hole"></i> Hole = empty slot</span>
+                    <span><i class="dopant-symbol">P</i> / <i class="dopant-symbol acceptor-symbol">B</i> Dopant</span>
+                </div>
+                <div class="crystal-frame">
+                    <canvas id="crystalCanvas" role="img" aria-label="Silicon crystal with occupied bond states and free electrons" aria-describedby="crystalDescription"></canvas>
+                    <p id="crystalDescription" class="sr-only"></p>
+                </div>
+                <div class="scene-footer"><span id="sceneHint">Click a bond electron to follow it.</span><span>Particle count and motion are magnified</span></div>
+                <section class="transfer-closeup" aria-labelledby="transferTitle">
+                    <div class="transfer-heading"><h3 id="transferTitle">How a hole is filled</h3><span>Same event · enlarged bond states</span></div>
+                    <canvas id="transferCanvas" role="img" aria-describedby="transferExplanation"></canvas>
+                    <p id="transferExplanation">Choose P-type + current to follow an electron filling a neighboring vacancy.</p>
+                </section>
+                <div class="transfer-guide" aria-label="Electron transfer sequence">
+                    <span id="transferBefore">1 · Occupied bond + vacancy</span><b aria-hidden="true">→</b>
+                    <span id="transferDuring">2 · Electron transfers</span><b aria-hidden="true">→</b>
+                    <span id="transferAfter">3 · Old bond becomes empty</span>
+                </div>
+                <p class="transfer-note">Slow-motion teaching view of valence-band transport. Dots mark electron states; the transfer path is schematic. Amber rings mark missing electrons.</p>
+                <div class="playback" role="group" aria-label="Animation controls">
+                    <button id="pauseBtn" class="primary-button" type="button" aria-pressed="false">Ⅱ Pause</button>
+                    <button id="stepBtn" type="button">Step one event</button>
+                    <label class="speed-control" for="speedSelect">Speed <select id="speedSelect"><option value="0.35">Slow</option><option value="1" selected>Normal</option><option value="2">Fast</option></select></label>
+                    <button id="followElectronBtn" type="button" aria-pressed="false">Follow electron</button>
+                    <button id="followHoleBtn" type="button" aria-pressed="false">Follow hole</button>
+                </div>
+                <div class="event-card" role="status" aria-live="polite" aria-atomic="true">
+                    <span class="event-icon" aria-hidden="true">↳</span>
+                    <div><span id="eventTitle" class="eyebrow">WATCH WHAT CHANGES</span><p id="eventText">Two shared electrons occupy each covalent bond. A hole is an empty electron state.</p></div>
+                </div>
+                <section class="energy-section" aria-labelledby="energyTitle">
+                    <div class="energy-heading"><h3 id="energyTitle">Where is the electron’s energy?</h3><span>Same electron · a second view</span></div>
+                    <canvas id="energyCanvas" role="img" aria-describedby="energyDescription"></canvas>
+                    <p id="energyDescription" class="energy-caption">Bound electrons occupy the valence band. Free electrons occupy the conduction band. Vertical position here means energy, not height in the crystal.</p>
+                </section>
+            </section>
+            <aside class="controls" aria-label="Change the crystal">
+                <section class="control-section">
+                    <div class="control-title"><span class="control-number">01</span><h2>Temperature</h2><output id="temperatureOut" for="temperatureSlider">300 K</output></div>
+                    <label class="sr-only" for="temperatureSlider">Temperature in kelvin</label>
+                    <input id="temperatureSlider" type="range" min="0" max="700" step="5" value="300">
+                    <div class="range-labels"><span>0 K</span><button id="roomBtn" type="button">Room · 300 K</button><span>700 K</span></div>
+                    <p>Heat can free a bond electron, leaving a hole. Watch its energy rise into the conduction band.</p>
+                </section>
+                <section class="control-section">
+                    <div class="control-title"><span class="control-number violet">02</span><h2>Doping</h2></div>
+                    <label for="dopingSelect">Replace silicon with</label>
+                    <select id="dopingSelect"><option value="intrinsic">No dopant · intrinsic</option><option value="donor">Phosphorus · donor (N-type)</option><option value="acceptor">Boron · acceptor (P-type)</option><option value="both">Both · compensation</option></select>
+                    <div id="donorControl" hidden>
+                        <div class="label-row"><label for="donorSlider">Donor density</label><output id="donorOut" for="donorSlider">Off</output></div>
+                        <input id="donorSlider" type="range" min="0" max="61" step="1" value="0">
+                        <div class="range-labels"><span>Off / 10¹²</span><span>10¹⁵</span><span>10¹⁸ cm⁻³</span></div>
+                    </div>
+                    <div id="acceptorControl" hidden>
+                        <div class="label-row"><label for="acceptorSlider">Acceptor density</label><output id="acceptorOut" for="acceptorSlider">Off</output></div>
+                        <input id="acceptorSlider" type="range" min="0" max="61" step="1" value="0">
+                        <div class="range-labels"><span>Off / 10¹²</span><span>10¹⁵</span><span>10¹⁸ cm⁻³</span></div>
+                    </div>
+                    <div id="placementControls" hidden>
+                        <label id="placementLabel" for="placementSelect">Click tool</label>
+                        <select id="placementSelect"><option value="donor">Place phosphorus donor</option><option value="acceptor">Place boron acceptor</option></select>
+                        <button id="addDopantBtn" type="button" class="wide-button">Substitute a host atom</button>
+                    </div>
+                    <p id="dopingHint">A pure crystal has no impurity atoms. Select a dopant to see its extra electron or empty bonding state.</p>
+                </section>
+                <section class="control-section">
+                    <div class="control-title"><span class="control-number green">03</span><h2>Current flow</h2></div>
+                    <label class="switch-row" for="powerToggle"><span>Apply voltage</span><input id="powerToggle" type="checkbox" role="switch"></label>
+                    <div class="label-row"><label for="voltageSlider">Potential difference</label><output id="voltageOut" for="voltageSlider">+0.10 V</output></div>
+                    <input id="voltageSlider" type="range" min="-0.2" max="0.2" step="0.01" value="0.1">
+                    <div class="range-labels"><span>−0.20 V</span><span>0</span><span>+0.20 V</span></div>
+                    <button id="reverseBtn" type="button" class="wide-button">⇄ Reverse polarity</button>
+                    <p id="currentHint">Switch on voltage to produce directed flow. With voltage off, electrons still move thermally.</p>
+                </section>
+            </aside>
+            <section class="results" aria-label="Live results">
+                <div class="result-heading"><h2>What changed?</h2><span>Drawn sample counts · representative scale</span></div>
+                <div class="result-grid">
+                    <div><span>Bond electrons</span><strong id="boundCount">90</strong><small>occupy shared bond states</small></div>
+                    <div class="electron-result"><span>Free electrons</span><strong id="freeCount">0</strong><small id="nOut">n = 1.50 × 10¹⁰ cm⁻³</small></div>
+                    <div class="hole-result"><span>Mobile holes</span><strong id="holeCount">0</strong><small id="pOut">p = 1.50 × 10¹⁰ cm⁻³</small></div>
+                    <div><span>Calculated current</span><strong id="currentOut">0 A</strong><small id="currentDirection">No applied field</small></div>
+                </div>
+            </section>
+            <details class="details-panel">
+                <summary>More detail <span>Physics, equations &amp; model notes</span></summary>
+                <div class="detail-grid">
+                    <section><h3>How to read this model</h3><p>Each line is a covalent bond with two shared outer electrons. Inner-shell electrons are omitted. This straight grid is a 2D teaching diagram of silicon’s 3D tetrahedral bonding.</p><p>Hole hopping shows how electron transfers displace a vacancy. It is a simplified representation of valence-band transport. At the edges, contacts can supply or collect electrons.</p><p>Colored circles around P or B stay at their lattice sites: P⁺ donated an electron; B⁻ captured one. A neutral donor keeps its extra electron nearby.</p></section>
+                    <section><h3>Physical measurements</h3><dl id="physicalReadouts"></dl><p>Bulk values are equilibrium estimates. The drawn sample approaches its representative population through individual events; its particle counts are not densities.</p></section>
+                    <section><h3>Materials &amp; energy bands</h3><p>Silicon and germanium each have four valence electrons for bonding. At room temperature, their approximate gaps are 1.12 eV and 0.67 eV. Gallium arsenide is a III–V compound with an approximate 1.42 eV gap. This interactive lattice specifically models silicon.</p><p>Conductors have partially filled bands or overlapping bands; insulators have a large gap; semiconductors have a smaller gap that permits thermally excited carriers. One electron-volt is 1.602 × 10⁻¹⁹ joules.</p></section>
+                    <section><h3>Majority carriers &amp; Fermi level</h3><p>In intrinsic material, n = p = nᵢ. Donor doping makes electrons the majority carriers; acceptor doping makes holes the majority carriers. The opposite carrier type remains present as a minority population.</p><p>The Fermi level describes equilibrium occupation, not an electron’s trajectory. It shifts toward the conduction band for N-type and toward the valence band for P-type. At low temperature, dopants can remain neutral (freeze-out); at sufficiently high temperature, intrinsic generation can dominate.</p></section>
+                    <section><h3>Equations behind the experiment</h3><p class="equation">np = nᵢ²<br>n − p = Nᴅ⁺ − Nₐ⁻<br>E = V / L<br>Jₙ = qnμₙE · Jₚ = qpμₚE<br>I = (Jₙ + Jₚ)A</p><p>For silicon at 300 K: Eɢ = 1.12 eV and nᵢ ≈ 1.5 × 10¹⁰ cm⁻³. Temperature and doping affect both carrier populations and mobility.</p><p>Diffusion is driven by a concentration gradient: Jₙ = qDₙ dn/dx and Jₚ = −qDₚ dp/dx. The main experiment here uses a uniform sample and illustrates drift.</p></section>
+                    <section><h3>Assumptions &amp; accessibility</h3><p>Energy-band transitions are teaching animations between allowed states, not stable states inside the forbidden gap. Freeze-out uses a smooth approximation. The classical carrier model and fixed 1.12 eV gap are approximate, especially at very low temperature or high doping.</p><p>Concentration is logarithmically mapped to at most six visible dopants of each type. Temperature adds up to seven representative thermal pairs. Decreasing dopant count prepares a new neutral sample; increasing it retains existing carriers.</p><label class="switch-row" for="reducedMotionToggle"><span>Reduced motion · manual stepping</span><input id="reducedMotionToggle" type="checkbox"></label><label class="switch-row" for="contrastToggle"><span>High contrast</span><input id="contrastToggle" type="checkbox"></label></section>
+                </div>
+            </details>
+        </div>
+        <footer>Explore the cause. Follow the electron. Read the consequence.</footer>
+    </main>
+    <script src="semiconductor-model.js"></script>
+    <script src="semiconductor.js?v=6"></script>
+    <script src="shared-bg.js"></script>
+</body>
+</html>

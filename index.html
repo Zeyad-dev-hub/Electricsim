@@ -3,10 +3,10 @@
 
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Electricsim Hub - Physics Research</title>
     <meta name="theme-color" content="#000000">
-    <meta name="description" content="Electricsim scientific research platform for electrostatics, capacitance, and material conductivity simulations.">
+    <meta name="description" content="Electricsim scientific research platform for electrostatics, capacitance, material conductivity, and semiconductor physics simulations.">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="research-theme.css?v=2">
     <style>
@@ -30,6 +30,8 @@
             font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
             color: var(--text-color);
             overflow-x: hidden;
+            overflow-y: auto;
+            height: auto;
             background: #000000;
         }
 
@@ -39,6 +41,7 @@
             width: 100%;
             height: 100%;
             z-index: 1;
+            pointer-events: none;
         }
 
         .hub-shell {
@@ -47,7 +50,7 @@
             min-height: 100vh;
             display: flex;
             flex-direction: column;
-            justify-content: center;
+            justify-content: flex-start;
             width: min(1360px, calc(100% - 32px));
             margin: 0 auto;
             padding: 56px 0 28px;
@@ -125,12 +128,18 @@
 
         .cards-wrapper {
             display: grid;
-            grid-template-columns: repeat(4, minmax(0, 1fr));
+            grid-template-columns: repeat(3, minmax(0, 1fr));
             gap: 16px;
             width: 100%;
         }
 
-        @media (max-width: 1100px) {
+        @media (max-width: 1250px) {
+            .cards-wrapper {
+                grid-template-columns: repeat(3, minmax(0, 1fr));
+            }
+        }
+
+        @media (max-width: 900px) {
             .cards-wrapper {
                 grid-template-columns: repeat(2, minmax(0, 1fr));
             }
@@ -143,7 +152,7 @@
         }
 
         .nav-card {
-            min-height: 280px;
+            min-height: 250px;
             display: flex;
             flex-direction: column;
             align-items: flex-start;
@@ -171,83 +180,6 @@
             text-transform: uppercase;
             margin-bottom: 18px;
         }
-
-        .card-icon {
-            width: 46px;
-            height: 46px;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            margin-bottom: 18px;
-            border: 1px solid color-mix(in srgb, var(--hover-color) 38%, rgba(255, 255, 255, 0.12));
-            border-radius: 8px;
-            background: rgba(255, 255, 255, 0.06);
-            color: #f8fbff;
-            font-family: "SF Mono", "Cascadia Code", "Consolas", monospace;
-            font-size: 1rem;
-            font-weight: 700;
-        }
-
-        .card-visual {
-            position: relative;
-            width: 100%;
-            height: 76px;
-            margin: 0 0 18px;
-            overflow: hidden;
-            border: 1px solid rgba(255, 255, 255, 0.08);
-            border-radius: 7px;
-            background:
-                linear-gradient(90deg, transparent 49.7%, rgba(255, 255, 255, 0.045) 50%, transparent 50.3%),
-                linear-gradient(0deg, transparent 49.7%, rgba(255, 255, 255, 0.045) 50%, transparent 50.3%),
-                rgba(0, 0, 0, 0.24);
-        }
-
-        .card-visual::after {
-            content: attr(data-label);
-            position: absolute;
-            right: 8px;
-            bottom: 6px;
-            color: rgba(255, 255, 255, 0.38);
-            font: 600 0.58rem/1 "SF Mono", "Cascadia Code", monospace;
-            letter-spacing: 0.08em;
-            text-transform: uppercase;
-        }
-
-        .charge-node,
-        .gauss-core {
-            position: absolute;
-            top: 50%;
-            width: 16px;
-            height: 16px;
-            border-radius: 50%;
-            transform: translateY(-50%);
-        }
-
-        .charge-node.positive { left: 24%; background: #ff625b; box-shadow: 0 0 18px rgba(255, 98, 91, 0.7); }
-        .charge-node.negative { right: 24%; background: #579bff; box-shadow: 0 0 18px rgba(87, 155, 255, 0.7); }
-        .charge-node::after { position: absolute; inset: 0; display: grid; place-items: center; color: white; font-size: 0.7rem; font-weight: 700; }
-        .charge-node.positive::after { content: "+"; }
-        .charge-node.negative::after { content: "−"; }
-        .field-path { position: absolute; left: 31%; right: 31%; top: 50%; height: 1px; background: linear-gradient(90deg, #ff625b, #8b9dff 48%, #579bff); box-shadow: 0 -15px 0 rgba(139, 157, 255, .25), 0 15px 0 rgba(139, 157, 255, .25); }
-
-        .gauss-ring { position: absolute; left: 50%; top: 50%; width: 54px; height: 54px; border: 1.5px solid #37e0a1; border-radius: 50%; transform: translate(-50%, -50%); box-shadow: 0 0 18px rgba(55, 224, 161, .18), inset 0 0 18px rgba(55, 224, 161, .08); }
-        .gauss-core { left: calc(50% - 5px); width: 10px; height: 10px; background: #ff625b; box-shadow: 0 0 14px #ff625b; }
-        .flux-ray { position: absolute; left: 50%; top: 50%; width: 92px; height: 1px; transform-origin: left center; background: linear-gradient(90deg, rgba(55,224,161,.9), transparent); }
-        .flux-ray.r2 { transform: rotate(60deg); }
-        .flux-ray.r3 { transform: rotate(120deg); }
-        .flux-ray.r4 { transform: rotate(180deg); }
-        .flux-ray.r5 { transform: rotate(240deg); }
-        .flux-ray.r6 { transform: rotate(300deg); }
-
-        .plate { position: absolute; top: 14px; width: 5px; height: 46px; border-radius: 3px; }
-        .plate.left { left: 34%; background: #579bff; box-shadow: 0 0 12px rgba(87,155,255,.7); }
-        .plate.right { right: 34%; background: #ff625b; box-shadow: 0 0 12px rgba(255,98,91,.7); }
-        .field-arrow { position: absolute; left: 37%; right: 37%; top: 50%; height: 1px; background: #3dd9ff; box-shadow: 0 -13px 0 rgba(61,217,255,.5), 0 13px 0 rgba(61,217,255,.5); }
-        .field-arrow::after { content: ""; position: absolute; right: -1px; top: -3px; border-left: 6px solid #3dd9ff; border-top: 3px solid transparent; border-bottom: 3px solid transparent; }
-
-        .lattice { position: absolute; inset: 10px 20px; background-image: radial-gradient(circle, rgba(246,185,68,.9) 0 2px, transparent 3px); background-size: 22px 18px; opacity: .55; }
-        .electron-track { position: absolute; left: 13%; right: 13%; top: 50%; height: 2px; background: linear-gradient(90deg, transparent, #38a3ff, transparent); transform: rotate(-4deg); box-shadow: 30px -14px 0 rgba(56,163,255,.55), -20px 15px 0 rgba(56,163,255,.4); }
-        .electron-track::after { content: "e⁻  →"; position: absolute; left: 50%; top: -11px; color: #80bdff; font: 700 .68rem/1 monospace; }
 
         .card-title {
             margin-bottom: 12px;
@@ -299,6 +231,10 @@
 
         #card-conductivity {
             --hover-color: #f6b944;
+        }
+
+        #card-semiconductor {
+            --hover-color: #49a9ff;
         }
 
         @keyframes fadeInUp {
@@ -364,17 +300,6 @@
                 margin-bottom: 12px;
             }
 
-            .card-icon {
-                width: 38px;
-                height: 38px;
-                margin-bottom: 12px;
-            }
-
-            .card-visual {
-                height: 66px;
-                margin-bottom: 12px;
-            }
-
             .card-title {
                 font-size: 1.1rem;
                 margin-bottom: 8px;
@@ -396,25 +321,18 @@
             }
         }
 
-        @media (min-height: 680px) and (min-width: 920px) {
-            body.hub-body {
-                overflow: hidden;
-                height: 100vh;
-            }
-            .hub-shell {
-                height: 100vh;
-                padding: 40px 0 20px;
-                justify-content: center;
-                gap: 24px;
-            }
-            .hub-header {
-                margin-bottom: 0;
-            }
-            .footer-text {
-                margin-top: 12px;
-                padding-bottom: 0;
-            }
-        }
+        .nav-card[hidden], [hidden] { display: none; }
+        .hub-search { margin-bottom: 24px; max-width: 760px; }
+        .hub-search label { display: block; margin-bottom: 9px; font-size: .85rem; font-weight: 600; color: #d5dfed; }
+        .search-row { display: flex; gap: 8px; }
+        #labSearch { flex: 1; min-width: 0; padding: 13px 15px; font: inherit; color: #f4f7fb; background: #0d0f16; border: 1px solid #ffffff26; border-radius: 8px; }
+        #labSearch::placeholder { color: #8995a8; }
+        #clearSearch { padding: 0 15px; font: inherit; color: #d5dfed; background: #11131c; border: 1px solid #ffffff26; border-radius: 8px; cursor: pointer; }
+        #labSearch:focus-visible, #clearSearch:focus-visible, .nav-card:focus-visible { outline: 2px solid #8b9dff; outline-offset: 3px; }
+        #searchCount { display: block; margin-top: 9px; color: #8fa0b5; font-size: .8rem; }
+        #noResults { padding: 24px 0; color: #aab7c8; line-height: 1.6; }
+        #card-dc-circuit { --hover-color: #8b9dff; }
+        @media (prefers-reduced-motion: reduce) { .nav-card { animation: none; transition: none; } }
     </style>
 </head>
 
@@ -427,16 +345,21 @@
             <h1 class="hub-title">Electricsim Platform</h1>
             <p class="hub-subtitle">Turn equations into observable systems. Change one variable, watch the field respond, and connect microscopic behavior to measurable results.</p>
             <div class="hub-metrics" aria-label="Platform features">
-                <span class="hub-metric">4 interactive labs</span>
+                <span class="hub-metric">6 interactive labs</span>
                 <span class="hub-metric">Live SI measurements</span>
                 <span class="hub-metric">Cause → effect learning</span>
             </div>
         </header>
 
-        <section class="cards-wrapper" aria-label="Simulation modules">
+        <form class="hub-search" role="search" aria-label="Find a lab">
+            <label for="labSearch">Find a lab</label>
+            <div class="search-row"><input id="labSearch" type="search" placeholder="Search by name or topic…" autocomplete="off" aria-controls="labCards"><button id="clearSearch" type="button" hidden>Clear</button></div>
+            <output id="searchCount" role="status" aria-live="polite">6 labs</output>
+        </form>
+        <p id="noResults" hidden>No labs match your search. Try another name or topic.</p>
+        <section id="labCards" class="cards-wrapper" aria-label="Simulation modules">
             <a href="electrostatics.html" class="nav-card glass-panel" id="card-electro">
                 <div class="card-meta">Electrostatics</div>
-                <div class="card-visual" data-label="Field topology" aria-hidden="true"><span class="charge-node positive"></span><span class="charge-node negative"></span><span class="field-path"></span></div>
                 <h2 class="card-title">Electrostatics Simulator</h2>
                 <p class="card-desc">
                     Model point charges and continuous distributions to analyze electric field vectors, potential contours, and electrostatic force dynamics.
@@ -446,7 +369,6 @@
 
             <a href="gauss.html" class="nav-card glass-panel" id="card-gauss">
                 <div class="card-meta">Gauss's Law</div>
-                <div class="card-visual" data-label="Flux surface" aria-hidden="true"><span class="gauss-ring"></span><span class="gauss-core"></span><span class="flux-ray"></span><span class="flux-ray r2"></span><span class="flux-ray r3"></span><span class="flux-ray r4"></span><span class="flux-ray r5"></span><span class="flux-ray r6"></span></div>
                 <h2 class="card-title">Gauss's Law Explorer</h2>
                 <p class="card-desc">
                     Explore electric flux through spherical, cylindrical, and planar Gaussian surfaces, illustrating the direct relationship between flux and enclosed charge.
@@ -456,7 +378,6 @@
 
             <a href="capacitor.html" class="nav-card glass-panel" id="card-capacitor">
                 <div class="card-meta">Capacitance</div>
-                <div class="card-visual" data-label="Stored energy" aria-hidden="true"><span class="plate left"></span><span class="plate right"></span><span class="field-arrow"></span></div>
                 <h2 class="card-title">Capacitor Simulator</h2>
                 <p class="card-desc">
                     Analyze parallel plate, cylindrical, and spherical capacitor geometries, dielectric boundary conditions, and nested series-parallel networks.
@@ -466,12 +387,26 @@
 
             <a href="conductivity.html" class="nav-card glass-panel" id="card-conductivity">
                 <div class="card-meta">Transport & Resistance</div>
-                <div class="card-visual" data-label="Charge transport" aria-hidden="true"><span class="lattice"></span><span class="electron-track"></span></div>
                 <h2 class="card-title">Conductivity Explorer</h2>
                 <p class="card-desc">
                     Simulate electron drift velocity under Drude scattering, exploring the microstructural impacts of temperature, dimension, and materials on resistance.
                 </p>
                 <div class="card-btn">Launch Conductivity Lab</div>
+            </a>
+
+            <a href="semiconductor.html" class="nav-card glass-panel" id="card-semiconductor">
+                <div class="card-meta">Semiconductor Physics</div>
+                <h2 class="card-title">Semiconductor Physics Lab</h2>
+                <p class="card-desc">
+                    Follow bond electrons, thermal excitation, doping, and electron-driven hole motion in one crystal. Apply voltage and watch charge flow.
+                </p>
+                <div class="card-btn">Launch Semiconductor Lab</div>
+            </a>
+            <a href="dc-circuit.html" class="nav-card glass-panel" id="card-dc-circuit">
+                <div class="card-meta">Circuit Analysis &amp; Dynamics</div>
+                <h2 class="card-title">DC Circuit Lab</h2>
+                <p class="card-desc">Start with a blank canvas, add batteries, resistors and capacitors, and connect them with click-to-create wires. Read volts, amps and resistance above the components.</p>
+                <div class="card-btn">Launch DC Circuit Lab</div>
             </a>
         </section>
 
@@ -481,6 +416,7 @@
     </main>
 
     <script src="shared-bg.js"></script>
+    <script src="hub-search.js?v=1"></script>
 </body>
 
 </html>
