@@ -11,7 +11,11 @@
         const links=doc.wires.map(w=>({id:w.id,a:w.fromEndpoint,b:w.toEndpoint,type:'wire'}));
         for(const c of doc.components)if(c.type==='switch'&&c.closed)links.push({id:c.id,a:c.terminals[0],b:c.terminals[1],type:'switch'});
         for(const l of links)uf.join(l.a,l.b);
-        for(let i=1;i<doc.referenceEndpoints.length;i++){uf.join(doc.referenceEndpoints[0],doc.referenceEndpoints[i]);links.push({id:`ground-link-${i}`,a:doc.referenceEndpoints[0],b:doc.referenceEndpoints[i],type:'reference'});}
+        for(let i=1;i<doc.referenceEndpoints.length;i++){
+            const a=doc.referenceEndpoints[0],b=doc.referenceEndpoints[i];
+            // Reference symbols join separate nets, never add a redundant edge.
+            if(uf.find(a)!==uf.find(b)){uf.join(a,b);links.push({id:`ground-link-${i}`,a,b,type:'reference'});}
+        }
         const netIds=[...new Set([...points.keys()].map(id=>uf.find(id)))],netOf=new Map([...points.keys()].map(id=>[id,uf.find(id)]));
         const nets=netIds.map((id,i)=>({id,label:`N${i}`,endpoints:[...points.keys()].filter(e=>netOf.get(e)===id),ground:doc.referenceEndpoints.some(e=>netOf.get(e)===id)}));
         const components=doc.components.map(c=>({...c,a:netOf.get(c.terminals[0]),b:netOf.get(c.terminals[1])}));
@@ -31,13 +35,31 @@
         for(const net of compiled.nets){
             const links=compiled.links.filter(l=>compiled.netOf.get(l.a)===net.id),adj=new Map(net.endpoints.map(id=>[id,[]]));
             for(const l of links){adj.get(l.a).push(l);adj.get(l.b).push(l);}
-            const seen=new Set(),cycles=new Set();
-            const visit=(id,parentEdge)=>{seen.add(id);for(const l of adj.get(id)){if(l.id===parentEdge)continue;const other=l.a===id?l.b:l.a;if(seen.has(other))cycles.add(l.id);else visit(other,l.id);}};
-            if(net.endpoints.length)visit(net.endpoints[0],null);
             maxKCL=Math.max(maxKCL,Math.abs(net.endpoints.reduce((sum,id)=>sum+injections.get(id),0)));
-            if(cycles.size){for(const l of links)out[l.id]={current:null,reason:'Indeterminate within ideal wire loop',a:l.a,b:l.b};continue;}
-            function subtree(id,parentEdge){let sum=injections.get(id);for(const l of adj.get(id)){if(l.id===parentEdge)continue;const other=l.a===id?l.b:l.a,child=subtree(other,l.id);out[l.id]={current:l.a===other?-child:child,a:l.a,b:l.b};sum+=child;}return sum;}
-            if(net.endpoints.length)subtree(net.endpoints[0],null);
+            // Iterative low-link traversal: only cycle edges have nonunique current.
+            // A bridge still carries the total injection of its entire child side.
+            const discovered=new Map(),low=new Map();let serial=0;
+            for(const l of links)out[l.id]={current:null,reason:'Indeterminate within ideal wire loop',a:l.a,b:l.b};
+            for(const start of net.endpoints){
+                if(discovered.has(start))continue;
+                discovered.set(start,++serial);low.set(start,serial);
+                const stack=[{id:start,parent:null,edge:null,index:0,sum:injections.get(start)}];
+                while(stack.length){
+                    const item=stack.at(-1),edges=adj.get(item.id);
+                    if(item.index<edges.length){
+                        const edge=edges[item.index++];if(edge.id===item.edge?.id)continue;
+                        const other=edge.a===item.id?edge.b:edge.a;
+                        if(discovered.has(other)){low.set(item.id,Math.min(low.get(item.id),discovered.get(other)));continue;}
+                        discovered.set(other,++serial);low.set(other,serial);
+                        stack.push({id:other,parent:item.id,edge,index:0,sum:injections.get(other)});
+                    }else{
+                        stack.pop();if(!item.edge)continue;
+                        low.set(item.parent,Math.min(low.get(item.parent),low.get(item.id)));
+                        stack.at(-1).sum+=item.sum;
+                        if(low.get(item.id)>discovered.get(item.parent))out[item.edge.id]={current:item.edge.a===item.id?-item.sum:item.sum,a:item.edge.a,b:item.edge.b};
+                    }
+                }
+            }
         }
         return {wireResults:out,maxKCL};
     }

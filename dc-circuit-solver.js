@@ -29,14 +29,15 @@
         return accepted;
     }
     function solve(compiled,{mode='dc',previous={},h=0,initial=null,measureWires=true}={}){
+        if(mode==='transient'&&!initial&&(!Number.isFinite(h)||h<=0))throw new CircuitError('Transient step must be positive and finite.');
         const refs=D.referenceDomains(compiled,mode),referenceSet=new Set(refs.domains.map(d=>d.reference));
         const nodeIds=compiled.nets.map(n=>n.id).filter(id=>!referenceSet.has(id)),index=new Map(nodeIds.map((id,i)=>[id,i]));
         const voltageSources=constraints(compiled,initial),n=nodeIds.length+voltageSources.length,matrix=Array.from({length:n},()=>Array(n).fill(0)),rhs=Array(n).fill(0);
         const add=(a,b,value)=>{if(index.has(a)&&index.has(b))matrix[index.get(a)][index.get(b)]+=value;};
-        const conductance=(a,b,g)=>{add(a,a,g);add(b,b,g);add(a,b,-g);add(b,a,-g);};
+        const conductance=(a,b,g)=>{if(!Number.isFinite(g))throw new CircuitError('Component values exceed numerical resolution.');add(a,a,g);add(b,b,g);add(a,b,-g);add(b,a,-g);};
         const current=(a,b,i)=>{if(index.has(a))rhs[index.get(a)]-=i;if(index.has(b))rhs[index.get(b)]+=i;};
         for(const c of compiled.components){
-            if(c.type==='resistor')conductance(c.a,c.b,1/c.value);
+            if(c.type==='resistor'||c.type==='lamp')conductance(c.a,c.b,1/c.value);
             if(c.type==='current')current(c.a,c.b,c.value);
             if(c.type==='capacitor'&&mode==='transient'&&!initial){conductance(c.a,c.b,c.value/h);current(c.a,c.b,-c.value/h*(previous[c.id]||0));}
         }
@@ -48,7 +49,7 @@
         const componentResults={};
         for(const c of compiled.components){
             const va=nodeVoltages[c.a].value,vb=nodeVoltages[c.b].value,same=nodeVoltages[c.a].domain===nodeVoltages[c.b].domain,v=same?va-vb:null;
-            let i=0;if(c.type==='resistor')i=v/c.value;
+            let i=0;if(c.type==='resistor'||c.type==='lamp')i=v/c.value;
             if(c.type==='current')i=c.value;
             if(c.type==='voltage'){const k=voltageSources.findIndex(s=>s.id===c.id);i=k<0?null:x[nodeIds.length+k];}
             if(c.type==='capacitor')i=mode==='dc'?0:initial?null:c.value/h*(v-(previous[c.id]||0));
@@ -62,19 +63,23 @@
         return {nodeVoltages,componentResults,wireResults:recovered.wireResults,branchResults:measureWires?D.traceBranches(compiled,componentResults,recovered.wireResults):[],residuals:{matrix:residual,kcl:recovered.maxKCL},diagnostics:[],initialCurrentEstimate:!!initial&&compiled.components.some(c=>c.type==='capacitor')};
     }
     function voltages(compiled,solution){return Object.fromEntries(compiled.components.filter(c=>c.type==='capacitor').map(c=>[c.id,solution.componentResults[c.id].voltage]));}
-    function initialStep(compiled){const rs=compiled.components.filter(c=>c.type==='resistor').map(c=>c.value),cs=compiled.components.filter(c=>c.type==='capacitor').map(c=>c.value);return rs.length&&cs.length?Math.max(1e-14,Math.min(...rs)*Math.min(...cs)*1e-6):1e-8;}
+    function initialStep(compiled){const rs=compiled.components.filter(c=>c.type==='resistor'||c.type==='lamp').map(c=>c.value),cs=compiled.components.filter(c=>c.type==='capacitor').map(c=>c.value);return rs.length&&cs.length?Math.max(1e-14,Math.min(...rs)*Math.min(...cs)*1e-6):1e-8;}
     function initializeTransient(compiled,initialVoltages){
         const caps=initialVoltages||Object.fromEntries(compiled.components.filter(c=>c.type==='capacitor').map(c=>[c.id,c.initialVoltage]));
         const exact=solve(compiled,{mode:'transient',initial:caps,measureWires:false});
         if(Object.keys(caps).length){const estimate=solve(compiled,{mode:'transient',previous:caps,h:initialStep(compiled),measureWires:false});for(const c of compiled.components){exact.componentResults[c.id].current=estimate.componentResults[c.id].current;exact.componentResults[c.id].power=exact.componentResults[c.id].voltage*estimate.componentResults[c.id].current;}}
         const recovered=D.recoverWireCurrents(compiled,exact.componentResults);exact.wireResults=recovered.wireResults;exact.branchResults=D.traceBranches(compiled,exact.componentResults,exact.wireResults);
-        for(const c of compiled.components)if(c.type==='switch'&&c.closed)exact.componentResults[c.id].current=exact.wireResults[c.id]?.current??null;
+        exact.residuals.kcl=recovered.maxKCL;
+        for(const c of compiled.components)if(c.type==='switch'&&c.closed){const r=exact.componentResults[c.id];r.current=exact.wireResults[c.id]?.current??null;r.power=r.current===null?null:0;}
         return {time:0,capacitorVoltagesById:{...caps},acceptedSolution:exact,lastStepSize:Math.max(1e-8,initialStep(compiled)*100),diagnostics:[],traceSamples:[],events:[]};
     }
-    function advanceTransient(compiled,state,targetTime,{relative=1e-5,absolute=1e-7,maxAttempts=240}={}){
+    function advanceTransient(compiled,state,targetTime,{relative=1e-5,absolute=1e-7,maxAttempts=240,budgetMs=Infinity,now=()=>performance.now()}={}){
+        if(!Number.isFinite(targetTime)||targetTime<state.time)throw new CircuitError('Target time must be finite and cannot go backwards.');
+        const started=Number.isFinite(budgetMs)?now():0;
         let time=state.time,caps={...state.capacitorVoltagesById},solution=state.acceptedSolution,h=state.lastStepSize||1e-4,attempts=0;const samples=[];
         if(!Object.keys(caps).length){solution=solve(compiled);return {...state,time:targetTime,acceptedSolution:solution,samples:[{time:targetTime,solution}],behind:false};}
         while(time<targetTime-1e-12&&attempts++<maxAttempts){
+            if(attempts>1&&Number.isFinite(budgetMs)&&now()-started>=budgetMs)break;
             h=Math.min(h,targetTime-time,1);if(h<1e-14)throw new CircuitError('The transient requires steps below numerical resolution. Use less extreme values.');
             const full=solve(compiled,{mode:'transient',previous:caps,h,measureWires:false});
             const half=solve(compiled,{mode:'transient',previous:caps,h:h/2,measureWires:false});
@@ -83,7 +88,8 @@
             if(error<=1){time+=h;caps=next;solution=fine;samples.push({time,solution});h*=Math.min(2,Math.max(.5,.9/Math.sqrt(Math.max(error,1e-12))));}else h*=Math.max(.1,.9/Math.sqrt(error));
         }
         const recovered=D.recoverWireCurrents(compiled,solution.componentResults);solution={...solution,wireResults:recovered.wireResults,branchResults:D.traceBranches(compiled,solution.componentResults,recovered.wireResults),residuals:{...solution.residuals,kcl:recovered.maxKCL}};
-        for(const c of compiled.components)if(c.type==='switch'&&c.closed)solution.componentResults[c.id].current=solution.wireResults[c.id]?.current??null;
+        solution.componentResults=Object.fromEntries(Object.entries(solution.componentResults).map(([id,r])=>[id,{...r}]));
+        for(const c of compiled.components)if(c.type==='switch'&&c.closed){const r=solution.componentResults[c.id];r.current=solution.wireResults[c.id]?.current??null;r.power=r.current===null?null:0;}
         return {...state,time,capacitorVoltagesById:caps,acceptedSolution:solution,lastStepSize:h,samples,behind:time<targetTime-1e-9};
     }
     Object.assign(D,{CircuitError,linearSolve,solveDC:c=>solve(c),solve,initializeTransient,advanceTransient});if(typeof module!=='undefined')module.exports=D;

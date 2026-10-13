@@ -21,8 +21,8 @@ test('200 generated routes and moved/rotated terminals contain no diagonal segme
         for(let move=0;move<2;move++){const path=D.wireRoute(doc,w);orthogonal(path);const ends=D.endpoints(doc);near(path[0].x,ends.get(w.fromEndpoint).x);near(path[0].y,ends.get(w.fromEndpoint).y);near(path.at(-1).x,ends.get(w.toEndpoint).x);near(path.at(-1).y,ends.get(w.toEndpoint).y);a.position.x+=37;b.position.y-=83;a.rotation+=90;}
     }
 });
-test('preview and committed diagonal connections use the same orthogonal elbow',()=>{
-    for(const vertical of [false,true]){const doc=D.blank(),v=D.component('voltage',0,0,'V');v.rotation=vertical?90:0;doc.components.push(v);const start=D.terminalPosition(v,0),pointer={x:177,y:93},clicked=D.connectClick(doc,v.terminals[0],pointer);const w=doc.wires.find(w=>w.toEndpoint===clicked.id);assert.deepEqual(D.wireRoute(doc,w).map(p=>({x:p.x,y:p.y})),D.orthogonalPath([start,pointer],vertical));}
+test('preview and committed diagonal connections use the same obstacle-aware route',()=>{
+    for(const vertical of [false,true]){const doc=D.blank(),v=D.component('voltage',0,0,'V');v.rotation=vertical?90:0;doc.components.push(v);const start=D.endpoints(doc).get(v.terminals[0]),pointer={x:177,y:93},preview=D.connectionPath(doc,start,pointer),clicked=D.connectClick(doc,v.terminals[0],pointer);const w=doc.wires.find(w=>w.toEndpoint===clicked.id);assert.deepEqual(D.wireRoute(doc,w).map(p=>({x:p.x,y:p.y})),preview.map(p=>({x:p.x,y:p.y})));orthogonal(preview);}
 });
 test('clicking an automatic elbow splits it without changing its original path',()=>{
     const doc=D.blank();doc.junctions.push({id:'a',position:{x:0,y:0}},{id:'b',position:{x:137,y:89}});D.wire(doc,'a','b');const old=D.wireRoute(doc,doc.wires[0]).map(p=>({x:p.x,y:p.y}));assert.deepEqual(old,[{x:0,y:0},{x:137,y:0},{x:137,y:89}]);D.wireClick(doc,{x:137,y:0});assert.equal(doc.wires.length,2);for(const w of doc.wires)orthogonal(D.wireRoute(doc,w));assert.equal(D.compileCircuit(doc).nets.length,1);

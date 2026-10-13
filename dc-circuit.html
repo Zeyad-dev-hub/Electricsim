@@ -1,11 +1,68 @@
 <!doctype html>
 <html lang="en">
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#000"><title>Electricsim · DC Circuit Lab</title><meta name="description" content="Add batteries, resistors and capacitors to a blank circuit canvas."><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet"><link rel="stylesheet" href="research-theme.css?v=2"><link rel="stylesheet" href="dc-circuit.css"></head>
-<body><canvas id="bgCanvas" aria-hidden="true"></canvas>
-<header class="dc-top"><a href="index.html">← Electricsim</a><h1>DC Circuit Lab</h1><div><button id="undoBtn" title="Undo · Ctrl+Z">Undo</button><button id="clearBtn">Clear</button></div></header>
-<main><nav class="dc-tools" aria-label="Circuit tools"><button data-tool="select" aria-pressed="true">↖ Move / edit</button><button data-tool="resistor" aria-pressed="false">▱ Resistor</button><button data-tool="capacitor" aria-pressed="false">⊣⊢ Capacitor</button><button data-tool="voltage" aria-pressed="false">＋− Battery</button><button data-tool="wire" aria-pressed="false">└─ Wire</button></nav>
-<p id="toolHint">Choose a component and click the canvas to place it. Click a component to edit.</p>
-<section class="dc-space" aria-label="Circuit workspace"><canvas id="circuitCanvas" tabindex="0" role="img" aria-label="Blank circuit canvas. Select a component tool and click to place it; Wire connects clicked junctions." aria-describedby="toolHint"></canvas>
-<form id="componentEditor" hidden><strong id="selectedTitle"></strong><div class="dc-value"><label for="valueInput">Value</label><input id="valueInput" type="number" step="any" required><select id="unitSelect" aria-label="Unit"></select><button type="submit">Apply</button></div><div class="dc-edit-actions"><button type="button" id="rotateBtn">Rotate</button><button type="button" id="deleteBtn">Delete</button><button type="button" id="closeEditorBtn" aria-label="Close editor">Done</button></div></form>
-</section><div class="dc-bottom"><button id="runBtn" aria-pressed="false" disabled>▶ Run</button><p id="status" role="status" aria-live="polite">Add components to start.</p></div></main>
-<script src="dc-circuit-model.js?v=readouts-2"></script><script src="dc-circuit-topology.js"></script><script src="dc-circuit-solver.js"></script><script src="dc-circuit-editor.js?v=orthogonal-1"></script><script src="dc-circuit-renderer.js?v=orthogonal-1"></script><script src="dc-circuit.js?v=orthogonal-1"></script><script src="shared-bg.js"></script></body></html>
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#000"><title>Electricsim · DC Circuit Lab</title>
+  <meta name="description" content="Build and explore DC circuits with batteries, resistors, lamps, capacitors, switches and ground.">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="research-theme.css?v=2"><link rel="stylesheet" href="dc-circuit.css?v=lamp-1">
+</head>
+<body>
+<canvas id="bgCanvas" aria-hidden="true"></canvas>
+<header class="dc-top">
+  <a href="index.html">← Electricsim</a><h1>DC Circuit Lab</h1>
+  <div><button id="undoBtn" title="Undo · Ctrl+Z">Undo</button><button id="redoBtn" title="Redo · Ctrl+Shift+Z">Redo</button><button id="clearBtn">Clear</button></div>
+</header>
+<main>
+  <nav class="dc-tools" aria-label="Circuit tools">
+    <button data-tool="select" aria-pressed="true">↖ Move / edit</button>
+    <button data-tool="resistor" aria-pressed="false">▱ Resistor</button>
+    <button data-tool="lamp" aria-pressed="false">⊗ Lamp</button>
+    <button data-tool="capacitor" aria-pressed="false">⊣⊢ Capacitor</button>
+    <button data-tool="voltage" aria-pressed="false">＋− Battery</button>
+    <button data-tool="switch" aria-pressed="false">╱ Switch</button>
+    <button data-tool="wire" aria-pressed="false">└─ Wire</button>
+    <button data-tool="ground" aria-pressed="false">⏚ Ground</button>
+    <button data-tool="pan" aria-pressed="false">✥ Pan</button>
+  </nav>
+  <div class="dc-navigation">
+    <label for="selectionSelect">Select</label><select id="selectionSelect" aria-label="Select a component, wire or connection"><option value="">Choose an object</option></select>
+    <button id="connectSelectedBtn" hidden>Use selected endpoint</button>
+    <div class="dc-zoom"><button id="zoomOutBtn" aria-label="Zoom out">−</button><button id="zoomInBtn" aria-label="Zoom in">+</button><button id="fitBtn">Fit view</button></div>
+  </div>
+  <p id="toolHint">Place components, then use Wire to connect their terminal dots. Crossings connect only at junction dots.</p>
+  <section class="dc-workspace" aria-label="Circuit workspace">
+    <div class="dc-space"><canvas id="circuitCanvas" tabindex="0" role="group" aria-label="Circuit editing canvas" aria-describedby="toolHint keyboardHint"></canvas></div>
+    <aside id="inspector" hidden aria-label="Selected object">
+      <form id="componentEditor" hidden>
+        <strong id="selectedTitle"></strong>
+        <div class="dc-value" id="valueRow"><label id="valueLabel" for="valueInput">Value</label><input id="valueInput" type="number" step="any" required><select id="unitSelect" aria-label="Unit"></select><button type="submit">Apply</button></div>
+        <button id="toggleSwitchBtn" type="button" aria-pressed="false" hidden>Close switch</button>
+        <p id="capacitorNote" hidden>Value edits retain voltage. Plate marks show scaled charge: one mark ≈ 2 mC, up to five.</p>
+        <p id="lampNote" hidden>Fixed-resistance lamp. Glow follows power, reaching full brightness at 1 W.</p>
+        <p id="switchNote" hidden>Tap the button to open or close the circuit, including while running.</p>
+        <div class="dc-edit-actions"><button type="button" id="rotateBtn">Rotate</button><button type="button" id="deleteBtn">Delete</button><button type="button" id="closeEditorBtn">Done</button></div>
+      </form>
+      <div id="objectEditor" hidden><strong id="objectTitle"></strong><p id="objectDescription"></p><button id="deleteObjectBtn">Delete</button><button id="closeObjectBtn">Done</button></div>
+      <dl id="selectedReadings"></dl>
+    </aside>
+  </section>
+  <div class="dc-bottom">
+    <button id="runBtn" aria-pressed="false" disabled>▶ Run</button><button id="stepBtn" disabled>Step 0.01 s</button><button id="resetBtn" disabled>Reset time</button>
+    <output id="timeReadout" aria-label="Accepted simulation time">0 s</output>
+    <label for="timeScale">Time</label><select id="timeScale"><option value="0.01">0.01×</option><option value="0.1">0.1×</option><option value="1" selected>1×</option><option value="10">10×</option><option value="100">100×</option></select>
+  </div>
+  <p id="status" role="status" aria-live="polite">Add components to start.</p>
+  <div class="dc-flow-controls">
+    <label><input id="motionToggle" type="checkbox" checked> Flow markers</label>
+    <label for="flowScale">Current scale</label><select id="flowScale" title="Shared visual speed reference. Larger reference currents slow the markers."><option value="auto">Auto · fixed at Run</option><option value="0.000001">1 µA</option><option value="0.00001">10 µA</option><option value="0.0001">100 µA</option><option value="0.001">1 mA</option><option value="0.01">10 mA</option><option value="0.1">100 mA</option><option value="1">1 A</option><option value="10">10 A</option></select>
+    <span id="flowLegend">Conventional current · scaled motion</span>
+  </div>
+  <details class="dc-measurements"><summary>Measurements and keyboard help</summary>
+    <p id="keyboardHint">On the canvas: [ / ] selects components; arrows move by one grid step; R rotates; Delete removes; Space runs/pauses or toggles a selected switch. Enter places at the center or uses a selected endpoint. Use the Select list for keyboard wiring. Alt-drag a wire to move a segment. Pan or two fingers move the view.</p>
+    <p>Voltage is A − B; current is A → B. Negative power means energy is delivered. All grounds connect to the same net; floating circuits use a local voltage reference.</p>
+    <div class="dc-table-scroll"><table><caption>Accepted circuit measurements</caption><thead><tr><th scope="col">Component</th><th scope="col">Voltage A − B</th><th scope="col">Current A → B</th><th scope="col">Power</th></tr></thead><tbody id="measurementRows"></tbody></table></div>
+  </details>
+</main>
+<script src="dc-circuit-model.js?v=lamp-1"></script><script src="dc-circuit-topology.js?v=review-1"></script><script src="dc-circuit-solver.js?v=lamp-1"></script><script src="dc-circuit-editor.js?v=review-1"></script><script src="dc-circuit-simulation.js?v=review-1"></script><script src="dc-circuit-renderer.js?v=lamp-1"></script><script src="dc-circuit.js?v=lamp-1"></script><script src="shared-bg.js"></script>
+</body></html>
