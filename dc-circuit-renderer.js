@@ -6,7 +6,7 @@
     function pathPoint(points,fraction){const lengths=points.slice(1).map((p,i)=>Math.hypot(p.x-points[i].x,p.y-points[i].y)),total=lengths.reduce((s,l)=>s+l,0);let target=fraction*total;for(let i=0;i<lengths.length;i++){if(target<=lengths[i]||i===lengths.length-1){const t=lengths[i]?target/lengths[i]:0,a=points[i],b=points[i+1];return {x:a.x+(b.x-a.x)*t,y:a.y+(b.y-a.y)*t,angle:Math.atan2(b.y-a.y,b.x-a.x),total};}target-=lengths[i];}return {...points[0],angle:0,total:0};}
     class Renderer{
         constructor(canvas){this.canvas=canvas;this.ctx=canvas.getContext('2d');this.view={panX:0,panY:0,zoom:1};this.width=0;this.height=0;this.labelBoxes=[];this.labelOffsets=new Map();this.cache=null;this.onresize=()=>{};new ResizeObserver(()=>{this.resize();this.onresize();}).observe(canvas);this.resize();}
-        resize(){const r=this.canvas.getBoundingClientRect(),dpr=Math.min(devicePixelRatio||1,2);this.width=r.width;this.height=r.height;this.canvas.width=Math.round(r.width*dpr);this.canvas.height=Math.round(r.height*dpr);this.dpr=dpr;}
+        resize(){const r=this.canvas.getBoundingClientRect(),dpr=Math.min(devicePixelRatio||1,2);if(this.width===r.width&&this.height===r.height&&this.dpr===dpr)return; if(this.width&&this.height){this.view.panX+=(this.width-r.width)/2;this.view.panY+=(this.height-r.height)/2;}this.width=r.width;this.height=r.height;this.canvas.width=Math.round(r.width*dpr);this.canvas.height=Math.round(r.height*dpr);this.dpr=dpr;}
         invalidate(){this.cache=null;}
         geometry(doc){
             if(this.cache?.doc===doc)return this.cache;
@@ -24,7 +24,15 @@
         world(clientX,clientY){const r=this.canvas.getBoundingClientRect();return {x:(clientX-r.left-this.width/2-this.view.panX)/this.view.zoom,y:(clientY-r.top-this.height/2-this.view.panY)/this.view.zoom};}
         center(){return {x:-this.view.panX/this.view.zoom,y:-this.view.panY/this.view.zoom};}
         fit(doc){const ps=[...D.endpoints(doc).values(),...doc.wires.flatMap(w=>w.waypoints)];if(!ps.length){this.view={panX:0,panY:0,zoom:1};return;}const minX=Math.min(...ps.map(p=>p.x))-110,maxX=Math.max(...ps.map(p=>p.x))+110,minY=Math.min(...ps.map(p=>p.y))-110,maxY=Math.max(...ps.map(p=>p.y))+80,zoom=Math.max(.1,Math.min(1.5,this.width/(maxX-minX),this.height/(maxY-minY)));this.view={zoom,panX:-(minX+maxX)/2*zoom,panY:-(minY+maxY)/2*zoom};}
-        hit(doc,p){const radius=12/this.view.zoom,{ends,paths}=this.geometry(doc);for(const id of doc.referenceEndpoints){const end=ends.get(id);if(end&&Math.abs(p.x-end.x)<15/this.view.zoom&&p.y>end.y+14/this.view.zoom&&p.y<end.y+42/this.view.zoom)return {kind:'ground',id,point:end};}for(const end of ends.values())if(Math.hypot(p.x-end.x,p.y-end.y)<radius)return {kind:end.kind,id:end.id,point:end};for(const c of doc.components.slice().reverse()){const dx=p.x-c.position.x,dy=p.y-c.position.y,a=-c.rotation*Math.PI/180,x=dx*Math.cos(a)-dy*Math.sin(a),y=dx*Math.sin(a)+dy*Math.cos(a);if(Math.abs(x)<48&&Math.abs(y)<23)return {kind:'component',id:c.id};}for(const w of doc.wires.slice().reverse()){const path=paths.get(w.id);for(let i=1;i<path.length;i++)if(distanceToSegment(p,path[i-1],path[i])<8/this.view.zoom)return {kind:'wire',id:w.id,point:p};}return null;}
+        hit(doc,p,{touch=false,preferComponent=false}={}){
+            const z=this.view.zoom,radius=(touch?22:12)/z,{ends,paths}=this.geometry(doc);
+            const body=()=>{for(const c of doc.components.slice().reverse()){const dx=p.x-c.position.x,dy=p.y-c.position.y,a=-c.rotation*Math.PI/180,x=dx*Math.cos(a)-dy*Math.sin(a),y=dx*Math.sin(a)+dy*Math.cos(a);if(Math.abs(x)<48&&Math.abs(y)<Math.max(23,touch?22/z:23))return {kind:'component',id:c.id};}return null;};
+            if(preferComponent){const hit=body();if(hit)return hit;}
+            for(const id of doc.referenceEndpoints){const end=ends.get(id);if(end&&Math.abs(p.x-end.x)<(touch?22:15)/z&&p.y>end.y+14/z&&p.y<end.y+42/z)return {kind:'ground',id,point:end};}
+            let nearest=null,best=radius;for(const end of ends.values()){const d=Math.hypot(p.x-end.x,p.y-end.y);if(d<best){best=d;nearest={kind:end.kind,id:end.id,point:end};}}if(nearest)return nearest;
+            if(!preferComponent){const hit=body();if(hit)return hit;}
+            best=(touch?14:8)/z;nearest=null;for(const w of doc.wires.slice().reverse()){const path=paths.get(w.id);for(let i=1;i<path.length;i++){const d=distanceToSegment(p,path[i-1],path[i]);if(d<best){best=d;nearest={kind:'wire',id:w.id,point:p};}}}return nearest;
+        }
         stroke(points,stroke=color.wire,width=2){const c=this.ctx;c.strokeStyle=stroke;c.lineWidth=width;c.beginPath();points.forEach((p,i)=>i?c.lineTo(p.x,p.y):c.moveTo(p.x,p.y));c.stroke();}
         dot(p,r,fill,hollow=false){const c=this.ctx;c.beginPath();c.arc(p.x,p.y,r,0,Math.PI*2);if(hollow){c.strokeStyle=fill;c.lineWidth=1.4;c.stroke();}else{c.fillStyle=fill;c.fill();}}
         text(value,x,y,fill=color.text,size=11){const c=this.ctx;c.fillStyle=fill;c.font=`500 ${size/this.view.zoom}px Inter,system-ui,sans-serif`;c.textAlign='center';c.textBaseline='middle';c.fillText(value,x,y);}
@@ -70,7 +78,7 @@
             if(comp.type==='switch'){seg([{x:-30,y:0},{x:comp.closed?30:22,y:comp.closed?0:-17}]);this.dot({x:-30,y:0},3,stroke);this.dot({x:30,y:0},3,stroke);}
             c.restore();this.label(`${comp.label} · ${comp.type==='switch'?(comp.closed?'closed':'open'):D.format(comp.value,{resistor:'Ω',lamp:'Ω',capacitor:'F',voltage:'V',current:'A'}[comp.type])}`,{x:comp.position.x,y:comp.position.y-39/this.view.zoom},selected?color.accent:color.text,`${comp.id}:value`);
         }
-        draw(doc,solution,{selected=null,highlights=[],errors=[],options={},motion=null,connection=null,pointer=null,snap=null}={}){
+        draw(doc,solution,{selected=null,highlights=[],errors=[],options={},motion=null,connection=null,pointer=null,snap=null,placement=null}={}){
             if(this.width<=0||this.height<=0||!this.canvas.width||!this.canvas.height)return;
             const c=this.ctx,z=this.view.zoom;c.setTransform(this.dpr,0,0,this.dpr,0,0);c.clearRect(0,0,this.width,this.height);this.grid();c.save();c.translate(this.width/2+this.view.panX,this.height/2+this.view.panY);c.scale(z,z);this.labelBoxes=[];
             const left=(-this.width/2-this.view.panX)/z,right=(this.width/2-this.view.panX)/z,top=(-this.height/2-this.view.panY)/z,bottom=(this.height/2-this.view.panY)/z;
@@ -104,7 +112,8 @@
                 }
                 if(options.nodes){const compiled=D.compileCircuit(doc);for(const net of compiled.nets){const anchor=ends.get(net.endpoints.find(id=>ends.get(id).kind==='junction')||net.endpoints[0]),r=solution.nodeVoltages[net.id];if(r)this.label(`${net.label} ${D.format(r.value,'V')}${r.local?' local':''}`,{x:anchor.x,y:anchor.y-24/z},color.accent);}}
             }
-            if(!doc.components.length)this.text('Place a component, then connect its terminal dots.',(left+right)/2,(top+bottom)/2,color.muted,13);
+            if(!doc.components.length&&!placement)this.text('Place a component, then connect its terminal dots.',(left+right)/2,(top+bottom)/2,color.muted,13);
+            if(placement){c.save();c.globalAlpha=.6;this.symbol(placement,null,false,false,false);c.restore();}
             c.restore();
         }
     }

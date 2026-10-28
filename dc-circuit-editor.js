@@ -40,11 +40,11 @@
         return connectionPath(doc,start,end);
     }
     function project(p,a,b){const dx=b.x-a.x,dy=b.y-a.y,length=dx*dx+dy*dy,t=length?Math.max(0,Math.min(1,((p.x-a.x)*dx+(p.y-a.y)*dy)/length)):0;const point={x:a.x+t*dx,y:a.y+t*dy};return {point,distance:Math.hypot(p.x-point.x,p.y-point.y)};}
-    function snapTarget(doc,p,tolerance=10){
-        const ends=D.endpoints(doc);let best=null;
+    function snapTarget(doc,p,tolerance=10,geometry=null){
+        const ends=geometry?.ends||D.endpoints(doc);let best=null;
         for(const end of ends.values()){const distance=Math.hypot(p.x-end.x,p.y-end.y);if(distance<=tolerance&&(!best||distance<best.distance))best={id:end.id,point:{x:end.x,y:end.y},distance,kind:end.kind};}
         if(best)return best;
-        for(const w of doc.wires){const path=wireRoute(doc,w,ends);for(let i=1;i<path.length;i++){const q=project(p,path[i-1],path[i]);if(q.distance<=tolerance&&(!best||q.distance<best.distance))best={id:w.id,...q,kind:'wire'};}}
+        for(const w of doc.wires){const path=geometry?.paths.get(w.id)||wireRoute(doc,w,ends);for(let i=1;i<path.length;i++){const q=project(p,path[i-1],path[i]);if(q.distance<=tolerance&&(!best||q.distance<best.distance))best={id:w.id,...q,kind:'wire'};}}
         return best||{point:{x:Math.round(p.x/24)*24,y:Math.round(p.y/24)*24},kind:'grid'};
     }
     // Clicked intersections join every segment there; unclicked crossings stay separate.

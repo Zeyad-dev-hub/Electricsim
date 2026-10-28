@@ -5,7 +5,7 @@
   <meta name="theme-color" content="#000"><title>Electricsim · DC Circuit Lab</title>
   <meta name="description" content="Build and explore DC circuits with batteries, resistors, lamps, capacitors, switches and ground.">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="research-theme.css?v=2"><link rel="stylesheet" href="dc-circuit.css?v=lamp-1">
+  <link rel="stylesheet" href="research-theme.css?v=2"><link rel="stylesheet" href="dc-circuit.css?v=interaction-2">
 </head>
 <body>
 <canvas id="bgCanvas" aria-hidden="true"></canvas>
@@ -25,6 +25,11 @@
     <button data-tool="ground" aria-pressed="false">⏚ Ground</button>
     <button data-tool="pan" aria-pressed="false">✥ Pan</button>
   </nav>
+  <div class="dc-placement-controls" aria-label="Placement options">
+    <label><input id="snapToggle" type="checkbox" checked> Snap to grid</label>
+    <label><input id="repeatToggle" type="checkbox"> Keep placing</label>
+    <button id="rotatePlacementBtn" hidden>Rotate next</button>
+  </div>
   <div class="dc-navigation">
     <label for="selectionSelect">Select</label><select id="selectionSelect" aria-label="Select a component, wire or connection"><option value="">Choose an object</option></select>
     <button id="connectSelectedBtn" hidden>Use selected endpoint</button>
@@ -41,7 +46,7 @@
         <p id="capacitorNote" hidden>Value edits retain voltage. Plate marks show scaled charge: one mark ≈ 2 mC, up to five.</p>
         <p id="lampNote" hidden>Fixed-resistance lamp. Glow follows power, reaching full brightness at 1 W.</p>
         <p id="switchNote" hidden>Tap the button to open or close the circuit, including while running.</p>
-        <div class="dc-edit-actions"><button type="button" id="rotateBtn">Rotate</button><button type="button" id="deleteBtn">Delete</button><button type="button" id="closeEditorBtn">Done</button></div>
+        <div class="dc-edit-actions"><button type="button" id="duplicateBtn">Duplicate</button><button type="button" id="rotateBtn">Rotate</button><button type="button" id="deleteBtn">Delete</button><button type="button" id="closeEditorBtn">Done</button></div>
       </form>
       <div id="objectEditor" hidden><strong id="objectTitle"></strong><p id="objectDescription"></p><button id="deleteObjectBtn">Delete</button><button id="closeObjectBtn">Done</button></div>
       <dl id="selectedReadings"></dl>
@@ -59,10 +64,10 @@
     <span id="flowLegend">Conventional current · scaled motion</span>
   </div>
   <details class="dc-measurements"><summary>Measurements and keyboard help</summary>
-    <p id="keyboardHint">On the canvas: [ / ] selects components; arrows move by one grid step; R rotates; Delete removes; Space runs/pauses or toggles a selected switch. Enter places at the center or uses a selected endpoint. Use the Select list for keyboard wiring. Alt-drag a wire to move a segment. Pan or two fingers move the view.</p>
+    <p id="keyboardHint">Drag components or wire segments to move them; drag empty space to pan. Snap to grid applies on release; turn it off for free placement, or hold Shift while dragging. Keep placing adds several parts with one tool selection. On the canvas: [ / ] selects components; arrows move by one grid step (Shift for fine movement); R rotates the selected or next part; Ctrl/Cmd+D duplicates; Delete removes; Space runs/pauses or toggles a selected switch. Enter places at the center or uses a selected endpoint. Escape cancels a drag, wire, or placement. Use the Select list for keyboard wiring. Two fingers pan and pinch in every tool.</p>
     <p>Voltage is A − B; current is A → B. Negative power means energy is delivered. All grounds connect to the same net; floating circuits use a local voltage reference.</p>
     <div class="dc-table-scroll"><table><caption>Accepted circuit measurements</caption><thead><tr><th scope="col">Component</th><th scope="col">Voltage A − B</th><th scope="col">Current A → B</th><th scope="col">Power</th></tr></thead><tbody id="measurementRows"></tbody></table></div>
   </details>
 </main>
-<script src="dc-circuit-model.js?v=lamp-1"></script><script src="dc-circuit-topology.js?v=review-1"></script><script src="dc-circuit-solver.js?v=lamp-1"></script><script src="dc-circuit-editor.js?v=review-1"></script><script src="dc-circuit-simulation.js?v=review-1"></script><script src="dc-circuit-renderer.js?v=lamp-1"></script><script src="dc-circuit.js?v=lamp-1"></script><script src="shared-bg.js"></script>
+<script src="dc-circuit-model.js?v=lamp-1"></script><script src="dc-circuit-topology.js?v=review-1"></script><script src="dc-circuit-solver.js?v=lamp-1"></script><script src="dc-circuit-editor.js?v=interaction-2"></script><script src="dc-circuit-simulation.js?v=review-1"></script><script src="dc-circuit-renderer.js?v=interaction-2"></script><script src="dc-circuit.js?v=interaction-2"></script><script src="shared-bg.js"></script>
 </body></html>

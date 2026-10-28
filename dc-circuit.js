@@ -4,10 +4,12 @@
     const renderer=new D.Renderer(canvas),simulation=new D.Simulation(),motion=new D.CurrentMotion();
     const units={resistor:[[1,'Ω'],[1e3,'kΩ'],[1e6,'MΩ']],lamp:[[1,'Ω'],[1e3,'kΩ'],[1e6,'MΩ']],capacitor:[[1,'F'],[1e-3,'mF'],[1e-6,'µF'],[1e-9,'nF']],voltage:[[1,'V'],[1e-3,'mV']]};
     const reducedMotion=window.matchMedia('(prefers-reduced-motion: reduce)');
-    let tool='select',selected=null,connection=null,pointer=null,drag=null,draft=null,pinch=null;
+    let tool='select',selected=null,connection=null,pointer=null,drag=null,draft=null,pinch=null,placement=null,gesture=false;
     let running=false,stepTarget=null,targetTime=0,lastFrame=performance.now(),lastRefresh=0,scheduled=false,scaleReady=false,selectionDoc=null;
     const pointers=new Map(),doc=()=>simulation.doc,component=()=>doc().components.find(c=>c.id===selected?.id);
-    const snap=p=>D.snapTarget(doc(),p,12/renderer.view.zoom);
+    let pointerTouch=false,lastTableDoc=null,lastTableSolution=null,lastReading=null;
+    const snap=p=>D.snapTarget(doc(),p,(pointerTouch?22:12)/renderer.view.zoom,renderer.geometry(doc()));
+    const placePoint=(p,free=false)=>$('snapToggle').checked&&!free?{x:Math.round(p.x/24)*24,y:Math.round(p.y/24)*24}:{...p};
     function message(text,bad=false){
         if($('status').textContent!==text)$('status').textContent=text;
         $('status').classList.toggle('error',bad);
@@ -38,6 +40,7 @@
         $('connectSelectedBtn').hidden=!['wire','ground'].includes(tool);
         $('connectSelectedBtn').textContent=tool==='ground'?'Ground selected endpoint':'Use selected endpoint';
         $('connectSelectedBtn').disabled=!selected||!['terminal','junction'].includes(selected.kind);
+        $('rotatePlacementBtn').hidden=!placement;
         syncSelection();const c=component();
         $('inspector').hidden=!selected;$('componentEditor').hidden=!c;$('objectEditor').hidden=!!c||!selected;
         if(c){
@@ -54,12 +57,12 @@
             }
         }else if(selected){
             $('objectTitle').textContent={wire:'Wire',ground:'Ground · 0 V',junction:'Junction',terminal:'Terminal'}[selected.kind]||'Connection';
-            $('objectDescription').textContent=selected.kind==='ground'?'All ground symbols connect to the same electrical net. Delete removes this reference attachment.':selected.kind==='wire'?'The arrow follows positive current from the start to the end of this route. Alt-drag to move a segment.':selected.kind==='terminal'?'Use Wire or Ground with this endpoint. Delete the component to remove its terminal.':'An explicit electrical connection. Drag to move; Delete removes its attached wires.';
+            $('objectDescription').textContent=selected.kind==='ground'?'All ground symbols connect to the same electrical net. Delete removes this reference attachment.':selected.kind==='wire'?'Drag a segment to reshape this route. Its electrical connections stay attached. The arrow follows positive current from start to end.':selected.kind==='terminal'?'Use Wire or Ground with this endpoint. Delete the component to remove its terminal.':'An explicit electrical connection. Drag to move; Delete removes its attached wires.';
             $('deleteObjectBtn').disabled=selected.kind==='terminal';
         }
         refreshMeasurements(true);requestDraw();
     }
-    function select(hit){selected=hit;sync();}
+    function select(hit){if(hit&&placement)setTool('select');selected=hit;sync();}
     function pause(){running=false;stepTarget=null;if(simulation.state)targetTime=simulation.state.time;sync();}
     function afterEdit(changed,wasRunning=false,live=false){
         if(changed){running=false;stepTarget=null;targetTime=simulation.state?.time||0;}
@@ -68,19 +71,25 @@
         lastFrame=performance.now();readyMessage();sync();
     }
     function commit(next,live=false){
+        if(drag||pinch){gesture=pointers.size>0;cancelDrag();}
         try{const wasRunning=running,before=doc(),changed=simulation.commit(next);motion.reconcile(before,doc());afterEdit(changed,wasRunning,live);return true;}
         catch(error){message(error.message,true);return false;}
     }
-    function setTool(next){
-        tool=next;connection=null;
+    function cancelDrag(){if(drag?.kind==='pan')renderer.view=drag.view;drag=null;draft=null;pinch=null;pointer=null;renderer.invalidate();requestDraw();}
+    function setTool(next,template=null){
+        cancelDrag();tool=next;connection=null;
+        placement=units[tool]||tool==='switch'?D.component(tool,0,0,'Next '+(tool==='voltage'?'battery':tool)):null;
+        if(placement)selected=null;
+        if(placement&&template){placement.value=template.value;placement.rotation=template.rotation;if(template.type==='switch')placement.closed=template.closed;if(template.type==='capacitor')placement.initialVoltage=template.initialVoltage;}
         document.querySelectorAll('[data-tool]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.tool===tool)));
-        $('toolHint').textContent=tool==='wire'?'Click a terminal or wire to start. Empty clicks create grid junctions; an existing connection finishes. Crossings join only with a dot. Esc ends the wire.':tool==='ground'?'Attach ground to a terminal, junction or wire. All ground symbols connect to the same net.':tool==='pan'?'Drag to pan. Use two fingers to pan and pinch to zoom, or use the zoom buttons.':tool==='select'?'Click to edit; drag to move. R rotates, Delete removes. Scroll to zoom; right-drag pans. Alt-drag a wire moves its segment.':'Click the canvas to add a '+(tool==='voltage'?'battery':tool)+'.';
+        $('toolHint').textContent=tool==='wire'?'Tap a terminal or wire to start; tap another to finish. Empty taps add bends. Crossings join only with a dot. Esc ends the wire. Two fingers pan and zoom.':tool==='ground'?'Tap a terminal, junction or wire to attach ground. All ground symbols connect to the same net. Two fingers pan and zoom.':tool==='pan'?'Drag to pan. Use two fingers to pan and pinch to zoom, or use the zoom buttons.':tool==='select'?'Tap to edit; drag parts or wire segments to move. Drag empty space to pan. R rotates; Shift allows fine movement. Two fingers pan and zoom.':'Tap to place a '+(tool==='voltage'?'battery':tool)+', or press and slide to position it. Rotate next changes its orientation. Keep placing adds more; Esc finishes.';
         canvas.style.cursor=['select','pan'].includes(tool)?tool==='pan'?'grab':'default':'crosshair';sync();
     }
-    function activate(p){
+    function activate(p,free=false){
         if(tool==='wire'||tool==='ground'){
             const next=D.clone(doc()),target=snap(p),from=connection;
-            const clicked=D.connectClick(next,tool==='wire'?from:null,target.point,12/renderer.view.zoom);
+            if(target.kind==='grid')target.point=placePoint(p,free);
+            const clicked=D.connectClick(next,tool==='wire'?from:null,target.point,(pointerTouch?22:12)/renderer.view.zoom);
             if(tool==='ground'){
                 if(!next.referenceEndpoints.includes(clicked.id))next.referenceEndpoints.push(clicked.id);
                 if(commit(next))select({kind:'ground',id:clicked.id});
@@ -89,15 +98,17 @@
             }
             return;
         }
-        if(units[tool]||tool==='switch'){
+        if(placement){
             const next=D.clone(doc()),prefix={resistor:'R',lamp:'L',capacitor:'C',voltage:'V',switch:'S'}[tool];let n=1;
             while(next.components.some(c=>c.label===prefix+n))n++;
-            const c=D.component(tool,Math.round(p.x/24)*24,Math.round(p.y/24)*24,prefix+n);next.components.push(c);
-            if(commit(next)){setTool('select');select({kind:'component',id:c.id});}return;
+            const c=D.component(tool,0,0,prefix+n);c.value=placement.value;c.rotation=placement.rotation;c.position=placePoint(p,free);
+            if(tool==='switch')c.closed=placement.closed;if(tool==='capacitor')c.initialVoltage=placement.initialVoltage;next.components.push(c);
+            if(commit(next)){const repeated=$('repeatToggle').checked;if(!repeated)setTool('select');select(repeated?null:{kind:'component',id:c.id});}return;
         }
         select(renderer.hit(doc(),p));
     }
-    function rotate(){const c=component();if(!c)return;const next=D.clone(doc());next.components.find(x=>x.id===c.id).rotation=(c.rotation+90)%360;commit(next);}
+    function rotate(){if(placement){placement.rotation=(placement.rotation+90)%360;requestDraw();return;}const c=component();if(!c)return;const next=D.clone(doc());next.components.find(x=>x.id===c.id).rotation=(c.rotation+90)%360;commit(next);}
+    function duplicate(){const c=component();if(!c)return;setTool(c.type,c);select(null);canvas.focus({preventScroll:true});}
     function remove(){
         if(!selected)return;const next=D.clone(doc());
         if(selected.kind==='component')D.removeComponent(next,selected.id);
@@ -107,6 +118,7 @@
         selected=null;connection=null;commit(next);
     }
     function undo(redo=false){
+        if(drag||pinch){gesture=pointers.size>0;cancelDrag();}
         const wasRunning=running,before=doc(),changed=simulation.undo(redo);if(changed===null)return;motion.reconcile(before,doc());
         selected=null;connection=null;afterEdit(changed,wasRunning,!changed);
     }
@@ -129,25 +141,28 @@
     }
     canvas.addEventListener('contextmenu',e=>e.preventDefault());
     canvas.addEventListener('pointerdown',e=>{
-        if(e.button!==0&&e.button!==2)return;
-        canvas.focus();pointers.set(e.pointerId,{x:e.clientX,y:e.clientY});canvas.setPointerCapture(e.pointerId);
+        if(![0,1,2].includes(e.button))return;
+        canvas.focus({preventScroll:true});pointers.set(e.pointerId,{x:e.clientX,y:e.clientY});canvas.setPointerCapture(e.pointerId);
+        pointerTouch=e.pointerType==='touch';
         pointer=renderer.world(e.clientX,e.clientY);
-        if(pointers.size===2&&['select','pan'].includes(tool)){
-            const [a,b]=[...pointers.values()];pinch={distance:Math.hypot(a.x-b.x,a.y-b.y),mid:{x:(a.x+b.x)/2,y:(a.y+b.y)/2}};drag=null;draft=null;requestDraw();return;
+        if(pointers.size===2){
+            const [a,b]=[...pointers.values()];pinch={distance:Math.hypot(a.x-b.x,a.y-b.y),mid:{x:(a.x+b.x)/2,y:(a.y+b.y)/2}};gesture=true;drag=null;draft=null;renderer.invalidate();requestDraw();return;
         }
-        if(pointers.size>1)return;
-        if(e.button===2||tool==='pan'){
-            if(connection){connection=null;requestDraw();return;}
-            drag={kind:'pan',pointerId:e.pointerId,x:e.clientX,y:e.clientY,view:{...renderer.view}};return;
+        if(pointers.size>1||gesture)return;
+        const base={pointerId:e.pointerId,x:e.clientX,y:e.clientY,start:pointer,view:{...renderer.view},moved:false,threshold:pointerTouch?6:3,free:e.shiftKey,button:e.button};
+        if(e.button!==0||tool==='pan'){
+            drag={...base,kind:'pan'};return;
         }
-        const hit=renderer.hit(doc(),pointer);
+        const hit=renderer.hit(doc(),pointer,{touch:pointerTouch,preferComponent:tool==='select'});
         if(tool==='select'&&['component','junction'].includes(hit?.kind)){
-            select(hit);drag={kind:hit.kind,id:hit.id,pointerId:e.pointerId,start:pointer,original:D.clone(doc()),moved:false};draft=D.clone(doc());
-        }else if(tool==='select'&&hit?.kind==='wire'&&e.altKey){
-            select(hit);const wire=doc().wires.find(w=>w.id===hit.id),path=D.wireRoute(doc(),wire);let segment=1,best=Infinity;
+            drag={...base,kind:hit.kind,id:hit.id,hit,original:doc()};
+        }else if(tool==='select'&&hit?.kind==='wire'){
+            const wire=doc().wires.find(w=>w.id===hit.id),path=D.wireRoute(doc(),wire);let segment=1,best=Infinity;
             for(let i=1;i<path.length;i++){const d=D.distanceToSegment(pointer,path[i-1],path[i]);if(d<best){best=d;segment=i;}}
-            drag={kind:'wire',id:hit.id,pointerId:e.pointerId,start:pointer,path,segment,moved:false};draft=D.clone(doc());
-        }else activate(pointer);
+            drag={...base,kind:'wire',id:hit.id,hit,path,segment};
+        }else if(tool==='select'&&!hit)drag={...base,kind:'pan',clearOnTap:true};
+        else drag={...base,kind:'tap',hit};
+        requestDraw();
     });
     canvas.addEventListener('pointermove',e=>{
         if(pointers.has(e.pointerId))pointers.set(e.pointerId,{x:e.clientX,y:e.clientY});
@@ -156,32 +171,61 @@
             zoom(distance/Math.max(1,pinch.distance),pinch.mid.x,pinch.mid.y);renderer.view.panX+=mid.x-pinch.mid.x;renderer.view.panY+=mid.y-pinch.mid.y;pinch={distance,mid};requestDraw();return;
         }
         pointer=renderer.world(e.clientX,e.clientY);
-        if(!drag){if(['wire','ground'].includes(tool))requestDraw();return;}
+        if(gesture)return;
+        if(!drag){if(placement||['wire','ground'].includes(tool))requestDraw();return;}
         if(drag.pointerId!==e.pointerId)return;
+        drag.free=e.shiftKey;
+        if(Math.hypot(e.clientX-drag.x,e.clientY-drag.y)>drag.threshold)drag.moved=true;
+        if(!drag.moved){if(placement)requestDraw();return;}
         if(drag.kind==='pan'){renderer.view.panX=drag.view.panX+e.clientX-drag.x;renderer.view.panY=drag.view.panY+e.clientY-drag.y;requestDraw();return;}
+        if(drag.kind==='tap'){requestDraw();return;}
+        if(!draft)draft=D.clone(doc());
         const dx=pointer.x-drag.start.x,dy=pointer.y-drag.start.y;
         if(drag.kind==='wire'){
             const {path,segment}=drag,a=path[segment-1],b=path[segment],vertical=Math.abs(a.x-b.x)<1e-7;
-            const offset=Math.round((vertical?dx:dy)/24)*24,shift=p=>vertical?{x:p.x+offset,y:p.y}:{x:p.x,y:p.y+offset};
+            const offset=vertical?dx:dy,shift=p=>vertical?{x:p.x+offset,y:p.y}:{x:p.x,y:p.y+offset};
+            drag.offset=offset;
             draft.wires.find(w=>w.id===drag.id).waypoints=[...path.slice(1,segment-1),shift(a),shift(b),...path.slice(segment+1,-1)];
         }else{
             const array=drag.kind==='component'?'components':'junctions',item=draft[array].find(c=>c.id===drag.id),old=drag.original[array].find(c=>c.id===drag.id);
-            item.position={x:Math.round((old.position.x+dx)/24)*24,y:Math.round((old.position.y+dy)/24)*24};
+            item.position={x:old.position.x+dx,y:old.position.y+dy};
         }
-        drag.moved=Math.hypot(dx,dy)*renderer.view.zoom>3;renderer.invalidate();requestDraw();
+        renderer.invalidate();requestDraw();
     });
     function endPointer(e,cancel=false){
         pointers.delete(e.pointerId);
-        if(pinch){pinch=null;drag=null;draft=null;requestDraw();return;}
-        if(drag?.pointerId===e.pointerId){if(!cancel&&draft&&drag.moved)commit(draft);drag=null;draft=null;renderer.invalidate();requestDraw();}
+        if(gesture){pinch=null;drag=null;draft=null;if(!pointers.size)gesture=false;requestDraw();return;}
+        if(drag?.pointerId!==e.pointerId)return;
+        const action=drag,next=draft;drag=null;draft=null;
+        pointer=renderer.world(e.clientX,e.clientY);
+        if(!cancel){
+            if(next&&action.moved){
+                if(action.kind==='wire'){
+                    const {path,segment}=action,a=path[segment-1],b=path[segment],vertical=Math.abs(a.x-b.x)<1e-7,coordinate=vertical?a.x:a.y;
+                    const offset=$('snapToggle').checked&&!e.shiftKey?Math.round((coordinate+action.offset)/24)*24-coordinate:action.offset,shift=p=>vertical?{x:p.x+offset,y:p.y}:{x:p.x,y:p.y+offset};
+                    next.wires.find(w=>w.id===action.id).waypoints=[...path.slice(1,segment-1),shift(a),shift(b),...path.slice(segment+1,-1)];
+                }else{const item=next[action.kind==='component'?'components':'junctions'].find(c=>c.id===action.id);item.position=placePoint(item.position,e.shiftKey);}
+                if(commit(next))select(action.hit);
+            }else if(action.kind==='tap'){
+                if(tool==='select'){if(!action.moved)select(action.hit);}
+                else if(placement||!action.moved)activate(pointer,e.shiftKey);
+            }else if(!action.moved){
+                if(action.clearOnTap)select(null);
+                else if(action.hit)select(action.hit);
+                else if(action.button===2&&connection){connection=null;requestDraw();}
+            }
+        }else if(action.kind==='pan')renderer.view=action.view;
+        renderer.invalidate();requestDraw();
     }
-    canvas.addEventListener('pointerup',e=>endPointer(e));canvas.addEventListener('pointercancel',e=>endPointer(e,true));
-    canvas.addEventListener('wheel',e=>{e.preventDefault();zoom(Math.exp(-e.deltaY*.001),e.clientX,e.clientY);},{passive:false});
+    canvas.addEventListener('pointerup',e=>endPointer(e));canvas.addEventListener('pointercancel',e=>endPointer(e,true));canvas.addEventListener('lostpointercapture',e=>{if(pointers.has(e.pointerId))endPointer(e,true);});
+    canvas.addEventListener('pointerleave',()=>{if(!pointers.size){pointer=null;requestDraw();}});
+    canvas.addEventListener('wheel',e=>{e.preventDefault();if(!pointers.size)zoom(Math.max(.8,Math.min(1.25,Math.exp(-e.deltaY*.001))),e.clientX,e.clientY);},{passive:false});
     document.addEventListener('keydown',e=>{
         if(e.target.matches('input,select,textarea,[contenteditable]'))return;
         if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='z'){e.preventDefault();undo(e.shiftKey);return;}
         if(e.target!==canvas)return;
-        if(e.key==='Escape'){connection=null;setTool('select');}
+        if(e.key==='Escape'){gesture=pointers.size>0;setTool('select');}
+        if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='d'){e.preventDefault();duplicate();return;}
         if(e.key.toLowerCase()==='r')rotate();
         if(e.key===' '){e.preventDefault();if(component()?.type==='switch')toggleSwitch();else toggleRun();}
         if(e.key==='Delete'||e.key==='Backspace'){e.preventDefault();remove();}
@@ -191,7 +235,7 @@
         }
         const movement={ArrowLeft:[-24,0],ArrowRight:[24,0],ArrowUp:[0,-24],ArrowDown:[0,24]}[e.key];
         if(movement&&component()){
-            e.preventDefault();const next=D.clone(doc()),c=next.components.find(c=>c.id===selected.id);c.position.x+=movement[0];c.position.y+=movement[1];commit(next);
+            e.preventDefault();const next=D.clone(doc()),c=next.components.find(c=>c.id===selected.id),scale=e.shiftKey?1/24:1;c.position.x+=movement[0]*scale;c.position.y+=movement[1]*scale;commit(next);
         }
     });
     $('componentEditor').onsubmit=e=>{
@@ -201,6 +245,8 @@
         const next=D.clone(doc());next.components.find(x=>x.id===c.id).value=value;commit(next);
     };
     $('rotateBtn').onclick=rotate;$('deleteBtn').onclick=remove;$('deleteObjectBtn').onclick=remove;
+    $('rotatePlacementBtn').onclick=rotate;$('duplicateBtn').onclick=duplicate;
+    $('snapToggle').onchange=requestDraw;
     $('closeEditorBtn').onclick=$('closeObjectBtn').onclick=()=>select(null);
     $('undoBtn').onclick=()=>undo();$('redoBtn').onclick=()=>undo(true);$('toggleSwitchBtn').onclick=toggleSwitch;$('runBtn').onclick=toggleRun;
     $('selectionSelect').onchange=()=>{const value=$('selectionSelect').value,index=value.indexOf(':');select(value?{kind:value.slice(0,index),id:value.slice(index+1)}:null);};
@@ -214,14 +260,20 @@
     document.querySelectorAll('[data-tool]').forEach(b=>b.onclick=()=>setTool(b.dataset.tool));
     $('motionToggle').checked=!reducedMotion.matches;
     reducedMotion.addEventListener('change',()=>{if(reducedMotion.matches)$('motionToggle').checked=false;requestDraw();});
-    document.addEventListener('visibilitychange',()=>{lastFrame=performance.now();if(simulation.state)targetTime=simulation.state.time;if(!document.hidden)requestDraw();});
+    function abandonPointers(){cancelDrag();pointers.clear();gesture=false;}
+    window.addEventListener('blur',abandonPointers);
+    document.addEventListener('visibilitychange',()=>{lastFrame=performance.now();if(simulation.state)targetTime=simulation.state.time;if(document.hidden)abandonPointers();else requestDraw();});
     function detail(label,value){const dt=document.createElement('dt'),dd=document.createElement('dd');dt.textContent=label;dd.textContent=value;return [dt,dd];}
     function exact(value,unit){return Number.isFinite(value)?`${Number(value.toPrecision(6))} ${unit}`:'Unavailable';}
     function refreshMeasurements(force=false){
         const now=performance.now();if(!force&&now-lastRefresh<200)return;lastRefresh=now;
-        const solution=simulation.error?null:simulation.state?.acceptedSolution,c=component(),rows=[];
-        for(const item of doc().components){const r=solution?.componentResults[item.id],tr=document.createElement('tr');for(const text of [item.label,D.reading(r?.voltage,'V'),D.reading(r?.current,'A'),D.format(r?.power,'W')]){const td=document.createElement('td');td.textContent=text;tr.append(td);}rows.push(tr);}
-        $('measurementRows').replaceChildren(...rows);
+        const solution=simulation.error?null:simulation.state?.acceptedSolution,c=component(),selection=selectionValue(selected),time=simulation.state?.time;
+        if(!force&&lastReading?.doc===doc()&&lastReading.solution===solution&&lastReading.selection===selection&&lastReading.time===time)return;
+        lastReading={doc:doc(),solution,selection,time};
+        if(lastTableDoc!==doc()||lastTableSolution!==solution){
+            const rows=[];for(const item of doc().components){const r=solution?.componentResults[item.id],tr=document.createElement('tr');for(const text of [item.label,D.reading(r?.voltage,'V'),D.reading(r?.current,'A'),D.format(r?.power,'W')]){const td=document.createElement('td');td.textContent=text;tr.append(td);}rows.push(tr);}
+            $('measurementRows').replaceChildren(...rows);lastTableDoc=doc();lastTableSolution=solution;
+        }
         const details=[];
         if(c){
             const r=solution?.componentResults[c.id];details.push(...detail('Voltage A − B',D.reading(r?.voltage,'V')),...detail('Current A → B',D.reading(r?.current,'A')),...detail('Current, detail',exact(r?.current,'A')),...detail('Power',D.format(r?.power,'W')));
@@ -254,7 +306,10 @@
         const solution=simulation.error?null:simulation.state?.acceptedSolution;
         refreshMeasurements();$('timeReadout').textContent=D.format(simulation.state?.time??simulation.retained?.time??0,'s');
         $('flowLegend').textContent='Conventional current · speed ∝ current · '+D.format(motion.reference,'A')+' reference'+(motion.clipped?' · speed capped; increase scale':'')+(reducedMotion.matches?' · reduced motion':'');
-        renderer.draw(draft||doc(),solution,{selected,errors:simulation.error?.ids||[],connection,pointer:pointer&&['wire','ground'].includes(tool)?snap(pointer).point:pointer,snap:pointer&&['wire','ground'].includes(tool)?snap(pointer):null,motion,options:{simple:true,readings:solution,markers:!simulation.error&&$('motionToggle').checked&&!reducedMotion.matches}});
+        const target=pointer&&['wire','ground'].includes(tool)?snap(pointer):null;
+        if(target?.kind==='grid')target.point=placePoint(pointer,drag?.free);
+        const preview=placement&&!gesture?{...placement,position:placePoint(pointer||renderer.center(),drag?.moved||drag?.free)}:null;
+        renderer.draw(draft||doc(),solution,{selected:drag?.hit&&drag.moved?drag.hit:selected,errors:simulation.error?.ids||[],connection,pointer:target?.point||pointer,snap:target,placement:preview,motion,options:{simple:true,readings:solution,markers:!simulation.error&&$('motionToggle').checked&&!reducedMotion.matches}});
         if(!document.hidden&&(running||stepTarget!==null))requestDraw();
     }
     readyMessage();sync();requestDraw();
