@@ -68,4 +68,70 @@ test('RC charging follows the analytical curve across five orders of time consta
 test('unequal series capacitors match equivalent capacitance and equal plate charge',()=>{
     const r=200,c1=.002,c2=.003,equivalent=c1*c2/(c1+c2),c=D.compileCircuit(D.fixture([['V','voltage','a','0',10],['R','resistor','a','b',r],['C1','capacitor','b','d',c1],['C2','capacitor','d','0',c2]])),state=advance(c,D.initializeTransient(c),r*equivalent),s=state.acceptedSolution;near(s.componentResults.C1.voltage,10*(1-Math.exp(-1))*c2/(c1+c2),.001);near(s.componentResults.C2.voltage,10*(1-Math.exp(-1))*c1/(c1+c2),.001);near(s.componentResults.C1.charge,s.componentResults.C2.charge,1e-8);near(s.componentResults.C1.current,s.componentResults.C2.current,1e-8);conservation(c,s);
 });
+test('practical diode drops 0.7 V when forward-biased and blocks reverse current',()=>{
+    const fwd=D.compileCircuit(D.fixture([['V','voltage','a','0',9],['R','resistor','a','b',1000],['D','diode','b','0',.7]]));
+    const sf=D.solveDC(fwd);
+    assert.equal(sf.componentResults.D.conducting,true);
+    near(sf.componentResults.D.voltage,.7,1e-4);
+    near(sf.componentResults.R.current,(9-.7)/1000,1e-4);
+    conservation(fwd,sf);
+    const rev=D.compileCircuit(D.fixture([['V','voltage','a','0',9],['R','resistor','a','b',1000],['D','diode','0','b',.7]]));
+    const sr=D.solveDC(rev);
+    assert.equal(sr.componentResults.D.conducting,false);
+    assert.ok(Math.abs(sr.componentResults.R.current)<1e-8);
+    near(sr.componentResults.D.voltage,-9,1e-5);
+});
+test('AC source sinusoidal response grades, reverses and rectifies with diode',()=>{
+    const acDoc=D.fixture([['AC','ac','a','0',10,{frequency:1,phase:0}],['R','resistor','a','0',100]]);
+    const c=D.compileCircuit(acDoc);
+    let s=D.initializeTransient(c);
+    near(s.acceptedSolution.componentResults.R.current,0,1e-8);
+    s=advance(c,s,.25);
+    near(s.acceptedSolution.componentResults.R.current,.1,1e-5);
+    s=advance(c,s,.5);
+    assert.ok(Math.abs(s.acceptedSolution.componentResults.R.current)<1e-6);
+    s=advance(c,s,.75);
+    near(s.acceptedSolution.componentResults.R.current,-.1,1e-5);
+    const rect=D.compileCircuit(D.fixture([['AC','ac','a','0',10,{frequency:1,phase:0}],['D','diode','a','b',.7],['R','resistor','b','0',100]]));
+    let sr=D.initializeTransient(rect);
+    sr=advance(rect,sr,.25);
+    near(sr.acceptedSolution.componentResults.R.voltage,9.3,1e-3);
+    sr=advance(rect,sr,.75);
+    assert.ok(Math.abs(sr.acceptedSolution.componentResults.R.voltage)<1e-5);
+});
+test('transformer steps AC voltage by turns ratio and isolates secondary',()=>{
+    const doc=D.blank();
+    const ac=D.component('ac',0,0,'AC1');ac.value=10;ac.frequency=50;
+    const tr=D.component('transformer',144,0,'T1');tr.turnsPrimary=1;tr.turnsSecondary=5;
+    const load=D.component('resistor',288,0,'R1');load.value=1000;
+    doc.components.push(ac,tr,load);
+    D.wire(doc,ac.terminals[0],tr.terminals[0]);
+    D.wire(doc,ac.terminals[1],tr.terminals[1]);
+    D.wire(doc,tr.terminals[2],load.terminals[0]);
+    D.wire(doc,tr.terminals[3],load.terminals[1]);
+    doc.referenceEndpoints.push(ac.terminals[1]);
+    const c=D.compileCircuit(doc);
+    let state=D.initializeTransient(c);
+    state=advance(c,state,.005); // Quarter period of 50 Hz -> peak sin(pi/2)=1
+    const r=state.acceptedSolution.componentResults;
+    near(r[tr.id].primaryVoltage,10,1e-3);
+    near(r[tr.id].secondaryVoltage,50,1e-2);
+    near(r[load.id].voltage,50,1e-2);
+    near(r[load.id].current,.05,1e-2);
+});
+test('all circuit examples including half-wave and full-wave bridge rectifiers solve cleanly',()=>{
+    for(const id of ['halfWave','fullWaveBridge','transformerStepUp','rc','bridge','series','parallel']){
+        const doc=D.makePreset(id),c=D.compileCircuit(doc);
+        let state=D.initializeTransient(c);
+        state=advance(c,state,.25);
+        assert.ok(state.acceptedSolution);
+        if(id==='fullWaveBridge'){
+            const rPos=state.acceptedSolution.componentResults[doc.components.find(x=>x.label==='R1').id].voltage;
+            assert.ok(rPos>10,`Expected positive bridge output on positive half-cycle, got ${rPos}`);
+            const stateNeg=advance(c,state,.75);
+            const rNeg=stateNeg.acceptedSolution.componentResults[doc.components.find(x=>x.label==='R1').id].voltage;
+            assert.ok(rNeg>10,`Expected positive bridge output on negative half-cycle, got ${rNeg}`);
+        }
+    }
+});
 console.log(`\n${count} extended mathematical checks passed (360 generated cases plus targeted invariants).`);

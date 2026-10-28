@@ -26,7 +26,7 @@
         fit(doc){const ps=[...D.endpoints(doc).values(),...doc.wires.flatMap(w=>w.waypoints)];if(!ps.length){this.view={panX:0,panY:0,zoom:1};return;}const minX=Math.min(...ps.map(p=>p.x))-110,maxX=Math.max(...ps.map(p=>p.x))+110,minY=Math.min(...ps.map(p=>p.y))-110,maxY=Math.max(...ps.map(p=>p.y))+80,zoom=Math.max(.1,Math.min(1.5,this.width/(maxX-minX),this.height/(maxY-minY)));this.view={zoom,panX:-(minX+maxX)/2*zoom,panY:-(minY+maxY)/2*zoom};}
         hit(doc,p,{touch=false,preferComponent=false}={}){
             const z=this.view.zoom,radius=(touch?22:12)/z,{ends,paths}=this.geometry(doc);
-            const body=()=>{for(const c of doc.components.slice().reverse()){const dx=p.x-c.position.x,dy=p.y-c.position.y,a=-c.rotation*Math.PI/180,x=dx*Math.cos(a)-dy*Math.sin(a),y=dx*Math.sin(a)+dy*Math.cos(a);if(Math.abs(x)<48&&Math.abs(y)<Math.max(23,touch?22/z:23))return {kind:'component',id:c.id};}return null;};
+            const body=()=>{for(const c of doc.components.slice().reverse()){const dx=p.x-c.position.x,dy=p.y-c.position.y,a=-c.rotation*Math.PI/180,x=dx*Math.cos(a)-dy*Math.sin(a),y=dx*Math.sin(a)+dy*Math.cos(a),halfY=c.type==='transformer'?36:23;if(Math.abs(x)<48&&Math.abs(y)<Math.max(halfY,touch?22/z:halfY))return {kind:'component',id:c.id};}return null;};
             if(preferComponent){const hit=body();if(hit)return hit;}
             for(const id of doc.referenceEndpoints){const end=ends.get(id);if(end&&Math.abs(p.x-end.x)<(touch?22:15)/z&&p.y>end.y+14/z&&p.y<end.y+42/z)return {kind:'ground',id,point:end};}
             let nearest=null,best=radius;for(const end of ends.values()){const d=Math.hypot(p.x-end.x,p.y-end.y);if(d<best){best=d;nearest={kind:end.kind,id:end.id,point:end};}}if(nearest)return nearest;
@@ -52,10 +52,11 @@
             chosen=chosen||{x:p.x-width/2,y:p.y-height/2,width,height};this.labelBoxes.push(chosen);const x=chosen.x+width/2,y=chosen.y+height/2;if(Math.hypot(x-p.x,y-p.y)>10/z)this.stroke([p,{x,y}],'#313c50',.7/z);c.fillStyle='#070a10e8';c.fillRect(chosen.x,chosen.y,width,height);this.text(value,x,y,fill,11);
         }
         arrow(p,direction,fill){const a=p.angle+(direction<0?Math.PI:0),c=this.ctx;c.save();c.translate(p.x,p.y);c.rotate(a);this.stroke([{x:-6,y:-4},{x:0,y:0},{x:-6,y:4}],fill,1.7/this.view.zoom);c.restore();}
-        symbol(comp,result,selected,highlight,error){const c=this.ctx;c.save();c.translate(comp.position.x,comp.position.y);c.rotate(comp.rotation*Math.PI/180);const stroke=error?color.red:highlight?color.amber:selected?color.accent:color.text;c.strokeStyle=stroke;c.lineWidth=2/this.view.zoom;c.lineCap='round';
-            if(selected||highlight){c.fillStyle=highlight?'#f6b9440c':'#8b9dff10';c.fillRect(-50,-23,100,46);}
+        symbol(comp,result,selected,highlight,error,time=0){const c=this.ctx;c.save();c.translate(comp.position.x,comp.position.y);c.rotate(comp.rotation*Math.PI/180);const stroke=error?color.red:highlight?color.amber:selected?color.accent:color.text;c.strokeStyle=stroke;c.lineWidth=2/this.view.zoom;c.lineCap='round';
+            const halfH=comp.type==='transformer'?36:23;
+            if(selected||highlight){c.fillStyle=highlight?'#f6b9440c':'#8b9dff10';c.fillRect(-50,-halfH,100,halfH*2);}
             const seg=(p)=>this.stroke(p,stroke,2/this.view.zoom);
-            seg([{x:-60,y:0},{x:-30,y:0}]);seg([{x:30,y:0},{x:60,y:0}]);
+            if(comp.type!=='transformer'){seg([{x:-60,y:0},{x:-30,y:0}]);seg([{x:30,y:0},{x:60,y:0}]);}
             if(comp.type==='resistor'){const ps=[{x:-30,y:0}];for(let i=0;i<8;i++)ps.push({x:-26+i*7.4,y:i%2?9:-9});ps.push({x:30,y:0});seg(ps);}
             if(comp.type==='lamp'){
                 const brightness=D.lampBrightness(result);
@@ -76,7 +77,50 @@
             if(comp.type==='voltage'){const positive=comp.value>=0;seg([{x:-30,y:0},{x:-8,y:0}]);seg([{x:8,y:0},{x:30,y:0}]);seg([{x:-8,y:positive?-21:-11},{x:-8,y:positive?21:11}]);seg([{x:8,y:positive?-11:-21},{x:8,y:positive?11:21}]);this.text(positive?'+':'−',-21,-13,stroke,10);this.text(positive?'−':'+',21,-13,stroke,10);}
             if(comp.type==='current'){this.dot({x:0,y:0},22,stroke,true);seg([{x:-12,y:0},{x:12,y:0},{x:6,y:-5}]);seg([{x:12,y:0},{x:6,y:5}]);}
             if(comp.type==='switch'){seg([{x:-30,y:0},{x:comp.closed?30:22,y:comp.closed?0:-17}]);this.dot({x:-30,y:0},3,stroke);this.dot({x:30,y:0},3,stroke);}
-            c.restore();this.label(`${comp.label} · ${comp.type==='switch'?(comp.closed?'closed':'open'):D.format(comp.value,{resistor:'Ω',lamp:'Ω',capacitor:'F',voltage:'V',current:'A'}[comp.type])}`,{x:comp.position.x,y:comp.position.y-39/this.view.zoom},selected?color.accent:color.text,`${comp.id}:value`);
+            if(comp.type==='diode'){
+                const on=!!result?.conducting;
+                seg([{x:-30,y:0},{x:-13,y:0}]);seg([{x:13,y:0},{x:30,y:0}]);
+                c.beginPath();c.moveTo(-13,-14);c.lineTo(-13,14);c.lineTo(13,0);c.closePath();
+                if(on){c.fillStyle='#3dd9ff38';c.fill();}
+                c.strokeStyle=on?color.cyan:stroke;c.lineWidth=2/this.view.zoom;c.stroke();
+                this.stroke([{x:13,y:-14},{x:13,y:14}],on?color.cyan:stroke,2.4/this.view.zoom);
+            }
+            if(comp.type==='ac'){
+                seg([{x:-30,y:0},{x:-22,y:0}]);seg([{x:22,y:0},{x:30,y:0}]);
+                const inst=result?.instantaneousVoltage??(comp.value*Math.sin(2*Math.PI*(comp.frequency||1)*time+(comp.phase||0)*Math.PI/180));
+                const ringColor=Math.abs(inst)>1e-4?(inst>0?color.cyan:color.amber):stroke;
+                this.dot({x:0,y:0},22,ringColor,true);
+                const wave=[];for(let i=-14;i<=14;i++)wave.push({x:i,y:-Math.sin(i/14*Math.PI)*9});
+                this.stroke(wave,ringColor,1.8/this.view.zoom);
+                this.text('~',-22,-15,stroke,10);
+            }
+            if(comp.type==='transformer'){
+                const configured=Number.isInteger(comp.turnsPrimary)&&Number.isInteger(comp.turnsSecondary);
+                const wStroke=configured?stroke:color.muted;
+                this.stroke([{x:-60,y:-30},{x:-16,y:-30}],wStroke,2/this.view.zoom);
+                this.stroke([{x:-60,y:30},{x:-16,y:30}],wStroke,2/this.view.zoom);
+                this.stroke([{x:60,y:-30},{x:16,y:-30}],wStroke,2/this.view.zoom);
+                this.stroke([{x:60,y:30},{x:16,y:30}],wStroke,2/this.view.zoom);
+                c.strokeStyle=wStroke;c.lineWidth=2/this.view.zoom;
+                for(let i=0;i<4;i++){
+                    const y0=-30+i*15,ym=y0+7.5;
+                    c.beginPath();c.arc(-16,ym,7.5,-Math.PI/2,Math.PI/2,false);c.stroke();
+                    c.beginPath();c.arc(16,ym,7.5,Math.PI/2,-Math.PI/2,false);c.stroke();
+                }
+                this.stroke([{x:-3,y:-28},{x:-3,y:28}],color.accent,1.8/this.view.zoom);
+                this.stroke([{x:3,y:-28},{x:3,y:28}],color.accent,1.8/this.view.zoom);
+                this.dot({x:-22,y:-22},2.2,color.amber);
+                this.dot({x:22,y:-22},2.2,color.amber);
+            }
+            c.restore();
+            let valueText;
+            if(comp.type==='switch')valueText=comp.closed?'closed':'open';
+            else if(comp.type==='diode')valueText=`${D.format(comp.value,'V')} drop`;
+            else if(comp.type==='ac')valueText=`${D.format(comp.value,'V')}p · ${D.format(comp.frequency||1,'Hz')}`;
+            else if(comp.type==='transformer')valueText=(Number.isInteger(comp.turnsPrimary)&&Number.isInteger(comp.turnsSecondary))?`${comp.turnsPrimary}:${comp.turnsSecondary}`:'set Np:Ns';
+            else valueText=D.format(comp.value,{resistor:'Ω',lamp:'Ω',capacitor:'F',voltage:'V',current:'A'}[comp.type]);
+            const labelOffset=(comp.type==='transformer'?51:39)/this.view.zoom;
+            this.label(`${comp.label} · ${valueText}`,{x:comp.position.x,y:comp.position.y-labelOffset},selected?color.accent:color.text,`${comp.id}:value`);
         }
         draw(doc,solution,{selected=null,highlights=[],errors=[],options={},motion=null,connection=null,pointer=null,snap=null,placement=null}={}){
             if(this.width<=0||this.height<=0||!this.canvas.width||!this.canvas.height)return;
@@ -86,18 +130,29 @@
             for(const comp of doc.components){const vertical=Math.abs(Math.sin(comp.rotation*Math.PI/180))>.5;this.labelBoxes.push({x:comp.position.x-(vertical?24:50),y:comp.position.y-(vertical?50:24),width:vertical?48:100,height:vertical?100:48});}
             const {ends,paths,metrics,crossings}=this.geometry(doc);
             for(const w of doc.wires){const path=paths.get(w.id),i=solution?.wireResults[w.id]?.current;this.stroke(path,selected?.id===w.id?color.accent:color.wire,selected?.id===w.id?3/z:1.8/z);
-                if(options.markers&&motion&&Number.isFinite(i)&&Math.abs(i)>=1e-14){const m=metrics.get(w.id);let count=0;for(let d=D.wrap(motion.distance(w.id),24);d<m.length&&count++<200;d+=24)this.dot(D.pointAtDistance(m,d),2.1/z,color.cyan);}
+                if(options.markers&&motion&&Number.isFinite(i)&&Math.abs(i)>=1e-14){
+                    const m=metrics.get(w.id),ratio=Math.min(1,Math.abs(i)/Math.max(1e-12,motion.reference));
+                    const alpha=.35+.65*Math.sqrt(ratio),r=(1.8+1.0*ratio)/z;
+                    c.save();c.globalAlpha=alpha;
+                    let count=0;for(let d=D.wrap(motion.distance(w.id),24);d<m.length&&count++<200;d+=24)this.dot(D.pointAtDistance(m,d),r,color.cyan);
+                    c.restore();
+                }
                 if(selected?.id===w.id){const p=pathPoint(path,.5),text=!solution?'Current unavailable':Number.isFinite(i)?`${D.reading(i,'A')} · start → end`:'Indeterminate within ideal wire loop';this.label(text,{x:p.x,y:p.y-14/z},color.cyan,`${w.id}:current`);if(Number.isFinite(i)&&Math.abs(i)>=1e-14)this.arrow(p,i,color.cyan);}
             }
             // Gaps at crossings without explicit endpoints communicate no connection.
             for(const p of crossings){
                 this.stroke([{x:p.x,y:p.y-5/z},{x:p.x,y:p.y+5/z}],'#06070b',7/z);this.stroke([{x:p.x-6/z,y:p.y},{x:p.x+6/z,y:p.y}],color.wire,1.8/z);
             }
-            for(const comp of doc.components)this.symbol(comp,solution?.componentResults[comp.id],selected?.id===comp.id,highlights.includes(comp.id),errors.includes(comp.id));
+            const simTime=options.time||0;
+            for(const comp of doc.components)this.symbol(comp,solution?.componentResults[comp.id],selected?.id===comp.id,highlights.includes(comp.id),errors.includes(comp.id),simTime);
             if(options.simple)for(const comp of doc.components){
                 const r=options.readings?.componentResults[comp.id];
-                this.label(`${D.reading(r?.voltage,'V')}  ·  ${D.reading(r?.current,'A')}`,{x:comp.position.x,y:comp.position.y-61/z},r?color.cyan:color.muted,`${comp.id}:readings`);
-                comp.terminals.forEach((id,i)=>{const p=ends.get(id);this.text(i?'B':'A',p.x,p.y+13/z,color.muted,9);});
+                const readingText=comp.type==='transformer'
+                    ?(r?.configured?`Vp ${D.reading(r.primaryVoltage,'V')} · Vs ${D.reading(r.secondaryVoltage,'V')}`:'Unconfigured · set Np:Ns')
+                    :`${D.reading(r?.voltage,'V')}  ·  ${D.reading(r?.current,'A')}`;
+                const readingOffset=(comp.type==='transformer'?73:61)/z;
+                this.label(readingText,{x:comp.position.x,y:comp.position.y-readingOffset},r?color.cyan:color.muted,`${comp.id}:readings`);
+                comp.terminals.forEach((id,i)=>{const p=ends.get(id);this.text(D.terminalName(comp,i),p.x,p.y+13/z,color.muted,9);});
             }
             for(const end of ends.values()){const active=connection===end.id;this.dot(end,end.kind==='junction'?4/z:3/z,active?color.amber:end.kind==='junction'?'#9caec4':'#536781');if(active)this.dot(end,8/z,color.amber,true);}
             for(const id of doc.referenceEndpoints){const p=ends.get(id);if(!p)continue;const fill=selected?.kind==='ground'&&selected.id===id?color.amber:color.accent;this.stroke([{x:p.x,y:p.y+5/z},{x:p.x,y:p.y+24/z}],fill,1.5/z);for(let j=0;j<3;j++)this.stroke([{x:p.x-(10-j*3)/z,y:p.y+(24+j*4)/z},{x:p.x+(10-j*3)/z,y:p.y+(24+j*4)/z}],fill,1.5/z);this.text('0 V',p.x+25/z,p.y+28/z,fill,10);}
@@ -108,7 +163,7 @@
                     if(selected?.id===comp.id&&Number.isFinite(r.current)&&Math.abs(r.current)>=1e-14)this.arrow({x:comp.position.x,y:comp.position.y+35/z,angle:comp.rotation*Math.PI/180},r.current,color.cyan);
                     if(options.currents&&r.current!==null){const p={x:comp.position.x,y:comp.position.y+34/z,angle:comp.rotation*Math.PI/180};if(Math.abs(r.current)>1e-14)this.arrow(p,r.current*(options.electrons?-1:1),color.cyan);this.label(D.format(r.current,'A'),{x:p.x,y:p.y+13/z},color.cyan);}
                     if(options.drops)this.label(`${D.format(r.voltage,'V')} A−B`,{x:comp.position.x,y:comp.position.y+20/z},color.amber);
-                    if(!options.simple&&(options.terminals||selected?.id===comp.id))comp.terminals.forEach((id,i)=>{const p=ends.get(id);this.label(`${i?'B':'A'} ${D.format(i?r.vb:r.va,'V')}${r.local?' · local':''}`,{x:p.x,y:p.y-15/z},color.amber);});
+                    if(!options.simple&&(options.terminals||selected?.id===comp.id))comp.terminals.forEach((id,i)=>{const p=ends.get(id),pot=[r.va,r.vb,r.vsa,r.vsb][i];this.label(`${D.terminalName(comp,i)} ${D.format(pot,'V')}${r.local?' · local':''}`,{x:p.x,y:p.y-15/z},color.amber);});
                 }
                 if(options.nodes){const compiled=D.compileCircuit(doc);for(const net of compiled.nets){const anchor=ends.get(net.endpoints.find(id=>ends.get(id).kind==='junction')||net.endpoints[0]),r=solution.nodeVoltages[net.id];if(r)this.label(`${net.label} ${D.format(r.value,'V')}${r.local?' local':''}`,{x:anchor.x,y:anchor.y-24/z},color.accent);}}
             }

@@ -18,19 +18,45 @@
         }
         const netIds=[...new Set([...points.keys()].map(id=>uf.find(id)))],netOf=new Map([...points.keys()].map(id=>[id,uf.find(id)]));
         const nets=netIds.map((id,i)=>({id,label:`N${i}`,endpoints:[...points.keys()].filter(e=>netOf.get(e)===id),ground:doc.referenceEndpoints.some(e=>netOf.get(e)===id)}));
-        const components=doc.components.map(c=>({...c,a:netOf.get(c.terminals[0]),b:netOf.get(c.terminals[1])}));
+        const components=[];
+        for(const c of doc.components){
+            if(c.type==='transformer'){
+                const valid=Number.isInteger(c.turnsPrimary)&&c.turnsPrimary>=1&&Number.isInteger(c.turnsSecondary)&&c.turnsSecondary>=1;
+                const ratio=valid?c.turnsSecondary/c.turnsPrimary:null;
+                components.push({
+                    ...c,
+                    a:netOf.get(c.terminals[0]),b:netOf.get(c.terminals[1]),
+                    sa:netOf.get(c.terminals[2]),sb:netOf.get(c.terminals[3]),
+                    ratio
+                });
+            }else components.push({...c,a:netOf.get(c.terminals[0]),b:netOf.get(c.terminals[1])});
+        }
         return {document:D.clone(doc),points,netOf,nets,components,links};
     }
     function referenceDomains(compiled,mode){
         const uf=new UnionFind(compiled.nets.map(n=>n.id));
-        for(const c of compiled.components)if(c.type!=='switch'&&(mode!=='dc'||c.type!=='capacitor'))uf.join(c.a,c.b);
+        for(const c of compiled.components){
+            if(c.type==='transformer'){
+                uf.join(c.a,c.b);uf.join(c.sa,c.sb);
+            }else if(c.type!=='switch'&&(mode!=='dc'||c.type!=='capacitor'))uf.join(c.a,c.b);
+        }
         const groups=new Map();for(const n of compiled.nets){const key=uf.find(n.id);if(!groups.has(key))groups.set(key,[]);groups.get(key).push(n);}
         const domains=[...groups.values()].map((nets,i)=>({id:i,nets:nets.map(n=>n.id),reference:(nets.find(n=>n.ground)||nets[0]).id,local:!nets.some(n=>n.ground)}));
         return {domains,domainOf:new Map(domains.flatMap(d=>d.nets.map(id=>[id,d])))};
     }
     function recoverWireCurrents(compiled,results){
         const out={},injections=new Map([...compiled.points.keys()].map(id=>[id,0]));
-        for(const c of compiled.components){const i=results[c.id]?.current;if(i!==null&&Number.isFinite(i)&&c.type!=='switch'){injections.set(c.terminals[0],injections.get(c.terminals[0])+i);injections.set(c.terminals[1],injections.get(c.terminals[1])-i);}}
+        for(const c of compiled.components){
+            const r=results[c.id];
+            if(c.type==='transformer'){
+                const ip=r?.primaryCurrent,is=r?.secondaryCurrent;
+                if(ip!==null&&Number.isFinite(ip)){injections.set(c.terminals[0],injections.get(c.terminals[0])+ip);injections.set(c.terminals[1],injections.get(c.terminals[1])-ip);}
+                if(is!==null&&Number.isFinite(is)){injections.set(c.terminals[2],injections.get(c.terminals[2])+is);injections.set(c.terminals[3],injections.get(c.terminals[3])-is);}
+                continue;
+            }
+            const i=r?.current;
+            if(i!==null&&Number.isFinite(i)&&c.type!=='switch'){injections.set(c.terminals[0],injections.get(c.terminals[0])+i);injections.set(c.terminals[1],injections.get(c.terminals[1])-i);}
+        }
         let maxKCL=0;
         for(const net of compiled.nets){
             const links=compiled.links.filter(l=>compiled.netOf.get(l.a)===net.id),adj=new Map(net.endpoints.map(id=>[id,[]]));
@@ -64,7 +90,16 @@
         return {wireResults:out,maxKCL};
     }
     function traceBranches(compiled,results,wireResults){
-        const edges=[...compiled.links.filter(l=>l.type!=='reference').map(l=>({...l,current:wireResults[l.id]?.current??null})),...compiled.components.filter(c=>c.type!=='switch').map(c=>({id:c.id,a:c.terminals[0],b:c.terminals[1],type:'component',current:results[c.id]?.current??null}))];
+        const compEdges=[];
+        for(const c of compiled.components){
+            if(c.type==='switch')continue;
+            if(c.type==='transformer'){
+                const r=results[c.id];
+                compEdges.push({id:`${c.id}:primary`,a:c.terminals[0],b:c.terminals[1],type:'component',current:r?.primaryCurrent??null});
+                compEdges.push({id:`${c.id}:secondary`,a:c.terminals[2],b:c.terminals[3],type:'component',current:r?.secondaryCurrent??null});
+            }else compEdges.push({id:c.id,a:c.terminals[0],b:c.terminals[1],type:'component',current:results[c.id]?.current??null});
+        }
+        const edges=[...compiled.links.filter(l=>l.type!=='reference').map(l=>({...l,current:wireResults[l.id]?.current??null})),...compEdges];
         const adj=new Map([...compiled.points.keys()].map(id=>[id,[]]));for(const e of edges){adj.get(e.a).push(e);adj.get(e.b).push(e);}
         const boundary=id=>adj.get(id).length!==2||compiled.points.get(id).kind==='junction'||compiled.document.referenceEndpoints.includes(id);
         const visited=new Set(),branches=[];

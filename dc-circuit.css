@@ -12,3 +12,6 @@ button,input,select{font:inherit;color:inherit;background:#101116;border:1px sol
 .dc-placement-controls{display:flex;align-items:center;flex-wrap:wrap;gap:8px 18px;margin-top:8px;font-size:12px;color:#91a0b5}.dc-placement-controls label{display:flex;align-items:center;gap:7px;cursor:pointer;min-height:40px}.dc-placement-controls input{accent-color:#8b9dff;width:18px;height:18px;padding:0}.dc-placement-controls button{font-size:12px}.dc-edit-actions{flex-wrap:wrap}#circuitCanvas{height:calc(100dvh - 418px)}
 @media(max-width:850px){#circuitCanvas{height:52dvh}}
 @media(pointer:coarse),(max-width:600px){.dc-placement-controls label{min-height:44px}.dc-placement-controls input{min-height:0;width:20px;height:20px}}
+.dc-ac-extra{grid-column:1/-1;display:grid;grid-template-columns:1fr 90px;gap:6px 8px;align-items:center;margin-top:4px}.dc-ac-extra label{grid-column:1;color:#91a0b5;font-size:12px}.dc-ac-extra input{grid-column:2;width:100%}
+.dc-transformer-editor{display:grid;gap:8px;margin:14px 0}.dc-transformer-editor>label{color:#d5dfed}.dc-ratio{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);gap:8px;align-items:center}.dc-ratio input{width:100%;min-width:0;text-align:center}.dc-ratio-colon{font-weight:700;font-size:16px;color:#8b9dff;padding:0 2px}
+#diodeNote,#acNote,#transformerNote{color:#91a0b5;line-height:1.6}

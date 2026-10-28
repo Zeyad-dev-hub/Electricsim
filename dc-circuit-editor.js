@@ -17,12 +17,12 @@
     }
     function terminalExit(doc,end){
         const c=doc.components.find(c=>c.id===end.componentId);if(!c)return end;
-        const angle=c.rotation*Math.PI/180,sign=end.index?1:-1;
+        const angle=c.rotation*Math.PI/180,sign=c.type==='transformer'?(end.index<2?-1:1):(end.index?1:-1);
         return {x:end.x+sign*24*Math.cos(angle),y:end.y+sign*24*Math.sin(angle)};
     }
     function connectionPath(doc,start,end){
         const a=terminalExit(doc,start),b=terminalExit(doc,end);
-        const boxes=doc.components.map(c=>{const vertical=Math.abs(Math.sin(c.rotation*Math.PI/180))>.5;return {left:c.position.x-(vertical?25:42),right:c.position.x+(vertical?25:42),top:c.position.y-(vertical?42:25),bottom:c.position.y+(vertical?42:25)};});
+        const boxes=doc.components.map(c=>{const vertical=Math.abs(Math.sin(c.rotation*Math.PI/180))>.5,h=c.type==='transformer'?42:25;return {left:c.position.x-(vertical?h:42),right:c.position.x+(vertical?h:42),top:c.position.y-(vertical?42:h),bottom:c.position.y+(vertical?42:h)};});
         const candidates=[orthogonalPath([a,b]),orthogonalPath([a,b],true)];
         // Try lanes outside symbol bodies before accepting a route through a symbol.
         for(const box of boxes){

@@ -2,22 +2,30 @@
     'use strict';
     const D=root.DCCircuit||(root.DCCircuit={});
     const clone=value=>JSON.parse(JSON.stringify(value));
-    const TYPES=['resistor','lamp','capacitor','voltage','current','switch'];
-    const defaults={resistor:1000,lamp:100,capacitor:.001,voltage:9,current:.01,switch:0};
+    const TYPES=['resistor','lamp','capacitor','voltage','current','switch','diode','ac','transformer'];
+    const PREFIX={resistor:'R',lamp:'L',capacitor:'C',voltage:'V',current:'I',switch:'S',diode:'D',ac:'AC',transformer:'T'};
+    const TERMINAL_NAMES={transformer:['P1','P2','S1','S2']};
+    const terminalName=(c,i)=>TERMINAL_NAMES[c.type]?.[i]||(i?'B':'A');
+    const defaults={resistor:1000,lamp:100,capacitor:.001,voltage:9,current:.01,switch:0,diode:.7,ac:10,transformer:0};
     let serial=0;
     const uid=prefix=>`${prefix}-${Date.now().toString(36)}-${++serial}`;
     function blank(){return {schemaVersion:1,components:[],junctions:[],wires:[],referenceEndpoints:[],probes:[],view:{panX:0,panY:0,zoom:1}};}
     function component(type,x,y,label){
         const id=uid(type);
-        const c={id,type,label:label||`${{resistor:'R',lamp:'L',capacitor:'C',voltage:'V',current:'I',switch:'S'}[type]}${serial}`,terminals:[`${id}:a`,`${id}:b`],value:defaults[type],position:{x,y},rotation:0};
+        const c={id,type,label:label||`${PREFIX[type]}${serial}`,terminals:type==='transformer'?['p1','p2','s1','s2'].map(s=>`${id}:${s}`):[`${id}:a`,`${id}:b`],value:defaults[type],position:{x,y},rotation:0};
         if(type==='capacitor')c.initialVoltage=0;
         if(type==='switch')c.closed=false;
+        if(type==='ac'){c.frequency=1;c.phase=0;}
+        if(type==='transformer'){c.turnsPrimary=null;c.turnsSecondary=null;}
         return c;
     }
-    function terminalPosition(c,index){const angle=(c.rotation||0)*Math.PI/180,sign=index?1:-1;return {x:c.position.x+sign*60*Math.cos(angle),y:c.position.y+sign*60*Math.sin(angle)};}
+    // Transformers have four terminals: P1/P2 on the left, S1/S2 on the right.
+    function terminalPosition(c,index){const angle=(c.rotation||0)*Math.PI/180,four=c.type==='transformer',lx=four?(index<2?-60:60):(index?60:-60),ly=four?(index%2?30:-30):0;return {x:c.position.x+lx*Math.cos(angle)-ly*Math.sin(angle),y:c.position.y+lx*Math.sin(angle)+ly*Math.cos(angle)};}
     function endpoints(doc){const out=new Map(doc.junctions.map(j=>[j.id,{...j.position,id:j.id,kind:'junction'}]));for(const c of doc.components)c.terminals.forEach((id,i)=>out.set(id,{...terminalPosition(c,i),id,kind:'terminal',componentId:c.id,index:i}));return out;}
     const allowed={resistor:['id','type','label','terminals','value','position','rotation'],capacitor:['id','type','label','terminals','value','position','rotation','initialVoltage'],voltage:['id','type','label','terminals','value','position','rotation'],current:['id','type','label','terminals','value','position','rotation'],switch:['id','type','label','terminals','value','position','rotation','closed']};
-    allowed.lamp=allowed.resistor;
+    allowed.lamp=allowed.resistor;allowed.diode=allowed.resistor;
+    allowed.ac=[...allowed.voltage,'frequency','phase'];allowed.transformer=[...allowed.resistor,'turnsPrimary','turnsSecondary'];
+    const turnsValid=n=>n===null||(Number.isInteger(n)&&n>=1&&n<=100000);
     // A fixed-resistance teaching model; 1 W is the visual full-glow reference.
     function lampBrightness(result){return Number.isFinite(result?.power)?Math.min(1,Math.max(0,result.power)):0;}
     function validateDocument(doc){
@@ -37,7 +45,10 @@
             if(['resistor','lamp','capacitor'].includes(c.type)&&c.value<=0)fail(`${c.label}: value must be positive.`);
             if(c.type==='capacitor'&&!Number.isFinite(c.initialVoltage))fail(`${c.label}: invalid initial voltage.`);
             if(c.type==='switch'&&typeof c.closed!=='boolean')fail(`${c.label}: invalid switch state.`);
-            if(!Array.isArray(c.terminals)||c.terminals.length!==2)fail('Each component requires two terminals.');
+            if(c.type==='ac'&&(!Number.isFinite(c.frequency)||c.frequency<=0||c.frequency>1000||!Number.isFinite(c.phase)))fail(`${c.label}: frequency must be above 0 and at most 1000 Hz.`);
+            if(c.type==='transformer'&&(!turnsValid(c.turnsPrimary)||!turnsValid(c.turnsSecondary)))fail(`${c.label}: turns must be whole numbers from 1 to 100000.`);
+            const terminalCount=c.type==='transformer'?4:2;
+            if(!Array.isArray(c.terminals)||c.terminals.length!==terminalCount)fail(terminalCount===2?'Each component requires two terminals.':`${c.label}: a transformer requires four terminals.`);
             else for(const id of c.terminals){unique(id);ends.add(id);}
         }
         for(const j of doc.junctions){if(!j||typeof j!=='object'){fail('Invalid junction.');continue;}unique(j.id);ends.add(j.id);if(!point(j.position)||Object.keys(j).some(k=>!['id','position'].includes(k)))fail('Invalid junction.');}
@@ -76,6 +87,6 @@
         if(Math.abs(number)>=1000&&scale<1e9){[scale,prefix]=powers[powers.findIndex(([s])=>s===scale)-1];number=Number((value/scale).toPrecision(3));}
         return `${number} ${prefix}${unit}`.trim();
     }
-    Object.assign(D,{clone,TYPES,uid,blank,component,terminalPosition,endpoints,validateDocument,History,wire,removeComponent,removeJunction,reading,format,lampBrightness});
+    Object.assign(D,{clone,TYPES,PREFIX,terminalName,uid,blank,component,terminalPosition,endpoints,validateDocument,History,wire,removeComponent,removeJunction,reading,format,lampBrightness});
     if(typeof module!=='undefined')module.exports=D;
 })(typeof window!=='undefined'?window:globalThis);

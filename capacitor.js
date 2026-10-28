@@ -26,7 +26,12 @@ let pState = {
     sphB: 0.015,
     showField: true,
     showCharges: true,
-    C: 0, Q: 0, U: 0, E: 0
+    C: 0, Q: 0, U: 0, E: 0, Vc: 12,
+    circuitMode: 'charging',
+    qRatio: 0,
+    wirePhase: 0,
+    flowCurrent: 0,
+    timeScale: 1.0
 };
 
 // Network Builder State - Tree-based structure
@@ -174,7 +179,12 @@ function setupUI() {
         pState.type = e.target.value;
         document.querySelectorAll('.dynamic-controls').forEach(el => el.classList.add('hidden'));
         document.getElementById(`controls-${pState.type}`).classList.remove('hidden');
-        document.getElementById('rowE').classList.toggle('hidden', pState.type !== 'parallel');
+        const isParallel = pState.type === 'parallel';
+        document.getElementById('rowE').classList.toggle('hidden', !isParallel);
+        const rowVc = document.getElementById('rowVc');
+        const rowState = document.getElementById('rowState');
+        if (rowVc) rowVc.classList.toggle('hidden', !isParallel);
+        if (rowState) rowState.classList.toggle('hidden', !isParallel);
         updatePhysics();
     });
 
@@ -241,6 +251,7 @@ function setupUI() {
     document.getElementById('btnAddParallel').addEventListener('click', () => addNetworkNode('parallel'));
 
     document.getElementById('btnRemoveNode').addEventListener('click', removeSelectedNode);
+    setupParallelCircuitButtons();
     document.getElementById('btnClearNetwork').addEventListener('click', () => {
         nState.network = null;
         nState.selectedNodeId = null;
@@ -277,6 +288,21 @@ function switchMode(newMode) {
 // ==========================================
 function updatePhysics() {
     const eps = pState.k * EPSILON0;
+    if (pState.type === 'parallel') {
+        const prevC = pState.C;
+        pState.C = (eps * pState.A) / pState.d;
+        const targetQ = pState.C * pState.V;
+        if (prevC === 0) pState.Q = targetQ;
+        else if (pState.circuitMode === 'charging') {
+            pState.Q = targetQ * (pState.qRatio || 1);
+        }
+        pState.Vc = pState.C > 0 ? pState.Q / pState.C : 0;
+        pState.E = pState.Vc / pState.d;
+        pState.U = 0.5 * pState.C * pState.Vc * pState.Vc;
+        pState.qRatio = targetQ > 0 ? pState.Q / targetQ : 0;
+        updatePhysicsHUD();
+        return;
+    }
     
     if (pState.type === 'parallel') {
         // C = κε₀A/d
@@ -312,6 +338,106 @@ function updatePhysics() {
     document.getElementById('hudQ').innerText = formatEng(pState.Q, 'C');
     document.getElementById('hudU').innerText = formatEng(pState.U, 'J');
     document.getElementById('hudE').innerText = formatEng(pState.E, 'V/m');
+    updatePhysicsHUD();
+}
+
+function setParallelCircuitMode(nextMode) {
+    pState.circuitMode = nextMode;
+    const map = { charging: 'btnCapCharge', holding: 'btnCapHold', discharging: 'btnCapDischarge' };
+    Object.entries(map).forEach(([m, id]) => {
+        const btn = document.getElementById(id);
+        if (!btn) return;
+        const active = m === nextMode;
+        btn.className = `${active ? 'btn-primary' : 'btn-secondary'} cap-action-btn`;
+        btn.setAttribute('aria-pressed', String(active));
+    });
+    updatePhysicsHUD();
+}
+
+function setupParallelCircuitButtons() {
+    const btnCharge = document.getElementById('btnCapCharge');
+    const btnHold = document.getElementById('btnCapHold');
+    const btnDischarge = document.getElementById('btnCapDischarge');
+    const btnReset = document.getElementById('btnCapReset');
+    if (btnCharge) btnCharge.addEventListener('click', () => {
+        if (pState.Vc >= pState.V * 0.98) { pState.Q = 0; pState.Vc = 0; pState.qRatio = 0; }
+        setParallelCircuitMode('charging');
+    });
+    if (btnHold) btnHold.addEventListener('click', () => setParallelCircuitMode('holding'));
+    if (btnDischarge) btnDischarge.addEventListener('click', () => setParallelCircuitMode('discharging'));
+    const sliderTimeScale = document.getElementById('sliderTimeScale');
+    if (sliderTimeScale) sliderTimeScale.addEventListener('input', (e) => {
+        pState.timeScale = parseFloat(e.target.value) || 1.0;
+        const valEl = document.getElementById('valTimeScale');
+        if (valEl) valEl.innerText = `${pState.timeScale.toFixed(1)}×`;
+    });
+    if (btnReset) btnReset.addEventListener('click', () => {
+        pState.Q = 0; pState.Vc = 0; pState.E = 0; pState.U = 0; pState.qRatio = 0; pState.flowCurrent = 0;
+        setParallelCircuitMode('holding');
+    });
+}
+
+function updatePhysicsHUD() {
+    document.getElementById('hudC').innerText = formatEng(pState.C, 'F');
+    document.getElementById('hudQ').innerText = formatEng(pState.Q, 'C');
+    document.getElementById('hudU').innerText = formatEng(pState.U, 'J');
+    document.getElementById('hudE').innerText = formatEng(pState.E, 'V/m');
+    const hudVc = document.getElementById('hudVc');
+    if (hudVc) hudVc.innerText = `${(pState.Vc || 0).toFixed(2)} V`;
+    const hudState = document.getElementById('hudState');
+    const statusBox = document.getElementById('capCircuitStatus');
+    if (pState.type === 'parallel') {
+        const pct = pState.V > 0 ? Math.round((pState.Vc / pState.V) * 100) : 0;
+        let stateLabel = 'Holding', statusText = '';
+        if (pState.circuitMode === 'charging') {
+            const done = Math.abs(pState.Vc - pState.V) < 0.05;
+            stateLabel = done ? `Charged (${pct}%)` : `Charging (${pct}%)`;
+            statusText = done
+                ? `Charged to ${pState.Vc.toFixed(1)} V. Field E = ${formatEng(pState.E, 'V/m')} holds opposite charges in place across the gap.`
+                : `Voltage source (${pState.V} V) drives charges through the side wires onto the plates, building electric field E.`;
+        } else if (pState.circuitMode === 'holding') {
+            stateLabel = pState.Q > 1e-16 ? `Isolated (Held)` : 'Uncharged (0 V)';
+            statusText = pState.Q > 1e-16
+                ? `Source disconnected: Q = ${formatEng(pState.Q, 'C')} stays trapped because opposite plate charges attract across the field.`
+                : `Plates are neutral (Q = 0). Click "Charge (Source)" to watch charges flow from the voltage source.`;
+        } else if (pState.circuitMode === 'discharging') {
+            const empty = pState.Vc < 0.05;
+            stateLabel = empty ? 'Discharged (0%)' : `Discharging (${pct}%)`;
+            statusText = empty
+                ? `Fully discharged through resistor R (Q = 0, Vc = 0 V, E = 0).`
+                : `Discharging through resistor R: charges flow out of the plates around the loop until the field collapses.`;
+        }
+        if (hudState) hudState.innerText = stateLabel;
+        if (statusBox) statusBox.innerText = statusText;
+    }
+}
+
+function stepParallelCircuit(dt) {
+    if (pState.type !== 'parallel') return;
+    const tau = 1.25; // Responsive RC time constant so slider changes visibly pump charges
+    const targetQ = pState.C * pState.V;
+    const refQ = Math.max(1e-15, pState.C * 20); // 20 V reference for current speed scaling
+    if (pState.circuitMode === 'charging') {
+        const diff = targetQ - pState.Q;
+        const dQ = diff * (1 - Math.exp(-dt / tau));
+        pState.Q += dQ;
+        pState.flowCurrent = Math.max(-2.5, Math.min(2.5, diff / refQ));
+    } else if (pState.circuitMode === 'discharging') {
+        const dQ = -pState.Q * (1 - Math.exp(-dt / tau));
+        pState.Q += dQ;
+        if (pState.Q < 1e-16) pState.Q = 0;
+        pState.flowCurrent = -Math.max(0, Math.min(2.5, pState.Q / refQ));
+    } else {
+        pState.flowCurrent = 0;
+    }
+    pState.Vc = pState.C > 0 ? pState.Q / pState.C : 0;
+    pState.E = pState.Vc / pState.d;
+    pState.U = 0.5 * pState.C * pState.Vc * pState.Vc;
+    pState.qRatio = targetQ > 0 ? pState.Q / targetQ : (pState.Q > 0 ? 1 : 0);
+    if (Math.abs(pState.flowCurrent) > 0.002) {
+        pState.wirePhase = (pState.wirePhase + pState.flowCurrent * dt * 210) % 10000;
+    }
+    updatePhysicsHUD();
 }
 
 // Tree-based network node structure
@@ -662,7 +788,10 @@ function updateNetwork() {
 // Rendering Engine
 // ==========================================
 function renderLoop() {
-    simTime += 0.016; // ~60fps time step
+    // Scaled dt handles simTime below
+    const dtScaled = 0.016 * (mode === 'physics' && pState.type === 'parallel' ? (pState.timeScale || 1.0) : 1.0);
+    simTime += dtScaled;
+    if (mode === 'physics') stepParallelCircuit(dtScaled);
     const dpr = window.devicePixelRatio || 1;
     const w = canvas.width;
     const h = canvas.height;
@@ -903,12 +1032,401 @@ function renderPhysics3D() {
     const baseW = 18; // Plate thickness (reduced for sleeker look)
     
     if (pState.type === 'parallel') {
-        renderParallelPlate(d, baseW);
+        renderParallelPlate2D(d, baseW);
     } else if (pState.type === 'cylindrical') {
         renderCylindrical();
     } else if (pState.type === 'spherical') {
         renderSpherical();
     }
+}
+
+function renderParallelPlate2D(d, baseW) {
+    // 2D Cross-Section: Parallel Plates on top showing internal lattice of Holes (+ vacancies)
+    // and Mobile Electrons (− charges) trapped against the inner plate faces by the E-field,
+    // Discharge Resistor directly under the plates, and Battery under the resistor (+ left, − right).
+    const gap = Math.max(58, Math.min(220, d * 0.65));
+    const plateH = Math.max(136, Math.min(228, 132 + pState.A * 76));
+    const plateW = 36; // Wider 2D cross-section so internal trapped charges & holes are clearly visible
+    const capCenterX = 0;
+    const posX = capCenterX - gap / 2 - plateW;
+    const negX = capCenterX + gap / 2;
+    const gapStartX = posX + plateW;
+    const gapEndX = negX;
+
+    const plateTopY = -180;
+    const plateBotY = plateTopY + plateH;
+    const plateMidY = (plateTopY + plateBotY) / 2;
+
+    // Left rail (+ side) and right rail (− side) descending below the plates
+    const railSpan = Math.max(gap + plateW * 2 + 76, 230);
+    const leftRailX = capCenterX - railSpan / 2;
+    const rightRailX = capCenterX + railSpan / 2;
+    const posLeadX = posX + plateW / 2;
+    const negLeadX = negX + plateW / 2;
+    const kneeY = plateBotY + 34;
+    const resY = kneeY + 56;
+    const batY = resY + 78;
+
+    const cMode = pState.circuitMode || 'charging';
+    const vcAbs = Math.max(0, pState.Vc || 0);
+    // Scale carrier count dynamically with BOTH actual plate voltage Vc (up to 100V) and capacitance
+    const vNorm = Math.min(1, vcAbs / 100);
+    const activeFlow = Math.abs(pState.flowCurrent || 0);
+    const flowDir = Math.sign(pState.flowCurrent || 0); // +1 when charging, -1 when discharging
+
+    ctx.save();
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+
+    // ---- Positive (Left) Rail: from bottom of +Plate down to Resistor & Battery (+) ----
+    ctx.strokeStyle = '#ef4444';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(posLeadX, plateBotY);
+    ctx.lineTo(posLeadX, kneeY);
+    ctx.lineTo(leftRailX, kneeY);
+    ctx.lineTo(leftRailX, batY);
+    ctx.stroke();
+
+    // ---- Negative (Right) Rail: from bottom of −Plate down to Resistor & Battery (−) ----
+    ctx.strokeStyle = '#3b82f6';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(negLeadX, plateBotY);
+    ctx.lineTo(negLeadX, kneeY);
+    ctx.lineTo(rightRailX, kneeY);
+    ctx.lineTo(rightRailX, batY);
+    ctx.stroke();
+
+    // ---- Discharge Resistor Branch (under the plates, above the battery) ----
+    const resActive = cMode === 'discharging';
+    const resHalfW = 44;
+    const swResStartX = leftRailX + 26;
+    const swResEndX = leftRailX + 56;
+
+    ctx.strokeStyle = resActive ? '#fb923c' : 'rgba(148, 163, 184, 0.45)';
+    ctx.lineWidth = 2.6;
+    ctx.beginPath();
+    ctx.moveTo(leftRailX, resY);
+    ctx.lineTo(swResStartX, resY);
+    ctx.stroke();
+
+    ctx.fillStyle = '#94a3b8';
+    ctx.beginPath(); ctx.arc(swResStartX, resY, 3.5, 0, PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(swResEndX, resY, 3.5, 0, PI * 2); ctx.fill();
+    ctx.strokeStyle = resActive ? '#fb923c' : '#64748b';
+    ctx.lineWidth = 2.8;
+    ctx.beginPath();
+    ctx.moveTo(swResStartX, resY);
+    if (resActive) ctx.lineTo(swResEndX, resY);
+    else ctx.lineTo(swResStartX + 24, resY - 14);
+    ctx.stroke();
+
+    ctx.strokeStyle = resActive ? '#fb923c' : 'rgba(148, 163, 184, 0.45)';
+    ctx.lineWidth = 2.6;
+    ctx.beginPath();
+    ctx.moveTo(swResEndX, resY);
+    ctx.lineTo(capCenterX - resHalfW, resY);
+    const zigs = 6, zigW = (resHalfW * 2) / zigs;
+    for (let i = 0; i < zigs; i++) {
+        const x0 = capCenterX - resHalfW + i * zigW;
+        ctx.lineTo(x0 + zigW * 0.25, resY - 10);
+        ctx.lineTo(x0 + zigW * 0.75, resY + 10);
+        ctx.lineTo(x0 + zigW, resY);
+    }
+    ctx.lineTo(rightRailX, resY);
+    ctx.stroke();
+
+    if (resActive && activeFlow > 0.02) {
+        const glow = ctx.createRadialGradient(capCenterX, resY, 4, capCenterX, resY, 44);
+        glow.addColorStop(0, `rgba(251, 146, 60, ${Math.min(0.7, activeFlow * 0.65)})`);
+        glow.addColorStop(1, 'rgba(251, 146, 60, 0)');
+        ctx.fillStyle = glow;
+        ctx.beginPath(); ctx.arc(capCenterX, resY, 44, 0, PI * 2); ctx.fill();
+    }
+    ctx.fillStyle = resActive ? '#fdba74' : '#94a3b8';
+    ctx.font = '600 12px Inter, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('Discharge Resistor (R)', capCenterX, resY - 16);
+
+    // ---- Battery / Voltage Source Branch (under the resistor, + left, − right) ----
+    const srcActive = cMode === 'charging';
+    const swBatStartX = leftRailX + 26;
+    const swBatEndX = leftRailX + 56;
+
+    ctx.strokeStyle = srcActive ? '#ef4444' : 'rgba(148, 163, 184, 0.45)';
+    ctx.lineWidth = 2.8;
+    ctx.beginPath();
+    ctx.moveTo(leftRailX, batY);
+    ctx.lineTo(swBatStartX, batY);
+    ctx.stroke();
+
+    ctx.fillStyle = '#94a3b8';
+    ctx.beginPath(); ctx.arc(swBatStartX, batY, 3.5, 0, PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(swBatEndX, batY, 3.5, 0, PI * 2); ctx.fill();
+    ctx.strokeStyle = srcActive ? '#38bdf8' : '#64748b';
+    ctx.lineWidth = 2.8;
+    ctx.beginPath();
+    ctx.moveTo(swBatStartX, batY);
+    if (srcActive) ctx.lineTo(swBatEndX, batY);
+    else ctx.lineTo(swBatStartX + 24, batY - 14);
+    ctx.stroke();
+
+    ctx.strokeStyle = srcActive ? '#ef4444' : 'rgba(148, 163, 184, 0.45)';
+    ctx.beginPath();
+    ctx.moveTo(swBatEndX, batY);
+    ctx.lineTo(capCenterX - 28, batY);
+    ctx.stroke();
+
+    ctx.strokeStyle = srcActive ? '#3b82f6' : 'rgba(148, 163, 184, 0.45)';
+    ctx.beginPath();
+    ctx.moveTo(capCenterX + 28, batY);
+    ctx.lineTo(rightRailX, batY);
+    ctx.stroke();
+
+    ctx.fillStyle = '#0f172a';
+    ctx.strokeStyle = srcActive ? '#38bdf8' : '#64748b';
+    ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    ctx.arc(capCenterX, batY, 28, 0, PI * 2);
+    ctx.fill();
+    ctx.stroke();
+
+    ctx.strokeStyle = '#ef4444';
+    ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.moveTo(capCenterX - 7, batY - 13); ctx.lineTo(capCenterX - 7, batY + 13); ctx.stroke();
+    ctx.strokeStyle = '#3b82f6';
+    ctx.lineWidth = 4.5;
+    ctx.beginPath(); ctx.moveTo(capCenterX + 7, batY - 7); ctx.lineTo(capCenterX + 7, batY + 7); ctx.stroke();
+
+    ctx.font = 'bold 13px "SF Mono", monospace';
+    ctx.fillStyle = '#ef4444'; ctx.fillText('+', capCenterX - 17, batY - 10);
+    ctx.fillStyle = '#3b82f6'; ctx.fillText('−', capCenterX + 17, batY - 10);
+    ctx.fillStyle = '#f8fafc';
+    ctx.font = '600 12px "SF Mono", monospace';
+    ctx.fillText(`Voltage Source (${pState.V} V)`, capCenterX, batY + 44);
+
+    // ---- Dynamic Electron Stream Along the Wires (scales density & speed with real-time dV/dt) ----
+    if (pState.showCharges && activeFlow > 0.005) {
+        const activeY = cMode === 'charging' ? batY : resY;
+        // Electron flow path: when charging (flowDir > 0), electrons are pulled OUT of the left (+Q) plate,
+        // down the left rail, through the battery (+ to −), and pushed UP the right rail into the right (−Q) plate.
+        const pathPts = [
+            { x: posLeadX, y: plateBotY },
+            { x: posLeadX, y: kneeY },
+            { x: leftRailX, y: kneeY },
+            { x: leftRailX, y: activeY },
+            { x: capCenterX - 28, y: activeY },
+            { x: capCenterX + 28, y: activeY },
+            { x: rightRailX, y: activeY },
+            { x: rightRailX, y: kneeY },
+            { x: negLeadX, y: kneeY },
+            { x: negLeadX, y: plateBotY }
+        ];
+        const segments = [[0, 1], [1, 2], [2, 3], [3, 4], [5, 6], [6, 7], [7, 8], [8, 9]];
+        // More charges appear in the wire when current / voltage step is higher!
+        const spacing = Math.max(14, Math.round(32 - Math.min(18, activeFlow * 12)));
+        const phase = ((pState.wirePhase % spacing) + spacing) % spacing;
+
+        segments.forEach(([ai, bi]) => {
+            const a = pathPts[ai], b = pathPts[bi];
+            const segLen = Math.hypot(b.x - a.x, b.y - a.y);
+            if (segLen < 1) return;
+            const ux = (b.x - a.x) / segLen, uy = (b.y - a.y) / segLen;
+            for (let dist = phase; dist < segLen; dist += spacing) {
+                const px = a.x + ux * dist, py = a.y + uy * dist;
+                // Glowing mobile electron particle
+                const eGrad = ctx.createRadialGradient(px, py, 1, px, py, 6);
+                eGrad.addColorStop(0, '#e0f2fe');
+                eGrad.addColorStop(0.5, '#38bdf8');
+                eGrad.addColorStop(1, 'rgba(56, 189, 248, 0)');
+                ctx.fillStyle = eGrad;
+                ctx.beginPath(); ctx.arc(px, py, 6, 0, PI * 2); ctx.fill();
+                ctx.fillStyle = '#0284c7';
+                ctx.beginPath(); ctx.arc(px, py, 3.3, 0, PI * 2); ctx.fill();
+                ctx.fillStyle = '#fff';
+                ctx.font = 'bold 8px "SF Mono", monospace';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText('−', px, py);
+            }
+        });
+
+        // Flow direction caption near bottom rails
+        ctx.fillStyle = '#7dd3fc';
+        ctx.font = '500 11px Inter, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'alphabetic';
+        const dirText = flowDir > 0
+            ? 'e⁻ pulled from left plate (leaving + holes) → pushed into right plate'
+            : 'e⁻ returning from right plate → recombining with + holes in left plate';
+        ctx.fillText(dirText, capCenterX, kneeY - 8);
+    }
+
+    // ---- Dielectric Block Between Plates (2D Cross-Section) ----
+    if (pState.k > 1.0) {
+        ctx.fillStyle = 'rgba(34, 211, 238, 0.18)';
+        ctx.strokeStyle = 'rgba(103, 232, 249, 0.55)';
+        ctx.lineWidth = 1.5;
+        ctx.fillRect(gapStartX + 2, plateTopY + 4, gap - 4, plateH - 8);
+        ctx.strokeRect(gapStartX + 2, plateTopY + 4, gap - 4, plateH - 8);
+        ctx.fillStyle = '#cffafe';
+        ctx.font = 'bold 12px "SF Mono", monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText(`Dielectric κ = ${pState.k}`, capCenterX, plateBotY - 10);
+    }
+
+    // ---- Electric Field Lines Holding Opposite Charges in Place ----
+    if (pState.showField && vcAbs > 0.15) {
+        const numLines = Math.max(4, Math.min(14, Math.round(3 + Math.sqrt(vNorm) * 10)));
+        const fieldAlpha = Math.min(0.95, 0.25 + Math.sqrt(vNorm) * 0.7);
+        const fieldColor = `rgba(253, 224, 71, ${fieldAlpha * 0.55})`;
+        const arrowColor = `rgba(253, 224, 71, ${fieldAlpha})`;
+        for (let i = 0; i < numLines; i++) {
+            const frac = (i + 0.5) / numLines;
+            const py = plateTopY + 12 + frac * (plateH - 24);
+            drawFieldLineWithArrows(gapStartX + 5, py, gapEndX - 5, py, fieldColor, arrowColor, 2);
+        }
+        ctx.fillStyle = '#fde047';
+        ctx.font = '600 12px Inter, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText(`E = ${formatEng(pState.E, 'V/m')} →`, capCenterX, plateTopY - 12);
+        if (cMode === 'holding') {
+            ctx.fillStyle = '#a7f3d0';
+            ctx.font = '500 11px Inter, sans-serif';
+            ctx.fillText('Attractive E-field traps + holes and − electrons on the inner plate walls', capCenterX, plateTopY - 30);
+        }
+    }
+
+    // ---- 2D Cross-Section Metallic Plates (Interior Cutaway View) ----
+    // Dark metallic interior so internal lattice holes and trapped electrons stand out clearly
+    const posGrad = ctx.createLinearGradient(posX, plateTopY, posX + plateW, plateTopY);
+    posGrad.addColorStop(0, '#1e293b');
+    posGrad.addColorStop(0.65, '#331b22');
+    posGrad.addColorStop(1, '#4c1d24');
+    ctx.fillStyle = posGrad;
+    ctx.strokeStyle = '#f87171';
+    ctx.lineWidth = 2;
+    ctx.fillRect(posX, plateTopY, plateW, plateH);
+    ctx.strokeRect(posX, plateTopY, plateW, plateH);
+
+    const negGrad = ctx.createLinearGradient(negX, plateTopY, negX + plateW, plateTopY);
+    negGrad.addColorStop(0, '#172554');
+    negGrad.addColorStop(0.35, '#1e293b');
+    negGrad.addColorStop(1, '#1e293b');
+    ctx.fillStyle = negGrad;
+    ctx.strokeStyle = '#60a5fa';
+    ctx.lineWidth = 2;
+    ctx.fillRect(negX, plateTopY, plateW, plateH);
+    ctx.strokeRect(negX, plateTopY, plateW, plateH);
+
+    // ---- Internal Lattice & Trapped Charges / Holes Inside the Plates ----
+    if (pState.showCharges) {
+        // Build a 2-column lattice inside each plate:
+        // - Outer column (away from gap): neutral background lattice sites (atom + bound electron)
+        // - Inner column + middle column (facing the gap): dynamically populated with
+        //   vacant electron HOLES (+ dashed rings) in the left plate and TRAPPED ELECTRONS (− spheres)
+        //   in the right plate, pulled toward the inner surface by the electric field E!
+        const rows = Math.max(6, Math.min(14, Math.floor((plateH - 16) / 14)));
+        const maxCarriers = rows * 2; // Up to 28 trapped charge/hole sites per plate at 100 V
+        // Continuous carrier count that increases smoothly in real time as Vc rises
+        const exactCarriers = vcAbs < 0.1 ? 0 : Math.min(maxCarriers, Math.max(1, (vcAbs / 100) * maxCarriers * 0.85 + Math.sqrt(vNorm) * maxCarriers * 0.15));
+        const activeCount = Math.round(exactCarriers);
+        // Stronger E-field pulls trapped charges closer to the inner dielectric boundary
+        const fieldPull = Math.min(1, Math.sqrt(vNorm));
+
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+
+        for (let idx = 0; idx < maxCarriers; idx++) {
+            const col = idx < rows ? 0 : 1; // col 0 fills first (inner surface), col 1 fills at higher voltages
+            const row = idx % rows;
+            const ry = plateTopY + 12 + ((row + 0.5) / rows) * (plateH - 24);
+            // Thermal micro-jitter (deterministic per site + simTime) so trapped charges feel alive
+            const jitterX = Math.sin(simTime * 5.5 + idx * 1.7) * (1.2 - 0.6 * fieldPull);
+            const jitterY = Math.cos(simTime * 4.8 + idx * 2.3) * 1.1;
+
+            const isChargedSite = idx < activeCount;
+
+            // Left Plate (+Q): when an electron leaves, it uncovers a positive ion core + vacant HOLE
+            const posBaseX = col === 0
+                ? (posX + plateW - 8 - (1 - fieldPull) * 3)
+                : (posX + 11 + fieldPull * 4);
+            const hx = posBaseX + jitterX * 0.5;
+            const hy = ry + jitterY * 0.5;
+
+            if (isChargedSite) {
+                // Draw glowing Positive Ion Core + Dashed Vacancy Hole Ring
+                ctx.fillStyle = 'rgba(248, 113, 113, 0.22)';
+                ctx.beginPath(); ctx.arc(hx, hy, 5.5, 0, PI * 2); ctx.fill();
+                ctx.save();
+                ctx.strokeStyle = '#fca5a5';
+                ctx.lineWidth = 1.3;
+                ctx.setLineDash([2.2, 2.2]);
+                ctx.beginPath(); ctx.arc(hx, hy, 4.3, simTime * 1.5, simTime * 1.5 + PI * 2); ctx.stroke();
+                ctx.restore();
+                ctx.fillStyle = '#fecaca';
+                ctx.font = 'bold 8.5px "SF Mono", monospace';
+                ctx.fillText('+', hx, hy + 0.3);
+            } else {
+                // Neutral metal atom (positive core + bound electron pair)
+                ctx.fillStyle = 'rgba(148, 163, 184, 0.25)';
+                ctx.beginPath(); ctx.arc(posBaseX, ry, 2.5, 0, PI * 2); ctx.fill();
+            }
+
+            // Right Plate (−Q): excess mobile electrons accumulate & are held against the inner wall by E
+            const negBaseX = col === 0
+                ? (negX + 8 + (1 - fieldPull) * 3)
+                : (negX + plateW - 11 - fieldPull * 4);
+            const ex = negBaseX + jitterX;
+            const ey = ry + jitterY;
+
+            if (isChargedSite) {
+                // Draw Trapped Mobile Electron Sphere
+                const eGlow = ctx.createRadialGradient(ex, ey, 0.5, ex, ey, 6);
+                eGlow.addColorStop(0, '#e0f2fe');
+                eGlow.addColorStop(0.55, '#38bdf8');
+                eGlow.addColorStop(1, 'rgba(56, 189, 248, 0)');
+                ctx.fillStyle = eGlow;
+                ctx.beginPath(); ctx.arc(ex, ey, 6, 0, PI * 2); ctx.fill();
+
+                ctx.fillStyle = '#0284c7';
+                ctx.strokeStyle = '#bae6fd';
+                ctx.lineWidth = 1;
+                ctx.beginPath(); ctx.arc(ex, ey, 4.1, 0, PI * 2); ctx.fill(); ctx.stroke();
+
+                ctx.fillStyle = '#ffffff';
+                ctx.font = 'bold 8.5px "SF Mono", monospace';
+                ctx.fillText('−', ex, ey + 0.3);
+            } else {
+                // Neutral metal lattice site
+                ctx.fillStyle = 'rgba(148, 163, 184, 0.25)';
+                ctx.beginPath(); ctx.arc(negBaseX, ry, 2.5, 0, PI * 2); ctx.fill();
+            }
+        }
+    }
+
+    // ---- Plate Labels & Live Carrier Readout ----
+    ctx.textBaseline = 'alphabetic';
+    ctx.font = 'bold 12px "SF Mono", monospace';
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#f87171';
+    ctx.fillText('+Q Plate (Holes)', posX - 58, plateMidY - 6);
+    ctx.font = '500 10.5px Inter, sans-serif';
+    ctx.fillStyle = '#fca5a5';
+    ctx.fillText('e⁻ depleted vacancies', posX - 58, plateMidY + 10);
+
+    ctx.font = 'bold 12px "SF Mono", monospace';
+    ctx.fillStyle = '#60a5fa';
+    ctx.fillText('−Q Plate (Electrons)', negX + plateW + 68, plateMidY - 6);
+    ctx.font = '500 10.5px Inter, sans-serif';
+    ctx.fillStyle = '#93c5fd';
+    ctx.fillText('Trapped excess e⁻', negX + plateW + 68, plateMidY + 10);
+
+    ctx.font = 'bold 13px "SF Mono", monospace';
+    ctx.fillStyle = '#38bdf8';
+    ctx.fillText(`Vc = ${(pState.Vc || 0).toFixed(1)} V`, capCenterX, plateBotY + 20);
+    ctx.restore();
 }
 
 function renderParallelPlate(d, baseW) {

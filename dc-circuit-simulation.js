@@ -5,7 +5,7 @@
     // Geometry is deliberately absent: moving a symbol never resets stored energy.
     function electricalKey(doc){
         return JSON.stringify({
-            components:doc.components.map(({id,type,terminals,value,closed,initialVoltage})=>({id,type,terminals,value,closed,initialVoltage})),
+            components:doc.components.map(({id,type,terminals,value,closed,initialVoltage,frequency,phase,turnsPrimary,turnsSecondary})=>({id,type,terminals,value,closed,initialVoltage,frequency,phase,turnsPrimary,turnsSecondary})),
             wires:doc.wires.map(({id,fromEndpoint,toEndpoint})=>({id,fromEndpoint,toEndpoint})),
             junctions:doc.junctions.map(j=>j.id),references:doc.referenceEndpoints
         });
@@ -23,9 +23,9 @@
                 const compiled=D.compileCircuit(this.doc);
                 if(changed){
                     const previous=reset?null:this.state||this.retained;
-                    const caps=Object.fromEntries(this.doc.components.filter(c=>c.type==='capacitor').map(c=>[c.id,previous?.capacitorVoltagesById[c.id]??c.initialVoltage]));
-                    const next=D.initializeTransient(compiled,caps);
-                    next.time=previous?.time||0;
+                    const caps=Object.fromEntries(this.doc.components.filter(c=>c.type==='capacitor').map(c=>[c.id,previous?.capacitorVoltagesById?.[c.id]??c.initialVoltage]));
+                    const inductors=Object.fromEntries(this.doc.components.filter(c=>c.type==='transformer'&&Number.isInteger(c.turnsPrimary)&&Number.isInteger(c.turnsSecondary)).map(c=>[c.id,previous?.inductorCurrentsById?.[c.id]??0]));
+                    const next=D.initializeTransient(compiled,caps,inductors,previous?.time||0);
                     this.state=next;this.retained=next;
                 }
                 this.compiled=compiled;this.key=nextKey;
@@ -42,7 +42,7 @@
         reset(){this.retained=null;this.state=null;return this.rebuild(true);}
         advance(target,options){
             if(this.error||!this.state)return;
-            if(!Object.keys(this.state.capacitorVoltagesById).length){
+            if(!D.isDynamic(this.compiled)){
                 this.state={...this.state,time:target,samples:[],behind:false};this.retained=this.state;return this.state;
             }
             const next=D.advanceTransient(this.compiled,this.state,target,options);
@@ -68,8 +68,19 @@
     class CurrentMotion{
         constructor(){this.distances=new Map();this.reference=.01;this.clipped=false;}
         reset(){this.distances.clear();this.clipped=false;}
-        calibrate(solution){
-            const peak=Math.max(0,...Object.values(solution?.componentResults||{}).map(r=>Math.abs(r.current)||0));
+        calibrate(solution,compiled=null){
+            const currentPeak=s=>Math.max(0,...Object.values(s?.componentResults||{}).flatMap(r=>[Math.abs(r.current)||0,Math.abs(r.primaryCurrent)||0,Math.abs(r.secondaryCurrent)||0]));
+            let peak=currentPeak(solution);
+            if(compiled&&compiled.components.some(c=>c.type==='ac')){
+                const freqs=compiled.components.filter(c=>c.type==='ac'&&c.frequency>0).map(c=>c.frequency);
+                const period=freqs.length?1/Math.min(...freqs):1;
+                try{
+                    for(let k=1;k<=8;k++){
+                        const sample=D.solve(compiled,{mode:'dc',time:period*k/16,measureWires:false});
+                        peak=Math.max(peak,currentPeak(sample));
+                    }
+                }catch{}
+            }
             this.reference=peak>1e-14?Math.pow(10,Math.ceil(Math.log10(peak))):.01;
         }
         advance(solution,dt,previous=solution){

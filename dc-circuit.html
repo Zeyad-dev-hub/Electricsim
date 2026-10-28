@@ -2,15 +2,15 @@
 <html lang="en">
 <head>
   <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-  <meta name="theme-color" content="#000"><title>Electricsim · DC Circuit Lab</title>
-  <meta name="description" content="Build and explore DC circuits with batteries, resistors, lamps, capacitors, switches and ground.">
+  <meta name="theme-color" content="#000"><title>Electricsim · Circuits Lab</title>
+  <meta name="description" content="Build and explore circuits with batteries, AC sources, diodes, transformers, resistors, lamps, capacitors, switches and ground.">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="research-theme.css?v=2"><link rel="stylesheet" href="dc-circuit.css?v=interaction-2">
+  <link rel="stylesheet" href="research-theme.css?v=2"><link rel="stylesheet" href="dc-circuit.css?v=circuits-1">
 </head>
 <body>
 <canvas id="bgCanvas" aria-hidden="true"></canvas>
 <header class="dc-top">
-  <a href="index.html">← Electricsim</a><h1>DC Circuit Lab</h1>
+  <a href="index.html">← Electricsim</a><h1>Circuits Lab</h1>
   <div><button id="undoBtn" title="Undo · Ctrl+Z">Undo</button><button id="redoBtn" title="Redo · Ctrl+Shift+Z">Redo</button><button id="clearBtn">Clear</button></div>
 </header>
 <main>
@@ -20,6 +20,9 @@
     <button data-tool="lamp" aria-pressed="false">⊗ Lamp</button>
     <button data-tool="capacitor" aria-pressed="false">⊣⊢ Capacitor</button>
     <button data-tool="voltage" aria-pressed="false">＋− Battery</button>
+    <button data-tool="ac" aria-pressed="false">∿ AC Source</button>
+    <button data-tool="diode" aria-pressed="false">▷| Diode</button>
+    <button data-tool="transformer" aria-pressed="false">‖ Transformer</button>
     <button data-tool="switch" aria-pressed="false">╱ Switch</button>
     <button data-tool="wire" aria-pressed="false">└─ Wire</button>
     <button data-tool="ground" aria-pressed="false">⏚ Ground</button>
@@ -31,6 +34,7 @@
     <button id="rotatePlacementBtn" hidden>Rotate next</button>
   </div>
   <div class="dc-navigation">
+    <label for="exampleSelect">Examples</label><select id="exampleSelect" aria-label="Load a famous circuit example"><option value="">Choose an example…</option></select>
     <label for="selectionSelect">Select</label><select id="selectionSelect" aria-label="Select a component, wire or connection"><option value="">Choose an object</option></select>
     <button id="connectSelectedBtn" hidden>Use selected endpoint</button>
     <div class="dc-zoom"><button id="zoomOutBtn" aria-label="Zoom out">−</button><button id="zoomInBtn" aria-label="Zoom in">+</button><button id="fitBtn">Fit view</button></div>
@@ -41,11 +45,23 @@
     <aside id="inspector" hidden aria-label="Selected object">
       <form id="componentEditor" hidden>
         <strong id="selectedTitle"></strong>
-        <div class="dc-value" id="valueRow"><label id="valueLabel" for="valueInput">Value</label><input id="valueInput" type="number" step="any" required><select id="unitSelect" aria-label="Unit"></select><button type="submit">Apply</button></div>
+        <div class="dc-value" id="valueRow"><label id="valueLabel" for="valueInput">Value</label><input id="valueInput" type="number" step="any" required><select id="unitSelect" aria-label="Unit"></select><div id="acExtra" class="dc-ac-extra" hidden><label for="frequencyInput">Frequency (Hz)</label><input id="frequencyInput" type="number" step="any" min="0.01" max="1000" value="1"><label for="phaseInput">Phase (°)</label><input id="phaseInput" type="number" step="any" value="0"></div><button type="submit">Apply</button></div>
+        <div id="transformerRow" class="dc-transformer-editor" hidden>
+          <label for="turnsPrimaryInput">Turns ratio (Np : Ns)</label>
+          <div class="dc-ratio">
+            <input id="turnsPrimaryInput" type="number" min="1" max="100000" step="1" placeholder="Np" aria-label="Primary turns Np">
+            <span class="dc-ratio-colon" aria-hidden="true">:</span>
+            <input id="turnsSecondaryInput" type="number" min="1" max="100000" step="1" placeholder="Ns" aria-label="Secondary turns Ns">
+          </div>
+          <button type="submit" id="applyTurnsBtn">Apply turns ratio</button>
+        </div>
         <button id="toggleSwitchBtn" type="button" aria-pressed="false" hidden>Close switch</button>
         <p id="capacitorNote" hidden>Value edits retain voltage. Plate marks show scaled charge: one mark ≈ 2 mC, up to five.</p>
         <p id="lampNote" hidden>Fixed-resistance lamp. Glow follows power, reaching full brightness at 1 W.</p>
         <p id="switchNote" hidden>Tap the button to open or close the circuit, including while running.</p>
+        <p id="diodeNote" hidden>Practical diode model: 0.7 V forward drop when conducting (A → B), open circuit when reverse-biased.</p>
+        <p id="acNote" hidden>Sinusoidal AC voltage source v(t) = Vp·sin(2πft + φ). Press Run to watch current grade, pause at zero, and reverse.</p>
+        <p id="transformerNote" hidden>Enter positive whole numbers for primary (P1–P2) and secondary (S1–S2) turns.</p>
         <div class="dc-edit-actions"><button type="button" id="duplicateBtn">Duplicate</button><button type="button" id="rotateBtn">Rotate</button><button type="button" id="deleteBtn">Delete</button><button type="button" id="closeEditorBtn">Done</button></div>
       </form>
       <div id="objectEditor" hidden><strong id="objectTitle"></strong><p id="objectDescription"></p><button id="deleteObjectBtn">Delete</button><button id="closeObjectBtn">Done</button></div>
@@ -69,5 +85,5 @@
     <div class="dc-table-scroll"><table><caption>Accepted circuit measurements</caption><thead><tr><th scope="col">Component</th><th scope="col">Voltage A − B</th><th scope="col">Current A → B</th><th scope="col">Power</th></tr></thead><tbody id="measurementRows"></tbody></table></div>
   </details>
 </main>
-<script src="dc-circuit-model.js?v=lamp-1"></script><script src="dc-circuit-topology.js?v=review-1"></script><script src="dc-circuit-solver.js?v=lamp-1"></script><script src="dc-circuit-editor.js?v=interaction-2"></script><script src="dc-circuit-simulation.js?v=review-1"></script><script src="dc-circuit-renderer.js?v=interaction-2"></script><script src="dc-circuit.js?v=interaction-2"></script><script src="shared-bg.js"></script>
+<script src="dc-circuit-model.js?v=circuits-2"></script><script src="dc-circuit-topology.js?v=circuits-2"></script><script src="dc-circuit-solver.js?v=circuits-2"></script><script src="dc-circuit-editor.js?v=circuits-2"></script><script src="dc-circuit-presets.js?v=circuits-2"></script><script src="dc-circuit-simulation.js?v=circuits-2"></script><script src="dc-circuit-renderer.js?v=circuits-2"></script><script src="dc-circuit.js?v=circuits-2"></script><script src="shared-bg.js"></script>
 </body></html>

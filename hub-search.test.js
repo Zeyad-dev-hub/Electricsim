@@ -5,13 +5,13 @@ const fs=require('node:fs'),path=require('node:path'),html=fs.readFileSync(path.
 assert.equal(normalize("Gauss’s Law"),'gausss law');
 assert.ok(matches("Gauss's Law Explorer electric flux",' GAUSS flux '));
 assert.ok(matches('Semiconductor Physics Lab thermal excitation doping','DOPING'));
-assert.ok(matches('DC Circuit Lab resistor capacitor battery','dc resistor'));
+assert.ok(matches('Circuits Lab resistor capacitor battery ac diode transformer','ac diode'));
 assert.ok(matches('Capacitor Simulator dielectric networks','dielectric'));
 assert.ok(matches('Conductivity Explorer electron drift',''));
 assert.ok(matches('Conductivity Explorer electron drift','  '));
-assert.ok(!matches('DC Circuit Lab','gauss'));
+assert.ok(!matches('Circuits Lab','gauss'));
 assert.ok(!matches('Semiconductor Lab','<script>alert(1)</script>'));
-assert.ok(!matches('DC Circuit Lab','dc missingtopic'));
+assert.ok(!matches('Circuits Lab','dc missingtopic'));
 assert.equal((html.match(/class="nav-card glass-panel"/g)||[]).length,6);
 assert.ok(!html.includes('card-visual'));
 assert.ok(!html.includes('body.hub-body {'));
