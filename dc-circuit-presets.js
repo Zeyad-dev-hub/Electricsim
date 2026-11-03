@@ -6,12 +6,16 @@
         definitions.forEach(([label,type,a,b,value,extra={}],i)=>{const pa=node(a).position,pb=node(b).position,c=D.component(type,(pa.x+pb.x)/2,(pa.y+pb.y)/2,label);c.id=label;c.terminals=[`${label}:a`,`${label}:b`];c.value=value;Object.assign(c,extra);c.rotation=pa.x===pb.x?90:0;doc.components.push(c);D.wire(doc,`${label}:a`,node(a).id);D.wire(doc,`${label}:b`,node(b).id);});
         if(nodes.has('0'))doc.referenceEndpoints=[nodes.get('0').id];return doc;
     }
+    function place(doc,id,type,x,y,rotation,value,extra={}){
+        const c=D.component(type,x,y,id);c.id=id;c.terminals=type==='transformer'?['p1','p2','s1','s2'].map(s=>`${id}:${s}`):[`${id}:a`,`${id}:b`];
+        c.value=value;c.rotation=rotation;Object.assign(c,extra);doc.components.push(c);return c;
+    }
+    function junc(doc,id,x,y){const j={id,position:{x,y}};doc.junctions.push(j);return j;}
     function makeHalfWave(){
         const doc=D.blank();
-        const ac=D.component('ac',-240,0,'AC1');ac.value=10;ac.frequency=1;ac.rotation=90;
-        const d1=D.component('diode',0,-144,'D1');d1.value=.7;d1.rotation=0;
-        const r1=D.component('resistor',240,0,'R1');r1.value=100;r1.rotation=90;
-        doc.components.push(ac,d1,r1);
+        const ac=place(doc,'AC1','ac',-240,0,90,10,{frequency:1});
+        const d1=place(doc,'D1','diode',0,-144,0,.7);
+        const r1=place(doc,'R1','resistor',240,0,90,100);
         D.wire(doc,ac.terminals[0],d1.terminals[0]);
         D.wire(doc,d1.terminals[1],r1.terminals[0]);
         D.wire(doc,r1.terminals[1],ac.terminals[1]);
@@ -35,7 +39,7 @@
         const d3=D.component('diode',-84,-84,'D3');d3.rotation=315;
         // D4: left (-) DC node -> bottom AC node (45°)
         const d4=D.component('diode',-84,84,'D4');d4.rotation=45;
-        const rLoad=D.component('resistor',360,0,'R1');rLoad.value=100;rLoad.rotation=90;
+        const rLoad=D.component('resistor',432,-72,'R1');rLoad.value=100;rLoad.rotation=90;
         doc.components.push(ac,d1,d2,d3,d4,rLoad);
         D.wire(doc,d1.terminals[0],nTop.id);D.wire(doc,d1.terminals[1],nRight.id);
         D.wire(doc,d2.terminals[0],nBot.id);D.wire(doc,d2.terminals[1],nRight.id);
@@ -43,17 +47,16 @@
         D.wire(doc,d4.terminals[0],nLeft.id);D.wire(doc,d4.terminals[1],nBot.id);
         D.wire(doc,ac.terminals[0],nTop.id,[{x:-360,y:-240},{x:0,y:-240}]);
         D.wire(doc,ac.terminals[1],nBot.id,[{x:-360,y:240},{x:0,y:240}]);
-        D.wire(doc,nRight.id,rLoad.terminals[0],[{x:360,y:-120}]);
-        D.wire(doc,rLoad.terminals[1],nLeft.id,[{x:360,y:288},{x:-168,y:288}]);
+        D.wire(doc,nRight.id,rLoad.terminals[0],[{x:312,y:0},{x:312,y:-168},{x:432,y:-168}]);
+        D.wire(doc,rLoad.terminals[1],nLeft.id,[{x:432,y:288},{x:-168,y:288}]);
         doc.referenceEndpoints.push(nLeft.id);
         return doc;
     }
     function makeTransformerStepUp(){
         const doc=D.blank();
-        const ac=D.component('ac',-288,0,'AC1');ac.value=10;ac.frequency=1;ac.rotation=90;
-        const tr=D.component('transformer',0,0,'T1');tr.turnsPrimary=1;tr.turnsSecondary=5;
-        const rLoad=D.component('resistor',288,0,'R1');rLoad.value=250;rLoad.rotation=90;
-        doc.components.push(ac,tr,rLoad);
+        const ac=place(doc,'AC1','ac',-240,0,90,10,{frequency:1});
+        const tr=place(doc,'T1','transformer',0,0,0,0,{turnsPrimary:1,turnsSecondary:5});
+        const rLoad=place(doc,'R1','resistor',240,0,90,250);
         D.wire(doc,ac.terminals[0],tr.terminals[0]);
         D.wire(doc,ac.terminals[1],tr.terminals[1]);
         D.wire(doc,tr.terminals[2],rLoad.terminals[0]);
@@ -61,20 +64,207 @@
         doc.referenceEndpoints.push(ac.terminals[1],tr.terminals[3]);
         return doc;
     }
+    function makeRCChargeDischarge(){
+        const doc=D.blank();
+        const ns=junc(doc,'node-s',96,120);
+        const na=junc(doc,'node-a',312,120);
+        const nb=junc(doc,'node-b',552,120);
+        const nd=junc(doc,'node-d',792,120);
+        const n0=junc(doc,'node-0',552,408);
+        const v1=place(doc,'V1','voltage',96,264,90,9);
+        const s1=place(doc,'S1','switch',216,120,0,0,{closed:true});
+        const r1=place(doc,'R1','resistor',432,120,0,1000);
+        const c1=place(doc,'C1','capacitor',552,264,90,.001);
+        const s2=place(doc,'S2','switch',672,120,0,0,{closed:false});
+        const r2=place(doc,'R2','resistor',792,264,90,1000);
+        D.wire(doc,v1.terminals[0],ns.id);
+        D.wire(doc,v1.terminals[1],n0.id);
+        D.wire(doc,s1.terminals[0],ns.id);
+        D.wire(doc,s1.terminals[1],na.id);
+        D.wire(doc,r1.terminals[0],na.id);
+        D.wire(doc,r1.terminals[1],nb.id);
+        D.wire(doc,c1.terminals[0],nb.id);
+        D.wire(doc,c1.terminals[1],n0.id);
+        D.wire(doc,s2.terminals[0],nb.id);
+        D.wire(doc,s2.terminals[1],nd.id);
+        D.wire(doc,r2.terminals[0],nd.id);
+        D.wire(doc,r2.terminals[1],n0.id);
+        doc.referenceEndpoints=[n0.id];
+        return doc;
+    }
+    function makeRCLamp(){
+        const doc=D.blank();
+        const ns=junc(doc,'node-s',96,120);
+        const na=junc(doc,'node-a',312,120);
+        const nb=junc(doc,'node-b',552,120);
+        const nd=junc(doc,'node-d',792,120);
+        const n0=junc(doc,'node-0',552,408);
+        const v1=place(doc,'V1','voltage',96,264,90,12);
+        const s1=place(doc,'S1','switch',216,120,0,0,{closed:true});
+        const r1=place(doc,'R1','resistor',432,120,0,100);
+        const c1=place(doc,'C1','capacitor',552,264,90,.01);
+        const s2=place(doc,'S2','switch',672,120,0,0,{closed:false});
+        const l1=place(doc,'L1','lamp',792,264,90,100);
+        D.wire(doc,v1.terminals[0],ns.id);
+        D.wire(doc,v1.terminals[1],n0.id);
+        D.wire(doc,s1.terminals[0],ns.id);
+        D.wire(doc,s1.terminals[1],na.id);
+        D.wire(doc,r1.terminals[0],na.id);
+        D.wire(doc,r1.terminals[1],nb.id);
+        D.wire(doc,c1.terminals[0],nb.id);
+        D.wire(doc,c1.terminals[1],n0.id);
+        D.wire(doc,s2.terminals[0],nb.id);
+        D.wire(doc,s2.terminals[1],nd.id);
+        D.wire(doc,l1.terminals[0],nd.id);
+        D.wire(doc,l1.terminals[1],n0.id);
+        doc.referenceEndpoints=[n0.id];
+        return doc;
+    }
+    function makeRCLadder(){
+        const doc=D.blank();
+        const ns=junc(doc,'node-s',96,120);
+        const na=junc(doc,'node-a',312,120);
+        const nb=junc(doc,'node-b',552,120);
+        const nc=junc(doc,'node-c',792,120);
+        const ng=junc(doc,'node-g',312,408);
+        const n0=junc(doc,'node-0',552,408);
+        const v1=place(doc,'V1','voltage',96,264,90,10);
+        const s1=place(doc,'S1','switch',216,120,0,0,{closed:true});
+        const s2=place(doc,'S2','switch',312,264,90,0,{closed:false});
+        const r1=place(doc,'R1','resistor',432,120,0,1000);
+        const c1=place(doc,'C1','capacitor',552,264,90,.001);
+        const r2=place(doc,'R2','resistor',672,120,0,1000);
+        const c2=place(doc,'C2','capacitor',792,264,90,.001);
+        D.wire(doc,v1.terminals[0],ns.id);
+        D.wire(doc,v1.terminals[1],ng.id);
+        D.wire(doc,s1.terminals[0],ns.id);
+        D.wire(doc,s1.terminals[1],na.id);
+        D.wire(doc,s2.terminals[0],na.id);
+        D.wire(doc,s2.terminals[1],ng.id);
+        D.wire(doc,ng.id,n0.id);
+        D.wire(doc,r1.terminals[0],na.id);
+        D.wire(doc,r1.terminals[1],nb.id);
+        D.wire(doc,c1.terminals[0],nb.id);
+        D.wire(doc,c1.terminals[1],n0.id);
+        D.wire(doc,r2.terminals[0],nb.id);
+        D.wire(doc,r2.terminals[1],nc.id);
+        D.wire(doc,c2.terminals[0],nc.id);
+        D.wire(doc,c2.terminals[1],n0.id);
+        doc.referenceEndpoints=[n0.id];
+        return doc;
+    }
+    function makeOhm(){
+        const doc=D.blank();
+        const na=junc(doc,'node-a',144,120);
+        const nb=junc(doc,'node-b',528,120);
+        const n0=junc(doc,'node-0',528,408);
+        const v1=place(doc,'V1','voltage',144,264,90,12);
+        const s1=place(doc,'S1','switch',336,120,0,0,{closed:true});
+        const r1=place(doc,'R1','resistor',528,264,90,300);
+        D.wire(doc,v1.terminals[0],na.id);
+        D.wire(doc,v1.terminals[1],n0.id);
+        D.wire(doc,s1.terminals[0],na.id);
+        D.wire(doc,s1.terminals[1],nb.id);
+        D.wire(doc,r1.terminals[0],nb.id);
+        D.wire(doc,r1.terminals[1],n0.id);
+        doc.referenceEndpoints=[n0.id];
+        return doc;
+    }
+    function makeSeries(){
+        const doc=D.blank();
+        const na=junc(doc,'node-a',144,120);
+        const nb=junc(doc,'node-b',576,120);
+        const n0=junc(doc,'node-0',576,408);
+        const v1=place(doc,'V1','voltage',144,264,90,12);
+        const r1=place(doc,'R1','resistor',360,120,0,100);
+        const r2=place(doc,'R2','resistor',576,264,90,200);
+        D.wire(doc,v1.terminals[0],na.id);
+        D.wire(doc,v1.terminals[1],n0.id);
+        D.wire(doc,r1.terminals[0],na.id);
+        D.wire(doc,r1.terminals[1],nb.id);
+        D.wire(doc,r2.terminals[0],nb.id);
+        D.wire(doc,r2.terminals[1],n0.id);
+        doc.referenceEndpoints=[n0.id];
+        return doc;
+    }
+    function makeParallel(){
+        const doc=D.blank();
+        const na=junc(doc,'node-a',384,120);
+        const n0=junc(doc,'node-0',384,408);
+        const v1=place(doc,'V1','voltage',192,264,90,12);
+        const r1=place(doc,'R1','resistor',384,264,90,100);
+        const r2=place(doc,'R2','resistor',576,264,90,200);
+        D.wire(doc,v1.terminals[0],na.id);
+        D.wire(doc,v1.terminals[1],n0.id);
+        D.wire(doc,r1.terminals[0],na.id);
+        D.wire(doc,r1.terminals[1],n0.id);
+        D.wire(doc,r2.terminals[0],na.id);
+        D.wire(doc,r2.terminals[1],n0.id);
+        doc.referenceEndpoints=[n0.id];
+        return doc;
+    }
+    function makeMixed(){
+        const doc=D.blank();
+        const na=junc(doc,'node-a',120,120);
+        const nb=junc(doc,'node-b',504,120);
+        const n0=junc(doc,'node-0',504,408);
+        const v1=place(doc,'V1','voltage',120,264,90,12);
+        const r1=place(doc,'R1','resistor',312,120,0,100);
+        const r2=place(doc,'R2','resistor',504,264,90,200);
+        const r3=place(doc,'R3','resistor',696,264,90,300);
+        D.wire(doc,v1.terminals[0],na.id);
+        D.wire(doc,v1.terminals[1],n0.id);
+        D.wire(doc,r1.terminals[0],na.id);
+        D.wire(doc,r1.terminals[1],nb.id);
+        D.wire(doc,r2.terminals[0],nb.id);
+        D.wire(doc,r2.terminals[1],n0.id);
+        D.wire(doc,r3.terminals[0],nb.id);
+        D.wire(doc,r3.terminals[1],n0.id);
+        doc.referenceEndpoints=[n0.id];
+        return doc;
+    }
+    function makeBridge(){
+        const doc=D.blank();
+        const na=junc(doc,'node-a',312,72);
+        const nc=junc(doc,'node-c',312,264);
+        const nd=junc(doc,'node-d',600,264);
+        const n0=junc(doc,'node-0',312,456);
+        const v1=place(doc,'V1','voltage',120,264,90,10);
+        const r1=place(doc,'R1','resistor',312,168,90,100);
+        const r2=place(doc,'R2','resistor',312,360,90,100);
+        const r3=place(doc,'R3','resistor',600,168,90,100);
+        const r4=place(doc,'R4','resistor',600,360,90,200);
+        const r5=place(doc,'R5','resistor',456,264,0,100);
+        D.wire(doc,v1.terminals[0],na.id);
+        D.wire(doc,v1.terminals[1],n0.id);
+        D.wire(doc,r1.terminals[0],na.id);
+        D.wire(doc,r1.terminals[1],nc.id);
+        D.wire(doc,r2.terminals[0],nc.id);
+        D.wire(doc,r2.terminals[1],n0.id);
+        D.wire(doc,r3.terminals[0],na.id);
+        D.wire(doc,r3.terminals[1],nd.id);
+        D.wire(doc,r4.terminals[0],nd.id);
+        D.wire(doc,r4.terminals[1],n0.id);
+        D.wire(doc,r5.terminals[0],nc.id);
+        D.wire(doc,r5.terminals[1],nd.id);
+        doc.referenceEndpoints=[n0.id];
+        return doc;
+    }
     const presets={
+        ohm:{name:'Ohm’s law & switch',question:'Toggle S1 or double R1 to see how resistance controls current around the loop.',make:makeOhm,customLayout:true},
+        series:{name:'Series · voltage divider',question:'Both resistors carry the same 40 mA current. Notice how the 12 V divides in proportion to resistance.',make:makeSeries,customLayout:true},
+        parallel:{name:'Parallel · current split',question:'Equal 12 V across each branch, unequal branch currents. Check KCL at the top junction.',make:makeParallel,customLayout:true},
+        mixed:{name:'Mixed series-parallel network',question:'R2 and R3 share voltage in parallel while R1 carries their combined current in series.',make:makeMixed,customLayout:true},
+        bridge:{name:'Wheatstone bridge network',question:'An unbalanced bridge is not a simple series/parallel tree. Change R4 to 100 Ω to balance the bridge and zero the current in R5.',make:makeBridge,customLayout:true},
+        rc:{name:'RC · charge & discharge',question:'Press Run to charge C1 through S1 & R1. Then open S1 and close S2 to discharge C1 through R2.',make:makeRCChargeDischarge,customLayout:true},
+        rcLamp:{name:'RC · capacitor lamp flash & fade',question:'Press Run to charge C1 to 12 V. Then open S1 and close S2 to discharge C1 through lamp L1 and watch its glow fade.',make:makeRCLamp,customLayout:true},
+        ladder:{name:'Two-capacitor RC ladder',question:'Press Run to charge C1 and C2 through the two-stage ladder. Open S1 and close S2 to discharge both capacitors.',make:makeRCLadder,customLayout:true},
         halfWave:{name:'Half-wave rectifier',question:'Press Run: D1 conducts on positive AC half-cycles (dropping 0.7 V) and blocks negative half-cycles.',make:makeHalfWave,customLayout:true},
-        fullWaveBridge:{name:'Full-wave bridge rectifier',question:'Press Run: D1 & D4 conduct on one half-cycle and D2 & D3 on the other, so R1 always receives positive current without a center tap.',make:makeFullWaveBridge,customLayout:true},
+        fullWaveBridge:{name:'Full-wave bridge rectifier',question:'Press Run: D1 & D4 conduct on positive half-cycles and D2 & D3 on negative half-cycles, so R1 always receives positive current.',make:makeFullWaveBridge,customLayout:true},
         transformerStepUp:{name:'AC transformer · 1:5 step-up',question:'Press Run: 10 Vp AC on the primary is stepped up to 50 Vp across R1 on the isolated secondary.',make:makeTransformerStepUp,customLayout:true},
-        rc:{name:'RC · charge & discharge',question:'Open S1 to disconnect the battery; close S2 to discharge. How does doubling C1 change the time?',make:()=>fixture([['V1','voltage','s','0',9],['S1','switch','s','a',0,{closed:true}],['R1','resistor','a','b',1000],['C1','capacitor','b','0',.001],['S2','switch','b','d',0,{closed:false}],['R2','resistor','d','0',1000]],{s:{x:120,y:120},a:{x:320,y:120},b:{x:600,y:120},d:{x:800,y:120},'0':{x:600,y:400}})},
-        ohm:{name:'Ohm’s law',question:'What happens to the current when resistance doubles?',make:()=>fixture([['V1','voltage','a','0',12],['R1','resistor','a','0',300]],{a:{x:340,y:120},'0':{x:340,y:400}})},
-        series:{name:'Series · voltage divider',question:'Both resistors carry the same current. Where does the 12 V go?',make:()=>fixture([['V1','voltage','a','0',12],['R1','resistor','a','b',100],['R2','resistor','b','0',200]],{a:{x:180,y:120},b:{x:620,y:120},'0':{x:620,y:400}})},
-        parallel:{name:'Parallel · current split',question:'Equal terminal voltage, unequal currents. Check KCL at the junction.',make:()=>fixture([['V1','voltage','a','0',12],['R1','resistor','a','0',100],['R2','resistor','a','0',200]],{a:{x:420,y:120},'0':{x:420,y:400}})},
-        mixed:{name:'Mixed resistor network',question:'Reduce the parallel pair, then the series pair.',make:()=>fixture([['V1','voltage','a','0',12],['R1','resistor','a','b',100],['R2','resistor','b','0',200],['R3','resistor','b','0',300]],{a:{x:180,y:120},b:{x:600,y:120},'0':{x:600,y:400}})},
-        bridge:{name:'Bridge · general network',question:'This is not a series/parallel tree. Inspect the current through R5.',make:()=>fixture([['V1','voltage','a','0',10],['R1','resistor','a','c',100],['R2','resistor','c','0',100],['R3','resistor','a','d',100],['R4','resistor','d','0',200],['R5','resistor','c','d',100]],{a:{x:440,y:80},c:{x:200,y:250},d:{x:680,y:250},'0':{x:440,y:480}})},
-        ladder:{name:'Two-capacitor RC ladder',question:'Compare C1 and C2: two coupled time constants, rather than two independent RC curves.',make:()=>fixture([['V1','voltage','a','0',10],['R1','resistor','a','b',1000],['R2','resistor','b','c',1000],['C1','capacitor','b','0',.001],['C2','capacitor','c','0',.001]],{a:{x:140,y:120},b:{x:440,y:120},c:{x:740,y:120},'0':{x:440,y:430}})},
-        transform:{name:'Thévenin ↔ Norton',question:'Select V1 and transform it with R1. R2 must still receive 8 V and 40 mA.',make:()=>fixture([['V1','voltage','s','0',12],['R1','resistor','s','a',100],['R2','resistor','a','0',200]],{s:{x:180,y:120},a:{x:620,y:120},'0':{x:620,y:400}})},
-        transformRC:{name:'Source transformation · RC load',question:'Transform V1 with R1 while paused. C1 keeps its voltage and the external transient stays equivalent.',make:()=>fixture([['V1','voltage','s','0',12],['R1','resistor','s','a',100],['R2','resistor','a','b',200],['C1','capacitor','b','0',.001]],{s:{x:120,y:120},a:{x:400,y:120},b:{x:720,y:120},'0':{x:720,y:420}})},
-        ramp:{name:'Current source · capacitor ramp',question:'A constant current produces dV/dt = I/C. This circuit has no finite charged target.',make:()=>fixture([['I1','current','0','a',.001],['C1','capacitor','a','0',.001]],{a:{x:420,y:120},'0':{x:420,y:400}})},
+        transform:{name:'Thévenin ↔ Norton',question:'Select V1 and transform it with R1. R2 must still receive 8 V and 40 mA.',make:()=>fixture([['V1','voltage','s','0',12],['R1','resistor','s','a',100],['R2','resistor','a','0',200]],{s:{x:144,y:120},a:{x:576,y:120},'0':{x:576,y:408}}),hidden:true},
+        transformRC:{name:'Source transformation · RC load',question:'Transform V1 with R1 while paused. C1 keeps its voltage and the external transient stays equivalent.',make:()=>fixture([['V1','voltage','s','0',12],['R1','resistor','s','a',100],['R2','resistor','a','b',200],['C1','capacitor','b','0',.001]],{s:{x:120,y:120},a:{x:408,y:120},b:{x:720,y:120},'0':{x:720,y:408}}),hidden:true},
+        ramp:{name:'Current source · capacitor ramp',question:'A constant current produces dV/dt = I/C.',make:()=>fixture([['I1','current','0','a',.001],['C1','capacitor','a','0',.001]],{a:{x:408,y:120},'0':{x:408,y:408}}),hidden:true},
         blank:{name:'Blank circuit',question:'Place components, then choose Wire and connect their terminal dots. Crossings join only at explicit junctions.',make:D.blank}
     };
     // Route repeated parallel elements on separate lanes, keeping endpoint identities intact.

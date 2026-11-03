@@ -20,18 +20,33 @@
         const angle=c.rotation*Math.PI/180,sign=c.type==='transformer'?(end.index<2?-1:1):(end.index?1:-1);
         return {x:end.x+sign*24*Math.cos(angle),y:end.y+sign*24*Math.sin(angle)};
     }
+    function simplifyPath(points){
+        const out=[];
+        for(const p of points){
+            if(!out.length||Math.hypot(p.x-out.at(-1).x,p.y-out.at(-1).y)>1e-7)out.push(p);
+            while(out.length>=3){
+                const a=out.at(-3),b=out.at(-2),c=out.at(-1);
+                const colX=Math.abs(a.x-b.x)<1e-7&&Math.abs(b.x-c.x)<1e-7&&(b.y-a.y)*(c.y-b.y)>=-1e-7;
+                const colY=Math.abs(a.y-b.y)<1e-7&&Math.abs(b.y-c.y)<1e-7&&(b.x-a.x)*(c.x-b.x)>=-1e-7;
+                if(colX||colY)out.splice(out.length-2,1);
+                else break;
+            }
+        }
+        return out;
+    }
     function connectionPath(doc,start,end){
         const a=terminalExit(doc,start),b=terminalExit(doc,end);
         const boxes=doc.components.map(c=>{const vertical=Math.abs(Math.sin(c.rotation*Math.PI/180))>.5,h=c.type==='transformer'?42:25;return {left:c.position.x-(vertical?h:42),right:c.position.x+(vertical?h:42),top:c.position.y-(vertical?42:h),bottom:c.position.y+(vertical?42:h)};});
-        const candidates=[orthogonalPath([a,b]),orthogonalPath([a,b],true)];
+        const raw=[orthogonalPath([a,b]),orthogonalPath([a,b],true)];
         // Try lanes outside symbol bodies before accepting a route through a symbol.
         for(const box of boxes){
-            for(const x of [box.left-18,box.right+18])candidates.push(orthogonalPath([a,{x,y:a.y},{x,y:b.y},b]));
-            for(const y of [box.top-18,box.bottom+18])candidates.push(orthogonalPath([a,{x:a.x,y},{x:b.x,y},b]));
+            for(const x of [box.left-18,box.right+18])raw.push(orthogonalPath([a,{x,y:a.y},{x,y:b.y},b]));
+            for(const y of [box.top-18,box.bottom+18])raw.push(orthogonalPath([a,{x:a.x,y},{x:b.x,y},b]));
         }
-        function score(path){let length=0,hits=0;for(let i=1;i<path.length;i++){const p=path[i-1],q=path[i];length+=Math.hypot(p.x-q.x,p.y-q.y);for(const box of boxes){if(Math.abs(p.x-q.x)<1e-7){if(p.x>box.left&&p.x<box.right&&Math.max(p.y,q.y)>box.top&&Math.min(p.y,q.y)<box.bottom)hits++;}else if(p.y>box.top&&p.y<box.bottom&&Math.max(p.x,q.x)>box.left&&Math.min(p.x,q.x)<box.right)hits++;}}return hits*1e9+length;}
+        const candidates=raw.map(path=>simplifyPath([start,...path,end]));
+        function score(path){let length=0,hits=0;for(let i=1;i<path.length;i++){const p=path[i-1],q=path[i];length+=Math.hypot(p.x-q.x,p.y-q.y);for(const box of boxes){if(Math.abs(p.x-q.x)<1e-7){if(p.x>box.left&&p.x<box.right&&Math.max(p.y,q.y)>box.top&&Math.min(p.y,q.y)<box.bottom)hits++;}else if(p.y>box.top&&p.y<box.bottom&&Math.max(p.x,q.x)>box.left&&Math.min(p.x,q.x)<box.right)hits++;}}const bends=Math.max(0,path.length-2);return hits*1e9+length+bends*12;}
         let best=candidates[0],bestScore=score(best);for(const path of candidates.slice(1)){const next=score(path);if(next<bestScore){best=path;bestScore=next;}}
-        return [start,...best,end].filter((p,i,array)=>!i||Math.hypot(p.x-array[i-1].x,p.y-array[i-1].y)>1e-7);
+        return best;
     }
     function wireRoute(doc,wire,ends=D.endpoints(doc)){
         const start=ends.get(wire.fromEndpoint),end=ends.get(wire.toEndpoint);if(!start||!end)return [];

@@ -1,0 +1,250 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#000000">
+  <title>Electricsim · Logic Gate Lab</title>
+  <meta name="description" content="Interactive digital logic gate simulator with live Boolean algebra equations, truth tables, Karnaugh maps, exact Boolean simplification, and universal NAND/NOR gate conversion.">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="research-theme.css?v=2">
+  <link rel="stylesheet" href="logic.css?v=3">
+</head>
+<body>
+  <canvas id="bgCanvas" aria-hidden="true"></canvas>
+
+  <header class="logic-top">
+    <a href="index.html" class="logic-hub-link">← Electricsim</a>
+    <h1>Logic Gate Lab</h1>
+    <div class="logic-top-controls">
+      <label for="exampleSelect" style="font-size:12.5px;color:#96a5ba;font-weight:600;">Examples</label>
+      <select id="exampleSelect" aria-label="Load an example logic circuit">
+        <option value="">Choose an example…</option>
+      </select>
+      <button id="undoBtn" type="button" title="Undo · Ctrl+Z" disabled>Undo</button>
+      <button id="redoBtn" type="button" title="Redo · Ctrl+Y" disabled>Redo</button>
+      <button id="clearBtn" type="button">Clear</button>
+    </div>
+  </header>
+
+  <main class="logic-main">
+    <!-- Live Boolean Formula Bar above the schematic -->
+    <section class="logic-formula-bar glass-panel-small" aria-label="Live Boolean algebra formula bar">
+      <div class="logic-formula-header">
+        <div class="logic-formula-title-group">
+          <span class="logic-kicker">LIVE BOOLEAN ALGEBRA</span>
+          <div id="formulaOutputTabs" class="logic-output-pills" role="group" aria-label="Focused output"></div>
+        </div>
+        <div class="logic-formula-actions">
+          <label for="notationSelect">Notation</label>
+          <select id="notationSelect" aria-label="Boolean notation style">
+            <option value="compact" selected>Engineering (A·B + A')</option>
+            <option value="overbar">Textbook (A·B + A&#773;)</option>
+            <option value="symbolic">Symbolic (A ∧ B ∨ ¬A)</option>
+            <option value="code">Code (A &amp;&amp; B || !A)</option>
+          </select>
+          <button id="copyFormulaBtn" type="button" title="Copy current Boolean expression">Copy</button>
+          <button id="openSimplifyBtn" type="button" class="logic-accent-btn">⚡ Simplify &amp; Convert</button>
+        </div>
+      </div>
+
+      <div id="formulaLines" class="logic-formula-lines" aria-live="polite"></div>
+
+      <div id="simplifyPreviewBar" class="logic-simplify-preview" hidden>
+        <div class="logic-preview-text">
+          <span class="logic-preview-badge" id="simplifyPreviewBadge">Minimal SOP</span>
+          <code id="simplifyPreviewExpr">F = 0</code>
+          <span id="simplifyPreviewMeta" class="logic-preview-meta"></span>
+        </div>
+        <div class="logic-preview-buttons">
+          <button id="quickApplySopBtn" type="button" title="Replace circuit with minimal SOP form">Apply Minimal</button>
+          <button id="quickNandBtn" type="button" title="Convert circuit to universal NAND gates only">NAND-Only</button>
+          <button id="quickNorBtn" type="button" title="Convert circuit to universal NOR gates only">NOR-Only</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Schematic Tool Palette -->
+    <section class="logic-toolbar-wrap" aria-label="Schematic tools">
+      <nav class="logic-tools" aria-label="Gate and wiring tools">
+        <button type="button" data-tool="select" aria-pressed="true">↖ Move / Edit</button>
+        <button type="button" data-tool="input" id="toolInputBtn" aria-pressed="false">⊕ Input (A–D)</button>
+        <button type="button" data-tool="output" id="toolOutputBtn" aria-pressed="false">⊙ Output (F–Y)</button>
+        <span class="logic-tool-sep" aria-hidden="true"></span>
+        <button type="button" data-tool="AND" aria-pressed="false">AND</button>
+        <button type="button" data-tool="OR" aria-pressed="false">OR</button>
+        <button type="button" data-tool="NOT" aria-pressed="false">NOT</button>
+        <button type="button" data-tool="NAND" aria-pressed="false">NAND</button>
+        <button type="button" data-tool="NOR" aria-pressed="false">NOR</button>
+        <button type="button" data-tool="XOR" aria-pressed="false">XOR</button>
+        <button type="button" data-tool="XNOR" aria-pressed="false">XNOR</button>
+        <button type="button" data-tool="BUF" aria-pressed="false">Buffer</button>
+        <span class="logic-tool-sep" aria-hidden="true"></span>
+        <button type="button" data-tool="const1" aria-pressed="false">Const 1</button>
+        <button type="button" data-tool="const0" aria-pressed="false">Const 0</button>
+        <button type="button" data-tool="wire" aria-pressed="false">─●─ Wire</button>
+        <button type="button" data-tool="pan" aria-pressed="false">✋ Pan</button>
+      </nav>
+
+      <div class="logic-subbar">
+        <div class="logic-placement-opts">
+          <label><input id="snapToggle" type="checkbox" checked> Snap to grid</label>
+          <label><input id="repeatToggle" type="checkbox"> Keep placing</label>
+          <button id="rotatePlacementBtn" type="button" hidden>↻ Rotate next (R)</button>
+        </div>
+        <p id="toolHint" role="status" aria-live="polite">Click an input [0/1] badge to toggle it. Drag from any output pin to an input pin to wire.</p>
+        <div class="logic-zoom">
+          <button id="zoomOutBtn" type="button" aria-label="Zoom out">−</button>
+          <button id="zoomInBtn" type="button" aria-label="Zoom in">+</button>
+          <button id="fitBtn" type="button">Fit view</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Main Workspace: Schematic Canvas + Analysis Dock -->
+    <section class="logic-workspace" aria-label="Logic schematic and analysis workspace">
+      <div class="logic-canvas-wrap">
+        <canvas id="logicCanvas" tabindex="0" role="group" aria-label="Logic gate schematic canvas" aria-describedby="toolHint"></canvas>
+      </div>
+
+      <aside class="logic-sidebar" aria-label="Inspector and analysis panels">
+        <!-- Context Inspector for Selected Element -->
+        <section id="inspectorCard" class="logic-inspector glass-panel-small" hidden aria-label="Selected element inspector">
+          <div class="logic-inspector-head">
+            <strong id="inspectorTitle">Selected Element</strong>
+            <button id="closeInspectorBtn" type="button" class="logic-quiet-btn">Done</button>
+          </div>
+
+          <div id="gateInspectorControls" class="logic-inspector-grid" hidden>
+            <label for="inspectorGateType">Gate Type</label>
+            <select id="inspectorGateType">
+              <option value="AND">AND</option>
+              <option value="OR">OR</option>
+              <option value="NOT">NOT</option>
+              <option value="NAND">NAND</option>
+              <option value="NOR">NOR</option>
+              <option value="XOR">XOR</option>
+              <option value="XNOR">XNOR</option>
+              <option value="BUF">Buffer</option>
+            </select>
+            <label for="inspectorFanIn" id="inspectorFanInLabel">Input Pins</label>
+            <select id="inspectorFanIn">
+              <option value="2">2 inputs</option>
+              <option value="3">3 inputs</option>
+              <option value="4">4 inputs</option>
+            </select>
+          </div>
+
+          <div id="ioInspectorControls" class="logic-inspector-grid" hidden>
+            <label for="inspectorIoName" id="inspectorIoLabel">Symbol</label>
+            <select id="inspectorIoName"></select>
+          </div>
+
+          <button id="toggleSelectedValueBtn" type="button" class="logic-toggle-val-btn" hidden>Toggle State (0 ↔ 1)</button>
+
+          <div class="logic-inspector-actions">
+            <button id="rotateSelectedBtn" type="button">↻ Rotate</button>
+            <button id="duplicateSelectedBtn" type="button">Duplicate</button>
+            <button id="deleteSelectedBtn" type="button" class="logic-danger-btn">Delete</button>
+          </div>
+        </section>
+
+        <!-- Analysis Dock: Truth Table, K-Map, Simplify & Universal Converters -->
+        <section class="logic-dock glass-panel-small" aria-label="Truth table, Karnaugh map, and simplification">
+          <div class="logic-dock-tabs" role="tablist" aria-label="Analysis views">
+            <button type="button" role="tab" data-tab="table" id="tabBtnTable" aria-selected="true" aria-controls="panelTable">Truth Table</button>
+            <button type="button" role="tab" data-tab="kmap" id="tabBtnKmap" aria-selected="false" aria-controls="panelKmap">K-Map</button>
+            <button type="button" role="tab" data-tab="simplify" id="tabBtnSimplify" aria-selected="false" aria-controls="panelSimplify">Simplify &amp; Convert</button>
+          </div>
+
+          <!-- Tab 1: Live Truth Table -->
+          <div id="panelTable" class="logic-dock-panel" role="tabpanel" aria-labelledby="tabBtnTable">
+            <p class="logic-panel-hint">Click any row to set inputs A–D on the schematic and trace the active path.</p>
+            <div class="logic-table-scroll">
+              <table class="logic-truth-table">
+                <thead id="truthTableHead"></thead>
+                <tbody id="truthTableBody"></tbody>
+              </table>
+            </div>
+            <dl id="functionIdentityCard" class="logic-identity-card"></dl>
+          </div>
+
+          <!-- Tab 2: Read-Only Karnaugh Map with Prime Implicant Highlighting -->
+          <div id="panelKmap" class="logic-dock-panel" role="tabpanel" aria-labelledby="tabBtnKmap" hidden>
+            <div class="logic-panel-subhead">
+              <span>Karnaugh Map</span>
+              <span id="kmapOutputLabel" class="logic-badge">Output F</span>
+            </div>
+            <p class="logic-panel-hint">Hover or click a prime implicant chip below to highlight its K-map group. Click any cell to test that input state.</p>
+            <div id="kmapContainer" class="logic-kmap-wrap"></div>
+            <div id="kmapGroupChips" class="logic-chip-list" aria-label="Prime implicant groups"></div>
+          </div>
+
+          <!-- Tab 3: Exact Boolean Simplification & Universal Gate Conversion -->
+          <div id="panelSimplify" class="logic-dock-panel" role="tabpanel" aria-labelledby="tabBtnSimplify" hidden>
+            <div class="logic-panel-subhead">
+              <span>Algebraic Minimization</span>
+              <span id="simplifyOutputLabel" class="logic-badge">Output F</span>
+            </div>
+
+            <div class="logic-expr-cards">
+              <div class="logic-expr-card">
+                <span class="logic-card-kicker">Drawn Schematic</span>
+                <code id="cardDrawnExpr">F = □</code>
+                <small id="cardDrawnCost">0 gates · 0 literals</small>
+              </div>
+              <div class="logic-expr-card highlight">
+                <span class="logic-card-kicker">Minimal SOP (Sum of Products)</span>
+                <code id="cardSopExpr">F = 0</code>
+                <small id="cardSopCost">0 gates · 0 literals</small>
+              </div>
+              <div class="logic-expr-card">
+                <span class="logic-card-kicker">Minimal POS (Product of Sums)</span>
+                <code id="cardPosExpr">F = 0</code>
+                <small id="cardPosCost">0 gates · 0 literals</small>
+              </div>
+            </div>
+
+            <div class="logic-pi-section">
+              <h4>Prime Implicants</h4>
+              <ul id="primeImplicantList" class="logic-pi-list"></ul>
+            </div>
+
+            <div class="logic-synth-section">
+              <h4>Rebuild / Universal Gate Converter</h4>
+              <p class="logic-panel-hint">Replaces the schematic with an equivalent, auto-aligned circuit and verifies all 16 truth-table rows. Undo (Ctrl+Z) restores your previous drawing.</p>
+              <div class="logic-synth-buttons">
+                <button id="applySopBtn" type="button" class="logic-accent-btn">⚡ Rebuild Minimal SOP (AND / OR / NOT)</button>
+                <button id="applyPosBtn" type="button">Rebuild Minimal POS (OR / AND / NOT)</button>
+                <button id="convertNandBtn" type="button">Convert to Universal NAND-Only</button>
+                <button id="convertNorBtn" type="button">Convert to Universal NOR-Only</button>
+              </div>
+            </div>
+          </div>
+        </section>
+      </aside>
+    </section>
+
+    <!-- Bottom Cost & Status Footer -->
+    <footer class="logic-footer" aria-label="Circuit metrics">
+      <span>Gates: <strong id="statGates">0</strong></span>
+      <span>Inputs: <strong id="statInputs">0</strong>/4</span>
+      <span>Outputs: <strong id="statOutputs">0</strong>/4</span>
+      <span>Logic Depth: <strong id="statDepth">0</strong> levels</span>
+      <span>Est. CMOS: <strong id="statTransistors">0</strong> transistors</span>
+      <span id="statStatus" class="logic-status-ok">✓ Combinational</span>
+    </footer>
+  </main>
+
+  <script src="logic-model.js?v=7"></script>
+  <script src="logic-evaluator.js?v=7"></script>
+  <script src="logic-expression.js?v=7"></script>
+  <script src="logic-simplify.js?v=7"></script>
+  <script src="logic-synthesis.js?v=7"></script>
+  <script src="logic-editor.js?v=7"></script>
+  <script src="logic-renderer.js?v=7"></script>
+  <script src="logic-presets.js?v=7"></script>
+  <script src="logic.js?v=7"></script>
+  <script src="shared-bg.js"></script>
+</body>
+</html>

@@ -289,7 +289,7 @@
     if($('exampleSelect')&&D.presets){
         const exOpts=[option('','Choose an example…')];
         for(const [id,preset] of Object.entries(D.presets)){
-            if(id==='blank')continue;
+            if(id==='blank'||preset.hidden)continue;
             exOpts.push(option(id,preset.name));
         }
         $('exampleSelect').replaceChildren(...exOpts);

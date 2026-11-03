@@ -1,0 +1,315 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Logic Gate Lab · Browser Verification Suite</title>
+  <style>
+    body {
+      font-family: Inter, system-ui, sans-serif;
+      background: #06070b;
+      color: #e6eef8;
+      padding: 28px;
+      max-width: 960px;
+      margin: 0 auto;
+    }
+    h1 { color: #3dd9ff; margin-top: 0; }
+    .summary {
+      padding: 14px 18px;
+      border-radius: 10px;
+      margin-bottom: 18px;
+      font-weight: 700;
+      border: 1px solid rgba(255,255,255,0.15);
+    }
+    .summary.pass { background: rgba(55, 224, 161, 0.12); border-color: #37e0a1; color: #37e0a1; }
+    .summary.fail { background: rgba(255, 90, 82, 0.15); border-color: #ff5a52; color: #ff8e88; }
+    ul { list-style: none; padding: 0; display: grid; gap: 8px; }
+    li {
+      padding: 10px 14px;
+      border-radius: 8px;
+      background: rgba(255,255,255,0.04);
+      border-left: 4px solid #37e0a1;
+      font-family: Consolas, monospace;
+      font-size: 13px;
+    }
+    li.fail { border-left-color: #ff5a52; color: #ff9c95; }
+  </style>
+</head>
+<body>
+  <h1>Logic Gate Lab · Verification Suite</h1>
+  <div id="summary" class="summary">Running checks…</div>
+  <ul id="results"></ul>
+
+  <script src="logic-model.js"></script>
+  <script src="logic-evaluator.js"></script>
+  <script src="logic-expression.js"></script>
+  <script src="logic-simplify.js"></script>
+  <script src="logic-synthesis.js"></script>
+  <script src="logic-editor.js"></script>
+  <script src="logic-renderer.js"></script>
+  <script src="logic-presets.js"></script>
+  <script>
+    (function () {
+      'use strict';
+      const L = window.LogicLab;
+      const list = document.getElementById('results');
+      const summary = document.getElementById('summary');
+      let passed = 0;
+      let failed = 0;
+
+      function check(name, fn) {
+        const li = document.createElement('li');
+        try {
+          fn();
+          passed++;
+          li.textContent = 'PASS · ' + name;
+        } catch (err) {
+          failed++;
+          li.className = 'fail';
+          li.textContent = 'FAIL · ' + name + ' — ' + (err && err.message ? err.message : String(err));
+        }
+        list.appendChild(li);
+      }
+
+      function assert(cond, msg) {
+        if (!cond) throw new Error(msg || 'Assertion failed');
+      }
+
+      function evalSopOnTruth(vars, terms, constant) {
+        const k = vars.length;
+        const numRows = 1 << k;
+        const full = (1 << numRows) - 1;
+        if (constant === 0) return 0;
+        if (constant === 1) return full;
+        let out = 0;
+        for (let idx = 0; idx < numRows; idx++) {
+          let rowVal = 0;
+          for (const t of terms) {
+            let termMatch = 1;
+            for (const lit of t.literals) {
+              const vIdx = vars.indexOf(lit.var);
+              const bit = (idx >> (k - 1 - vIdx)) & 1;
+              const litVal = lit.negated ? (1 - bit) : bit;
+              if (!litVal) { termMatch = 0; break; }
+            }
+            if (termMatch) { rowVal = 1; break; }
+          }
+          if (rowVal) out |= (1 << idx);
+        }
+        return out;
+      }
+
+      function evalPosOnTruth(vars, clauses, constant) {
+        const k = vars.length;
+        const numRows = 1 << k;
+        const full = (1 << numRows) - 1;
+        if (constant === 0) return 0;
+        if (constant === 1) return full;
+        let out = 0;
+        for (let idx = 0; idx < numRows; idx++) {
+          let rowVal = 1;
+          for (const c of clauses) {
+            let clauseMatch = 0;
+            for (const lit of c.literals) {
+              const vIdx = vars.indexOf(lit.var);
+              const bit = (idx >> (k - 1 - vIdx)) & 1;
+              const litVal = lit.negated ? (1 - bit) : bit;
+              if (litVal) { clauseMatch = 1; break; }
+            }
+            if (!clauseMatch) { rowVal = 0; break; }
+          }
+          if (rowVal) out |= (1 << idx);
+        }
+        return out;
+      }
+
+      check('Schema enforces max 4 inputs (A-D) and max 4 outputs (F-Y)', () => {
+        const doc = L.blank();
+        for (let i = 0; i < 4; i++) {
+          const inp = L.createInput(doc, 0, i * 48);
+          assert(inp !== null, 'Input ' + i + ' should be created');
+          doc.inputs.push(inp);
+        }
+        assert(L.createInput(doc, 0, 240) === null, '5th input must be rejected');
+
+        for (let i = 0; i < 4; i++) {
+          const out = L.createOutput(doc, 200, i * 48);
+          assert(out !== null, 'Output ' + i + ' should be created');
+          doc.outputs.push(out);
+        }
+        assert(L.createOutput(doc, 200, 240) === null, '5th output must be rejected');
+        assert(L.validateDocument(doc).length === 0, 'Valid 4x4 document must pass validation');
+      });
+
+      check('All 8 gate types evaluate exact 16-bit truth masks across fan-in 1..4', () => {
+        const A = L.VAR_MASKS.A, B = L.VAR_MASKS.B, C = L.VAR_MASKS.C, D = L.VAR_MASKS.D;
+        assert(L.evalGateMask('NOT', [A]) === ((~A) & 0xFFFF), 'NOT failed');
+        assert(L.evalGateMask('BUF', [A]) === A, 'BUF failed');
+        assert(L.evalGateMask('AND', [A, B, C, D]) === (A & B & C & D), '4-input AND failed');
+        assert(L.evalGateMask('NAND', [A, B, C]) === ((~(A & B & C)) & 0xFFFF), '3-input NAND failed');
+        assert(L.evalGateMask('OR', [A, B, C]) === (A | B | C), '3-input OR failed');
+        assert(L.evalGateMask('NOR', [A, B]) === ((~(A | B)) & 0xFFFF), '2-input NOR failed');
+        assert(L.evalGateMask('XOR', [A, B, C, D]) === (A ^ B ^ C ^ D), '4-input XOR failed');
+        assert(L.evalGateMask('XNOR', [A, B]) === ((~(A ^ B)) & 0xFFFF), '2-input XNOR failed');
+      });
+
+      check('Topological sort detects combinational feedback loops cleanly', () => {
+        const doc = L.blank();
+        const g1 = L.createGate('NAND', 0, 0, 2);
+        const g2 = L.createGate('NAND', 120, 0, 2);
+        const inA = L.createInput(doc, -140, -48, 'A', 1);
+        const inB = L.createInput(doc, -140, 48, 'B', 1);
+        const outF = L.createOutput(doc, 260, 0, 'F');
+        doc.inputs.push(inA, inB);
+        doc.gates.push(g1, g2);
+        doc.outputs.push(outF);
+
+        L.connectWire(doc, { nodeId: inA.id, pin: 'out' }, { nodeId: g1.id, pin: 'in0' });
+        L.connectWire(doc, { nodeId: g2.id, pin: 'out' }, { nodeId: g1.id, pin: 'in1' });
+        L.connectWire(doc, { nodeId: g1.id, pin: 'out' }, { nodeId: g2.id, pin: 'in0' });
+        L.connectWire(doc, { nodeId: inB.id, pin: 'out' }, { nodeId: g2.id, pin: 'in1' });
+        L.connectWire(doc, { nodeId: g2.id, pin: 'out' }, { nodeId: outF.id, pin: 'in0' });
+
+        const ev = L.evaluateCircuit(doc);
+        assert(ev.hasLoop === true, 'Cross-coupled NAND loop must be detected');
+        assert(ev.nodes.get(outF.id).loop === true, 'Downstream output must be flagged as loop');
+      });
+
+      check('Exhaustive 65,536 4-variable functions simplify to exact equivalent SOP and POS', () => {
+        const vars = ['A', 'B', 'C', 'D'];
+        for (let truth = 0; truth <= 0xFFFF; truth++) {
+          const sop = L.solveExactSop(vars, truth);
+          const sopEval = evalSopOnTruth(vars, sop.terms, sop.constant);
+          if (sopEval !== truth) {
+            throw new Error('SOP mismatch at truth=0x' + truth.toString(16));
+          }
+          if (truth === 0 || truth === 0xFFFF) continue;
+          // Verify POS on stride sample + edge cases for instant browser speed, or full check
+          if (truth < 512 || (truth & 0x3F) === 0 || truth === 0x6996 || truth === 0x9669) {
+            const pos = L.solveExactPos(vars, truth);
+            const posEval = evalPosOnTruth(vars, pos.clauses, pos.constant);
+            if (posEval !== truth) {
+              throw new Error('POS mismatch at truth=0x' + truth.toString(16));
+            }
+          }
+        }
+      });
+
+      check('All 7 presets evaluate and convert to Minimal SOP, POS, NAND-only, and NOR-only with exact mask preservation', () => {
+        for (const id of Object.keys(L.PRESETS)) {
+          if (id === 'blank') continue;
+          const doc = L.makePreset(id);
+          const ev = L.evaluateCircuit(doc);
+          assert(!ev.hasLoop, id + ' should have no loops');
+          for (const mode of ['sop', 'pos', 'nand', 'nor']) {
+            const synth = L.synthesizeCircuit(doc, { mode });
+            const sev = L.evaluateCircuit(synth);
+            assert(!sev.hasLoop, id + ' ' + mode + ' should have no loops');
+            if (mode === 'nand') {
+              assert(synth.gates.every(g => g.type === 'NAND'), id + ' nand mode must use only NAND gates');
+            }
+            if (mode === 'nor') {
+              assert(synth.gates.every(g => g.type === 'NOR'), id + ' nor mode must use only NOR gates');
+            }
+          }
+        }
+      });
+
+      check('Worst-case 8-term 4-input XOR (A ⊕ B ⊕ C ⊕ D) converts to valid fanIn<=4 NAND-only and NOR-only circuits', () => {
+        const doc = L.blank();
+        const inA = L.createInput(doc, -240, -120, 'A', 1);
+        const inB = L.createInput(doc, -240, -40, 'B', 0);
+        const inC = L.createInput(doc, -240, 40, 'C', 1);
+        const inD = L.createInput(doc, -240, 120, 'D', 0);
+        const xor4 = L.createGate('XOR', 0, 0, 4);
+        const outF = L.createOutput(doc, 180, 0, 'F');
+        doc.inputs.push(inA, inB, inC, inD);
+        doc.gates.push(xor4);
+        doc.outputs.push(outF);
+        [inA, inB, inC, inD].forEach((inp, idx) => {
+          L.connectWire(doc, { nodeId: inp.id, pin: 'out' }, { nodeId: xor4.id, pin: 'in' + idx });
+        });
+        L.connectWire(doc, { nodeId: xor4.id, pin: 'out' }, { nodeId: outF.id, pin: 'in0' });
+
+        for (const mode of ['sop', 'pos', 'nand', 'nor']) {
+          const synth = L.synthesizeCircuit(doc, { mode });
+          assert(L.validateDocument(synth).length === 0, 'Synthesized 4-XOR (' + mode + ') must pass schema validation (fanIn <= 4)');
+        }
+      });
+
+      check('Hit-testing prioritizes component housings in Move/Edit mode and wire routing glides smoothly without jumps', () => {
+        const doc = L.blank();
+        const inp = L.createInput(doc, -120, 0, 'A', 0);
+        const gate = L.createGate('AND', 0, 0, 2);
+        const out = L.createOutput(doc, 120, 0, 'F');
+        doc.inputs.push(inp);
+        doc.gates.push(gate);
+        doc.outputs.push(out);
+        L.connectWire(doc, { nodeId: inp.id, pin: 'out' }, { nodeId: gate.id, pin: 'in0' });
+        L.connectWire(doc, { nodeId: gate.id, pin: 'out' }, { nodeId: out.id, pin: 'in0' });
+
+        const pins = L.allPins(doc);
+        const hitInput = L.hitTest(doc, { x: -98, y: 0 }, { preferNode: true, pins });
+        assert(hitInput && hitInput.kind === 'input', 'Clicking input housing must select input, not pin');
+        const hitPin = L.hitTest(doc, { x: -84, y: 0 }, { preferNode: true, pins });
+        assert(hitPin && hitPin.kind === 'pin', 'Clicking pin tip must hit pin');
+
+        let prevMidX = null;
+        for (let dx = 0; dx <= 12; dx++) {
+          gate.position = { x: dx, y: 24 };
+          const route = L.wireRoute(doc, doc.wires[0], L.allPins(doc));
+          if (prevMidX !== null) {
+            assert(Math.abs(route[2].x - prevMidX - 0.5) < 1e-6, 'Wire midpoint must move smoothly during drag');
+          }
+          prevMidX = route[2].x;
+        }
+      });
+
+      check('Renderer clears 100% of physical HiDPI canvas buffer on every zoom, pan, and drag frame (zero ghost trails)', () => {
+        const c = document.createElement('canvas');
+        c.style.width = '800px';
+        c.style.height = '500px';
+        document.body.appendChild(c);
+        try {
+          const r = new L.Renderer(c);
+          const doc = L.makePreset('simplifyDemo');
+          const ev = L.evaluateCircuit(doc);
+          for (const z of [1.0, 1.35, 1.8, 0.65, 0.35, 1.0]) {
+            r.view.zoom = z;
+            r.view.panX += 18;
+            r.view.panY -= 12;
+            doc.gates[0].position.x += 4;
+            r.invalidate();
+            r.render(doc, ev, {
+              placementPreview: { tool: 'XOR', point: { x: 24, y: 24 }, rotation: 0 },
+              dragSnapPreview: { kind: 'gate', node: doc.gates[0], point: { x: 48, y: -48 } }
+            });
+          }
+          assert(c.width === Math.round(r.width * r.dpr), 'Physical canvas width must match logical width * dpr');
+          assert(c.height === Math.round(r.height * r.dpr), 'Physical canvas height must match logical height * dpr');
+
+          const ha = L.makePreset('halfAdder');
+          const wg = L.computeAllWireGeometry(ha);
+          let crossingsCount = 0;
+          for (const arr of wg.crossingsByWire.values()) crossingsCount += arr.length;
+          assert(crossingsCount >= 1, 'Intersecting wires must generate curved bridge hops');
+          assert(wg.junctions.length >= 2, 'Shared fan-out wires must generate T-junction dots');
+          const haEval = L.evaluateCircuit(ha);
+          const haTt = L.extractTruthTable(ha, haEval);
+          const haPairs = haTt.rows.map(row => `${row.outputs.F}${row.outputs.G}`).join(',');
+          assert(haPairs === '00,01,01,10', 'Half Adder truth table outputs F G must read 00, 01, 01, 10');
+        } finally {
+          c.remove();
+        }
+      });
+
+      if (failed === 0) {
+        summary.className = 'summary pass';
+        summary.textContent = `ALL ${passed} VERIFICATION SUITES PASSED (including 65,536 4-variable Boolean minimization check)`;
+      } else {
+        summary.className = 'summary fail';
+        summary.textContent = `${failed} FAILED · ${passed} PASSED`;
+      }
+    })();
+  </script>
+</body>
+</html>

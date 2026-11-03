@@ -332,6 +332,7 @@
         #searchCount { display: block; margin-top: 9px; color: #8fa0b5; font-size: .8rem; }
         #noResults { padding: 24px 0; color: #aab7c8; line-height: 1.6; }
         #card-dc-circuit { --hover-color: #8b9dff; }
+        #card-logic { --hover-color: #37e0a1; }
         @media (prefers-reduced-motion: reduce) { .nav-card { animation: none; transition: none; } }
     </style>
 </head>
@@ -345,7 +346,7 @@
             <h1 class="hub-title">Electricsim Platform</h1>
             <p class="hub-subtitle">Turn equations into observable systems. Change one variable, watch the field respond, and connect microscopic behavior to measurable results.</p>
             <div class="hub-metrics" aria-label="Platform features">
-                <span class="hub-metric">6 interactive labs</span>
+                <span class="hub-metric">7 interactive labs</span>
                 <span class="hub-metric">Live SI measurements</span>
                 <span class="hub-metric">Cause → effect learning</span>
             </div>
@@ -354,7 +355,7 @@
         <form class="hub-search" role="search" aria-label="Find a lab">
             <label for="labSearch">Find a lab</label>
             <div class="search-row"><input id="labSearch" type="search" placeholder="Search by name or topic…" autocomplete="off" aria-controls="labCards"><button id="clearSearch" type="button" hidden>Clear</button></div>
-            <output id="searchCount" role="status" aria-live="polite">6 labs</output>
+            <output id="searchCount" role="status" aria-live="polite">7 labs</output>
         </form>
         <p id="noResults" hidden>No labs match your search. Try another name or topic.</p>
         <section id="labCards" class="cards-wrapper" aria-label="Simulation modules">
@@ -407,6 +408,12 @@
                 <h2 class="card-title">Circuits Lab</h2>
                 <p class="card-desc">Start with a blank canvas, add batteries, AC sources, diodes, transformers, resistors and capacitors, and connect them with click-to-create wires. Read volts, amps and resistance above the components.</p>
                 <div class="card-btn">Launch Circuits Lab</div>
+            </a>
+            <a href="logic.html" class="nav-card glass-panel" id="card-logic">
+                <div class="card-meta">Digital Logic &amp; Boolean Algebra</div>
+                <h2 class="card-title">Logic Gate Lab</h2>
+                <p class="card-desc">Build digital logic circuits with up to four inputs, watch the live Boolean equation and truth table update above the schematic, simplify expressions with Karnaugh maps, and convert to universal NAND or NOR gates.</p>
+                <div class="card-btn">Launch Logic Lab</div>
             </a>
         </section>
 
