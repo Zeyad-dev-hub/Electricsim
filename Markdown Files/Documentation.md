@@ -90,7 +90,7 @@ Electricsim/ (Workspace Root)
 │   ├── dc-circuit-presets.js                # Built-in educational circuits (rectifiers, transformers, RC ladders, bridges)
 │   └── dc-circuit.js                        # Controller, pointer/touch gesture engine, keyboard shortcuts, inspector sync
 │
-├── Lab 7: Logic Gate Lab (Boolean Algebra, Simplification & Universal Gates)
+├── Lab 7: Logic Circuits Lab (Boolean Algebra, Simplification & Universal Gates)
 │   ├── logic.html                           # Live Boolean formula bar, gate palette, schematic canvas, and analysis dock
 │   ├── logic.css                            # Dark-lab styling for formula spans, truth table, K-map cells, and inspector
 │   ├── logic-model.js                       # Schema v1 (max 4 inputs A–D, max 4 outputs F–Y, 8 gate types, fan-in 1..4, History)
@@ -357,11 +357,11 @@ Dynamic components (capacitors and transformers) are discretized across time ste
 
 ---
 
-### Lab 7: Logic Gate Lab (`logic.html`, `logic-*.js`)
+### Lab 7: Logic Circuits Lab (`logic.html`, `logic-*.js`)
 
 ```
 +---------------------------------------------------------------------------------------+
-|                                  Logic Gate Lab Stack                                 |
+|                                Logic Circuits Lab Stack                               |
 +---------------------------------------------------------------------------------------+
 |  logic.js            UI Controller, Pointer/Touch Gestures, Formula/Table/K-Map Sync  |
 +---------------------------------------------------------------------------------------+
@@ -661,11 +661,11 @@ This section is written from the user's perspective, providing a visual and expe
 
 ---
 
-### Lab 7: Logic Gate Lab (`logic.html`)
+### Lab 7: Logic Circuits Lab (`logic.html`)
 
 ```
 +---------------------------------------------------------------------------------------+
-| Logic Gate Lab   [ Examples v ]  [ Undo ]  [ Redo ]  [ Clear ]          [ Hub Button ]|
+| Logic Circuits Lab   [ Examples v ]  [ Undo ]  [ Redo ]  [ Clear ]      [ Hub Button ]|
 +---------------------------------------------------------------------------------------+
 | LIVE BOOLEAN ALGEBRA                     [ Notation: A·B + A' v ] [ Copy ] [Simplify] |
 |  F = (A · B) + (A · B') + (A · C)                                      [ Now: 1 ]     |

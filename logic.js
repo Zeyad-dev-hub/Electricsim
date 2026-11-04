@@ -1580,6 +1580,7 @@
 
     // Keyboard shortcuts
     window.addEventListener('keydown', e => {
+        if ($('gatesMain')?.hidden) return;
         const tag = document.activeElement?.tagName;
         if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA') return;
 
@@ -1668,6 +1669,11 @@
     });
 
     renderer.onResize = () => {
+        scheduleRender();
+    };
+
+    L.onGatesModeShown = () => {
+        renderer.resize();
         scheduleRender();
     };
 

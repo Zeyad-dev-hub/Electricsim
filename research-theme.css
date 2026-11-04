@@ -538,9 +538,10 @@ kbd {
 }
 
 .nav-card {
-    align-items: flex-start !important;
-    text-align: left !important;
-    min-height: 250px;
+    align-items: center !important;
+    justify-content: center !important;
+    text-align: center !important;
+    min-height: 160px;
     padding: 1.5rem !important;
     border-radius: 8px !important;
     background:
@@ -587,24 +588,23 @@ kbd {
     filter: none !important;
 }
 
+.card-meta {
+    text-align: center !important;
+    margin-bottom: 8px !important;
+}
+
 .card-title {
-    font-size: 1.26rem !important;
-    margin-bottom: 0.8rem !important;
+    font-size: 1.3rem !important;
+    margin-bottom: 0 !important;
+    text-align: center !important;
 }
 
 .card-desc {
-    font-size: 0.93rem !important;
-    line-height: 1.58 !important;
-    margin-bottom: auto !important;
+    display: none !important;
 }
 
 .card-btn {
-    display: inline-flex;
-    margin-top: 1.5rem;
-    padding: 0.65rem 1.1rem !important;
-    font-size: 0.84rem !important;
-    font-weight: 600 !important;
-    letter-spacing: 0.02em !important;
+    display: none !important;
 }
 
 .nav-card:hover .card-btn,
@@ -824,20 +824,25 @@ body:has(#gaussCanvas) {
 
     /* Hub cards go single-column (already handled, but reinforce) */
     .nav-card {
-        padding: 1rem !important;
+        padding: 1.1rem 1rem !important;
+        min-height: 125px !important;
+    }
+
+    .card-meta {
+        text-align: center !important;
     }
 
     .card-title {
-        font-size: 1rem !important;
+        font-size: 1.05rem !important;
+        text-align: center !important;
     }
 
     .card-desc {
-        font-size: 0.82rem !important;
+        display: none !important;
     }
 
     .card-btn {
-        font-size: 0.78rem !important;
-        padding: 0.5rem 0.8rem !important;
+        display: none !important;
     }
 }
 

@@ -152,11 +152,13 @@
         }
 
         .nav-card {
-            min-height: 250px;
+            min-height: 160px;
             display: flex;
             flex-direction: column;
-            align-items: flex-start;
-            padding: 24px;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            padding: 24px 20px;
             text-decoration: none;
             color: #f4f7fb;
             position: relative;
@@ -175,46 +177,41 @@
 
         .card-meta {
             color: var(--hover-color);
-            font-size: 0.75rem;
+            font-size: 0.74rem;
             font-weight: 700;
             text-transform: uppercase;
-            margin-bottom: 18px;
+            letter-spacing: 0.07em;
+            margin-bottom: 8px;
+            text-align: center;
         }
 
         .card-title {
-            margin-bottom: 12px;
+            margin: 0;
             font-size: 1.3rem;
             font-weight: 700;
+            line-height: 1.3;
+            text-align: center;
+            color: #f8fbff;
         }
 
         .card-desc {
-            color: #8f9aaa;
-            font-size: 0.94rem;
-            line-height: 1.6;
-            margin-bottom: auto;
+            display: none !important;
         }
 
         .card-btn {
-            margin-top: 26px;
-            padding: 11px 14px;
-            color: #e6edf6;
-            font-size: 0.86rem;
-            font-weight: 700;
-            border: 1px solid rgba(255, 255, 255, 0.12);
-            border-radius: 6px;
-            background: rgba(255, 255, 255, 0.06);
-            transition: all 0.25s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-            cursor: pointer;
+            display: none !important;
         }
 
         .footer-text {
             position: relative;
             z-index: 10;
-            width: min(1360px, calc(100% - 32px));
-            margin: 0 auto;
-            padding: 0 0 26px;
-            color: rgba(244, 247, 251, 0.42);
-            font-size: 0.99rem;
+            width: min(1000px, calc(100% - 32px));
+            margin: 40px auto 0;
+            padding: 0 16px 36px;
+            color: rgba(244, 247, 251, 0.52);
+            font-size: 0.95rem;
+            line-height: 1.7;
+            text-align: center;
         }
 
         #card-electro {
@@ -295,29 +292,26 @@
                 font-size: 0.66rem;
             }
 
+            .nav-card {
+                min-height: 125px;
+                padding: 18px 14px;
+            }
+
             .card-meta {
                 font-size: 0.68rem;
-                margin-bottom: 12px;
+                margin-bottom: 6px;
             }
 
             .card-title {
                 font-size: 1.1rem;
-                margin-bottom: 8px;
-            }
-
-            .card-desc {
-                font-size: 0.84rem;
-            }
-
-            .card-btn {
-                margin-top: 16px;
-                padding: 9px 12px;
-                font-size: 0.8rem;
+                margin: 0;
             }
 
             .footer-text {
-                font-size: 0.82rem;
-                padding-bottom: 16px;
+                font-size: 0.84rem;
+                line-height: 1.6;
+                padding-bottom: 20px;
+                margin-top: 28px;
             }
         }
 
@@ -362,63 +356,46 @@
             <a href="electrostatics.html" class="nav-card glass-panel" id="card-electro">
                 <div class="card-meta">Electrostatics</div>
                 <h2 class="card-title">Electrostatics Simulator</h2>
-                <p class="card-desc">
-                    Model point charges and continuous distributions to analyze electric field vectors, potential contours, and electrostatic force dynamics.
-                </p>
-                <div class="card-btn">Launch Physics Engine</div>
+                <span class="card-desc" hidden>Model point charges and continuous distributions to analyze electric field vectors, potential contours, and electrostatic force dynamics.</span>
             </a>
 
             <a href="gauss.html" class="nav-card glass-panel" id="card-gauss">
                 <div class="card-meta">Gauss's Law</div>
                 <h2 class="card-title">Gauss's Law Explorer</h2>
-                <p class="card-desc">
-                    Explore electric flux through spherical, cylindrical, and planar Gaussian surfaces, illustrating the direct relationship between flux and enclosed charge.
-                </p>
-                <div class="card-btn">Launch Explorer</div>
+                <span class="card-desc" hidden>Explore electric flux through spherical, cylindrical, and planar Gaussian surfaces, illustrating the direct relationship between flux and enclosed charge.</span>
             </a>
 
             <a href="capacitor.html" class="nav-card glass-panel" id="card-capacitor">
                 <div class="card-meta">Capacitance</div>
                 <h2 class="card-title">Capacitor Simulator</h2>
-                <p class="card-desc">
-                    Analyze parallel plate, cylindrical, and spherical capacitor geometries, dielectric boundary conditions, and nested series-parallel networks.
-                </p>
-                <div class="card-btn">Launch Capacitor Lab</div>
+                <span class="card-desc" hidden>Analyze parallel plate, cylindrical, and spherical capacitor geometries, dielectric boundary conditions, and nested series-parallel networks.</span>
             </a>
 
             <a href="conductivity.html" class="nav-card glass-panel" id="card-conductivity">
-                <div class="card-meta">Transport & Resistance</div>
+                <div class="card-meta">Transport &amp; Resistance</div>
                 <h2 class="card-title">Conductivity Explorer</h2>
-                <p class="card-desc">
-                    Simulate electron drift velocity under Drude scattering, exploring the microstructural impacts of temperature, dimension, and materials on resistance.
-                </p>
-                <div class="card-btn">Launch Conductivity Lab</div>
+                <span class="card-desc" hidden>Simulate electron drift velocity under Drude scattering, exploring the microstructural impacts of temperature, dimension, and materials on resistance.</span>
             </a>
 
             <a href="semiconductor.html" class="nav-card glass-panel" id="card-semiconductor">
                 <div class="card-meta">Semiconductor Physics</div>
                 <h2 class="card-title">Semiconductor Physics Lab</h2>
-                <p class="card-desc">
-                    Follow bond electrons, thermal excitation, doping, and electron-driven hole motion in one crystal. Apply voltage and watch charge flow.
-                </p>
-                <div class="card-btn">Launch Semiconductor Lab</div>
+                <span class="card-desc" hidden>Follow bond electrons, thermal excitation, doping, and electron-driven hole motion in one crystal. Apply voltage and watch charge flow.</span>
             </a>
             <a href="dc-circuit.html" class="nav-card glass-panel" id="card-dc-circuit">
                 <div class="card-meta">Circuit Analysis &amp; Dynamics</div>
                 <h2 class="card-title">Circuits Lab</h2>
-                <p class="card-desc">Start with a blank canvas, add batteries, AC sources, diodes, transformers, resistors and capacitors, and connect them with click-to-create wires. Read volts, amps and resistance above the components.</p>
-                <div class="card-btn">Launch Circuits Lab</div>
+                <span class="card-desc" hidden>Start with a blank canvas, add batteries, AC sources, diodes, transformers, resistors and capacitors, and connect them with click-to-create wires. Read volts, amps and resistance above the components.</span>
             </a>
             <a href="logic.html" class="nav-card glass-panel" id="card-logic">
                 <div class="card-meta">Digital Logic &amp; Boolean Algebra</div>
-                <h2 class="card-title">Logic Gate Lab</h2>
-                <p class="card-desc">Build digital logic circuits with up to four inputs, watch the live Boolean equation and truth table update above the schematic, simplify expressions with Karnaugh maps, and convert to universal NAND or NOR gates.</p>
-                <div class="card-btn">Launch Logic Lab</div>
+                <h2 class="card-title">Logic Circuits Lab</h2>
+                <span class="card-desc" hidden>Build digital logic circuits with up to four inputs, watch the live Boolean equation and truth table update above the schematic, simplify expressions with Karnaugh maps, and convert to universal NAND or NOR gates.</span>
             </a>
         </section>
 
         <footer class="footer-text">
-            Made by Zeyad Mahmoud
+            These are virtual labs related to computer, electronics, communications, and electrical engineering, developed by the student Zeyad Mahmoud, dedicated to the Faculty of Engineering at Shoubra, and carried out under the supervision of its professors.
         </footer>
     </main>
 

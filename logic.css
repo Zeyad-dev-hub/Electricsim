@@ -107,11 +107,19 @@ button[aria-selected="true"] {
 .logic-top {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 18px;
-  padding: 14px 22px;
+  padding: 12px 22px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
   background: rgba(6, 8, 13, 0.86);
   backdrop-filter: blur(10px);
+  flex-wrap: wrap;
+}
+
+.logic-brand-group {
+  display: flex;
+  align-items: center;
+  gap: 16px;
 }
 
 .logic-hub-link {
@@ -126,7 +134,43 @@ button[aria-selected="true"] {
   font-size: 19px;
   font-weight: 700;
   margin: 0;
-  flex: 1;
+  white-space: nowrap;
+}
+
+/* Mode Switcher (matching Capacitance Lab) */
+.logic-mode-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.11);
+}
+
+.logic-mode-switch .mode-btn {
+  min-height: 34px;
+  padding: 6px 14px;
+  border-radius: 7px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: #96a5ba;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+.logic-mode-switch .mode-btn:hover {
+  color: #f4f7fb;
+  background: rgba(255, 255, 255, 0.06);
+  border-color: transparent;
+}
+
+.logic-mode-switch .mode-btn.active {
+  background: rgba(61, 217, 255, 0.14);
+  border-color: rgba(61, 217, 255, 0.55);
+  color: #3dd9ff;
+  box-shadow: 0 0 14px rgba(61, 217, 255, 0.16);
 }
 
 .logic-top-controls {
@@ -405,7 +449,8 @@ button[aria-selected="true"] {
   padding: 0;
 }
 
-#toolHint {
+#toolHint,
+#icToolHint {
   margin: 0;
   color: #96a5ba;
   flex: 1;
@@ -440,12 +485,18 @@ button[aria-selected="true"] {
   user-select: none;
 }
 
-#logicCanvas {
+#logicCanvas,
+#icCanvas {
   display: block;
   width: 100%;
   height: calc(100dvh - 340px);
   min-height: 430px;
   touch-action: none;
+}
+
+#icCanvas {
+  height: calc(100dvh - 250px);
+  min-height: 480px;
 }
 
 .logic-sidebar {
@@ -840,12 +891,139 @@ button[aria-selected="true"] {
   font-weight: 600;
 }
 
+/* ===================================================================== */
+/* LOGIC IC LAB STYLES                                                   */
+/* ===================================================================== */
+.ic-chip-btn {
+  font-family: "JetBrains Mono", "Fira Code", Consolas, monospace;
+  font-weight: 700 !important;
+  letter-spacing: 0.03em;
+  background: linear-gradient(180deg, #161b28, #0d1018);
+  border: 1px solid rgba(61, 217, 255, 0.28);
+  color: #dff6ff;
+  position: relative;
+}
+
+.ic-chip-btn::before {
+  content: "DIP";
+  font-size: 9px;
+  font-weight: 700;
+  color: #3dd9ff;
+  background: rgba(61, 217, 255, 0.12);
+  padding: 1px 4px;
+  border-radius: 3px;
+  margin-right: 5px;
+  vertical-align: 1px;
+}
+
+.ic-chip-btn[aria-pressed="true"] {
+  background: rgba(61, 217, 255, 0.18) !important;
+  border-color: #3dd9ff !important;
+  color: #ffffff !important;
+  box-shadow: 0 0 12px rgba(61, 217, 255, 0.25);
+}
+
+.ic-bench-btn {
+  border-color: rgba(246, 185, 68, 0.28);
+  background: linear-gradient(180deg, #171a24, #0f121a);
+}
+
+.ic-inspector-meta {
+  font-size: 12px;
+  color: #b8c6db;
+  line-height: 1.45;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.ic-pinout-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 5px;
+  margin-top: 6px;
+}
+
+.ic-pin-pill {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-family: "JetBrains Mono", Consolas, monospace;
+  font-size: 11px;
+  background: rgba(0, 0, 0, 0.38);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.ic-pin-pill.is-high {
+  border-color: rgba(61, 217, 255, 0.45);
+  background: rgba(61, 217, 255, 0.09);
+  color: #d9f8ff;
+}
+
+.ic-pin-pill.is-vcc {
+  border-color: rgba(255, 107, 107, 0.45);
+  background: rgba(255, 107, 107, 0.08);
+}
+
+.ic-pin-pill.is-gnd {
+  border-color: rgba(143, 160, 181, 0.38);
+  background: rgba(143, 160, 181, 0.08);
+}
+
+.ic-summary-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.ic-summary-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 7px 10px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  font-size: 12px;
+}
+
+.ic-catalog-reference h4 {
+  margin: 8px 0 6px;
+  font-size: 12px;
+  color: #d5dfed;
+}
+
+.ic-ref-table-wrap {
+  max-height: 250px;
+  overflow-y: auto;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.ic-ref-table td,
+.ic-ref-table th {
+  text-align: left !important;
+  padding: 6px 8px !important;
+  font-size: 11.5px !important;
+}
+
+.ic-ref-table tbody tr {
+  cursor: pointer;
+}
+
 /* Responsive Breakpoints */
 @media (max-width: 980px) {
   .logic-workspace {
     grid-template-columns: minmax(0, 1fr);
   }
-  #logicCanvas {
+  #logicCanvas,
+  #icCanvas {
     height: 52dvh;
     min-height: 320px;
   }

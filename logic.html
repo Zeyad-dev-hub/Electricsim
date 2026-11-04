@@ -4,8 +4,8 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#000000">
-  <title>Electricsim · Logic Gate Lab</title>
-  <meta name="description" content="Interactive digital logic gate simulator with live Boolean algebra equations, truth tables, Karnaugh maps, exact Boolean simplification, and universal NAND/NOR gate conversion.">
+  <title>Electricsim · Logic Circuits Lab</title>
+  <meta name="description" content="Interactive digital logic circuits simulator with live Boolean algebra equations, truth tables, Karnaugh maps, exact Boolean simplification, and universal NAND/NOR gate conversion.">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="research-theme.css?v=2">
   <link rel="stylesheet" href="logic.css?v=3">
@@ -14,9 +14,21 @@
   <canvas id="bgCanvas" aria-hidden="true"></canvas>
 
   <header class="logic-top">
-    <a href="index.html" class="logic-hub-link">← Electricsim</a>
-    <h1>Logic Gate Lab</h1>
-    <div class="logic-top-controls">
+    <div class="logic-brand-group">
+      <a href="index.html" class="logic-hub-link">← Electricsim</a>
+      <h1>Logic Circuits Lab</h1>
+    </div>
+
+    <div class="logic-mode-switch" role="tablist" aria-label="Logic Circuits Lab Mode">
+      <button id="btnModeGates" type="button" class="mode-btn active" role="tab" aria-selected="true" aria-controls="gatesMain">
+        Logic Gates Simulator
+      </button>
+      <button id="btnModeIC" type="button" class="mode-btn" role="tab" aria-selected="false" aria-controls="icMain">
+        Logic IC Lab
+      </button>
+    </div>
+
+    <div id="gatesTopControls" class="logic-top-controls">
       <label for="exampleSelect" style="font-size:12.5px;color:#96a5ba;font-weight:600;">Examples</label>
       <select id="exampleSelect" aria-label="Load an example logic circuit">
         <option value="">Choose an example…</option>
@@ -25,9 +37,19 @@
       <button id="redoBtn" type="button" title="Redo · Ctrl+Y" disabled>Redo</button>
       <button id="clearBtn" type="button">Clear</button>
     </div>
+
+    <div id="icTopControls" class="logic-top-controls" hidden>
+      <label for="icExampleSelect" style="font-size:12.5px;color:#96a5ba;font-weight:600;">IC Presets</label>
+      <select id="icExampleSelect" aria-label="Load an example 74xx IC bench circuit">
+        <option value="">Choose an IC bench…</option>
+      </select>
+      <button id="icUndoBtn" type="button" title="Undo · Ctrl+Z" disabled>Undo</button>
+      <button id="icRedoBtn" type="button" title="Redo · Ctrl+Y" disabled>Redo</button>
+      <button id="icClearBtn" type="button">Clear</button>
+    </div>
   </header>
 
-  <main class="logic-main">
+  <main id="gatesMain" class="logic-main">
     <!-- Live Boolean Formula Bar above the schematic -->
     <section class="logic-formula-bar glass-panel-small" aria-label="Live Boolean algebra formula bar">
       <div class="logic-formula-header">
@@ -236,15 +258,170 @@
     </footer>
   </main>
 
-  <script src="logic-model.js?v=7"></script>
-  <script src="logic-evaluator.js?v=7"></script>
-  <script src="logic-expression.js?v=7"></script>
-  <script src="logic-simplify.js?v=7"></script>
-  <script src="logic-synthesis.js?v=7"></script>
-  <script src="logic-editor.js?v=7"></script>
-  <script src="logic-renderer.js?v=7"></script>
-  <script src="logic-presets.js?v=7"></script>
-  <script src="logic.js?v=7"></script>
+  <!-- ===================================================================== -->
+  <!-- PART 2: LOGIC IC LAB (74xx Series DIP IC Hardware Bench)              -->
+  <!-- ===================================================================== -->
+  <main id="icMain" class="logic-main" hidden>
+    <!-- IC Bench Tool Palette -->
+    <section class="logic-toolbar-wrap" aria-label="74xx IC and bench component tools">
+      <nav id="icToolsNav" class="logic-tools ic-tools-palette" aria-label="IC models and bench components">
+        <button type="button" data-ic-tool="select" aria-pressed="true">↖ Move / Edit</button>
+        <button type="button" data-ic-tool="wire" aria-pressed="false">─●─ Wire</button>
+        <button type="button" data-ic-tool="pan" aria-pressed="false">✋ Pan</button>
+        <span class="logic-tool-sep" aria-hidden="true"></span>
+
+        <!-- Bench Circuit Components -->
+        <button type="button" data-ic-tool="battery" class="ic-bench-btn" aria-pressed="false" title="5V DC Battery (+5V VCC and 0V GND)">🔋 5V Battery</button>
+        <button type="button" data-ic-tool="switch" class="ic-bench-btn" aria-pressed="false" title="SPST Toggle Switch (Click on bench to flip ON/OFF)">⏻ Switch</button>
+        <button type="button" data-ic-tool="resistor" class="ic-bench-btn" aria-pressed="false" title="220 Ω Series Current-Limiting Resistor">〰 Resistor</button>
+        <button type="button" data-ic-tool="lamp" class="ic-bench-btn" aria-pressed="false" title="LED / Indicator Lamp">💡 Lamp</button>
+        <button type="button" data-ic-tool="gnd" class="ic-bench-btn" aria-pressed="false" title="Ground Reference Terminal (0V)">⏚ GND</button>
+        <button type="button" data-ic-tool="clock" class="ic-bench-btn" aria-pressed="false" title="1 Hz Square-Wave Clock Generator">⏱ 1Hz Clock</button>
+        <button type="button" data-ic-tool="seg7" class="ic-bench-btn" aria-pressed="false" title="BCD 7-Segment Hex Display (Inputs A, B, C, D)">🔢 7-Seg</button>
+        <span class="logic-tool-sep" aria-hidden="true"></span>
+
+        <!-- 74xx Series DIP-14 ICs (Labeled strictly by Model Number) -->
+        <button type="button" data-ic-tool="7404" class="ic-chip-btn" aria-pressed="false">7404</button>
+        <button type="button" data-ic-tool="7400" class="ic-chip-btn" aria-pressed="false">7400</button>
+        <button type="button" data-ic-tool="7402" class="ic-chip-btn" aria-pressed="false">7402</button>
+        <button type="button" data-ic-tool="7408" class="ic-chip-btn" aria-pressed="false">7408</button>
+        <button type="button" data-ic-tool="7432" class="ic-chip-btn" aria-pressed="false">7432</button>
+        <button type="button" data-ic-tool="7486" class="ic-chip-btn" aria-pressed="false">7486</button>
+        <button type="button" data-ic-tool="74266" class="ic-chip-btn" aria-pressed="false">74266</button>
+        <button type="button" data-ic-tool="7410" class="ic-chip-btn" aria-pressed="false">7410</button>
+        <button type="button" data-ic-tool="7411" class="ic-chip-btn" aria-pressed="false">7411</button>
+        <button type="button" data-ic-tool="7427" class="ic-chip-btn" aria-pressed="false">7427</button>
+      </nav>
+
+      <div class="logic-subbar">
+        <div class="logic-placement-opts">
+          <label title="Show semi-transparent datasheet gate symbols and internal pin routing inside every 74xx IC package">
+            <input id="icXrayToggle" type="checkbox" checked> 🔬 X-Ray IC Internals
+          </label>
+          <label title="Automatically supply +5V to Pin 14 (VCC) and 0V to Pin 7 (GND) on all ICs without manual power wires">
+            <input id="icAutoPowerToggle" type="checkbox"> ⚡ Auto-Power (Pin 14/7)
+          </label>
+          <label><input id="icSnapToggle" type="checkbox" checked> Snap to grid</label>
+          <label><input id="icRepeatToggle" type="checkbox"> Keep placing</label>
+          <button id="icRotatePlacementBtn" type="button" hidden>↻ Rotate next (R)</button>
+        </div>
+        <p id="icToolHint" role="status" aria-live="polite">Place a 74xx IC, 5V Battery, Switches, Resistor, and Lamp. Wire Battery +5V to Pin 14 (VCC) and − to Pin 7 (GND).</p>
+        <div class="logic-zoom">
+          <button id="icZoomOutBtn" type="button" aria-label="Zoom out">−</button>
+          <button id="icZoomInBtn" type="button" aria-label="Zoom in">+</button>
+          <button id="icFitBtn" type="button">Fit view</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- IC Bench Workspace: Breadboard/Bench Canvas + Live Datasheet Dock -->
+    <section class="logic-workspace" aria-label="74xx IC bench and live pinout inspector">
+      <div class="logic-canvas-wrap">
+        <canvas id="icCanvas" tabindex="0" role="group" aria-label="74xx Logic IC bench canvas" aria-describedby="icToolHint"></canvas>
+      </div>
+
+      <aside class="logic-sidebar" aria-label="IC Datasheet and Pinout Inspector">
+        <!-- Selected IC / Component Inspector -->
+        <section id="icInspectorCard" class="logic-inspector glass-panel-small" hidden aria-label="Selected bench component inspector">
+          <div class="logic-inspector-head">
+            <strong id="icInspectorTitle">Selected Component</strong>
+            <button id="icCloseInspectorBtn" type="button" class="logic-quiet-btn">Done</button>
+          </div>
+
+          <div id="icInspectorMeta" class="ic-inspector-meta"></div>
+
+          <div id="icLampColorWrap" class="logic-inspector-grid" hidden>
+            <label for="icLampColorSelect">Lamp Color</label>
+            <select id="icLampColorSelect">
+              <option value="emerald">Emerald Green</option>
+              <option value="cyan">Cyan Blue</option>
+              <option value="amber">Amber Gold</option>
+              <option value="red">Ruby Red</option>
+            </select>
+          </div>
+
+          <button id="icToggleSelectedBtn" type="button" class="logic-toggle-val-btn" hidden>Flip Switch (ON ↔ OFF)</button>
+
+          <!-- Live 14-Pin State Monitor when an IC is selected -->
+          <div id="icPinTableWrap" hidden>
+            <div class="logic-panel-subhead" style="margin-top:4px;">
+              <span>Live 14-Pin State Monitor</span>
+              <span id="icPowerBadge" class="logic-badge">UNPOWERED</span>
+            </div>
+            <div class="ic-pinout-grid" id="icPinoutGrid"></div>
+          </div>
+
+          <div class="logic-inspector-actions">
+            <button id="icRotateBtn" type="button">↻ Rotate (R)</button>
+            <button id="icDuplicateBtn" type="button">Duplicate</button>
+            <button id="icDeleteBtn" type="button" class="logic-danger-btn">Delete</button>
+          </div>
+        </section>
+
+        <!-- Bench Reference & Live Circuit Diagnostics Dock -->
+        <section class="logic-dock glass-panel-small" aria-label="74xx Datasheet Guide and Bench Status">
+          <div class="logic-panel-subhead">
+            <span>Bench Diagnostics &amp; 74xx Pinout Guide</span>
+            <span id="icBenchStatusBadge" class="logic-badge">Ready</span>
+          </div>
+          <p class="logic-panel-hint">
+            Standard 14-pin DIP ICs count counter-clockwise from the left notch: <strong>Pins 1–7</strong> along the bottom (<strong>Pin 7 = GND</strong>) and <strong>Pins 8–14</strong> along the top right-to-left (<strong>Pin 14 = +5V VCC</strong>).
+          </p>
+
+          <div id="icActiveSummaryList" class="ic-summary-list"></div>
+
+          <div class="ic-catalog-reference">
+            <h4>74xx Series Quick Reference</h4>
+            <div class="ic-ref-table-wrap">
+              <table class="logic-truth-table ic-ref-table">
+                <thead>
+                  <tr>
+                    <th>IC</th>
+                    <th>Internal Gates</th>
+                    <th>Pin Mapping (In → Out)</th>
+                  </tr>
+                </thead>
+                <tbody id="icCatalogTableBody">
+                  <tr data-ic-ref="7404"><td><strong>7404</strong></td><td>6× NOT (1-in)</td><td>1→2, 3→4, 5→6, 9→8, 11→10, 13→12</td></tr>
+                  <tr data-ic-ref="7400"><td><strong>7400</strong></td><td>4× NAND (2-in)</td><td>1,2→3 · 4,5→6 · 9,10→8 · 12,13→11</td></tr>
+                  <tr data-ic-ref="7402"><td><strong>7402</strong></td><td>4× NOR (2-in)</td><td>2,3→1 · 5,6→4 · 8,9→10 · 11,12→13</td></tr>
+                  <tr data-ic-ref="7408"><td><strong>7408</strong></td><td>4× AND (2-in)</td><td>1,2→3 · 4,5→6 · 9,10→8 · 12,13→11</td></tr>
+                  <tr data-ic-ref="7432"><td><strong>7432</strong></td><td>4× OR (2-in)</td><td>1,2→3 · 4,5→6 · 9,10→8 · 12,13→11</td></tr>
+                  <tr data-ic-ref="7486"><td><strong>7486</strong></td><td>4× XOR (2-in)</td><td>1,2→3 · 4,5→6 · 9,10→8 · 12,13→11</td></tr>
+                  <tr data-ic-ref="74266"><td><strong>74266</strong></td><td>4× XNOR (2-in)</td><td>1,2→3 · 4,5→6 · 9,10→8 · 12,13→11</td></tr>
+                  <tr data-ic-ref="7410"><td><strong>7410</strong></td><td>3× NAND (3-in)</td><td>1,2,13→12 · 3,4,5→6 · 9,10,11→8</td></tr>
+                  <tr data-ic-ref="7411"><td><strong>7411</strong></td><td>3× AND (3-in)</td><td>1,2,13→12 · 3,4,5→6 · 9,10,11→8</td></tr>
+                  <tr data-ic-ref="7427"><td><strong>7427</strong></td><td>3× NOR (3-in)</td><td>1,2,13→12 · 3,4,5→6 · 9,10,11→8</td></tr>
+                </tbody>
+              </table>
+            </div>
+            <p class="logic-panel-hint" style="margin-top:6px;">Tip: Click any row above to select that IC tool for placement.</p>
+          </div>
+        </section>
+      </aside>
+    </section>
+
+    <!-- Bottom IC Bench Footer -->
+    <footer class="logic-footer" aria-label="IC Bench metrics">
+      <span>74xx ICs: <strong id="icStatChips">0</strong></span>
+      <span>Powered ICs: <strong id="icStatPowered">0</strong></span>
+      <span>Switches: <strong id="icStatSwitches">0</strong></span>
+      <span>Lamps ON: <strong id="icStatLamps">0</strong></span>
+      <span>Wires: <strong id="icStatWires">0</strong></span>
+      <span id="icStatStatus" class="logic-status-ok">✓ Bench Ready</span>
+    </footer>
+  </main>
+
+  <script src="logic-model.js?v=8"></script>
+  <script src="logic-evaluator.js?v=8"></script>
+  <script src="logic-expression.js?v=8"></script>
+  <script src="logic-simplify.js?v=8"></script>
+  <script src="logic-synthesis.js?v=8"></script>
+  <script src="logic-editor.js?v=8"></script>
+  <script src="logic-renderer.js?v=8"></script>
+  <script src="logic-presets.js?v=8"></script>
+  <script src="logic.js?v=8"></script>
+  <script src="logic-ic-lab.js?v=2"></script>
   <script src="shared-bg.js"></script>
 </body>
 </html>

@@ -12,7 +12,7 @@ assert.ok(matches('Conductivity Explorer electron drift','  '));
 assert.ok(!matches('Circuits Lab','gauss'));
 assert.ok(!matches('Semiconductor Lab','<script>alert(1)</script>'));
 assert.ok(!matches('Circuits Lab','dc missingtopic'));
-assert.ok(matches('Logic Gate Lab boolean algebra truth table karnaugh nand nor','boolean karnaugh'));
+assert.ok(matches('Logic Circuits Lab boolean algebra truth table karnaugh nand nor','boolean karnaugh'));
 assert.equal((html.match(/class="nav-card glass-panel"/g)||[]).length,7);
 assert.ok(!html.includes('card-visual'));
 assert.ok(!html.includes('body.hub-body {'));
