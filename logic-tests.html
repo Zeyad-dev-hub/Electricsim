@@ -47,6 +47,7 @@
   <script src="logic-editor.js"></script>
   <script src="logic-renderer.js"></script>
   <script src="logic-presets.js"></script>
+  <script src="logic-ic-lab.js"></script>
   <script>
     (function () {
       'use strict';
@@ -299,6 +300,36 @@
           assert(haPairs === '00,01,01,10', 'Half Adder truth table outputs F G must read 00, 01, 01, 10');
         } finally {
           c.remove();
+        }
+      });
+
+      check('Logic IC Lab: Strict ground requirement for lamps & complete circuit validation', () => {
+        const ICLab = window.LogicLab;
+        assert(ICLab.IC_CATALOG && ICLab.IC_CATALOG['7404'], 'IC Catalog must exist with 7404');
+        const doc = ICLab.blankICDoc();
+        const bat = ICLab.createICComponent('battery', 0, 0, { id: 'bat1' });
+        const lamp = ICLab.createICComponent('lamp', 100, 0, { id: 'lamp1' });
+        doc.components.push(bat, lamp);
+        ICLab.connectICWire(doc, 'bat1:pos', 'lamp1:anode');
+        let res = ICLab.evaluateICBench(doc);
+        assert(res.lampStates.get('lamp1').lit === false, 'Open cathode must NOT light');
+        assert(res.lampStates.get('lamp1').reason === 'open_cathode', 'Reason must be open_cathode');
+
+        ICLab.connectICWire(doc, 'bat1:neg', 'lamp1:cathode');
+        res = ICLab.evaluateICBench(doc);
+        assert(res.lampStates.get('lamp1').lit === true, 'Grounded cathode must light');
+        assert(res.lampStates.get('lamp1').reason === 'lit', 'Reason must be lit');
+
+        for (const [id, preset] of Object.entries(ICLab.IC_PRESETS)) {
+          const pdoc = preset.build();
+          const pres = ICLab.evaluateICBench(pdoc);
+          assert(pres.anyShort === false, `Preset ${id} has short`);
+          assert(pres.anyReverse === false, `Preset ${id} has reverse power`);
+          for (const c of pdoc.components) {
+            if (c.kind === 'lamp') {
+              assert(pres.lampStates.get(c.id).reason !== 'open_cathode', `Preset ${id} lamp has open cathode`);
+            }
+          }
         }
       });
 

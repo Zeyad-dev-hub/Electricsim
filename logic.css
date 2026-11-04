@@ -964,6 +964,18 @@ button[aria-selected="true"] {
   color: #d9f8ff;
 }
 
+.ic-pin-pill.is-low {
+  border-color: rgba(143, 160, 181, 0.35);
+  background: rgba(143, 160, 181, 0.06);
+  color: #9eb2cb;
+}
+
+.ic-pin-pill.is-open {
+  border-color: rgba(246, 185, 68, 0.32);
+  background: rgba(246, 185, 68, 0.04);
+  color: #e0b86a;
+}
+
 .ic-pin-pill.is-vcc {
   border-color: rgba(255, 107, 107, 0.45);
   background: rgba(255, 107, 107, 0.08);

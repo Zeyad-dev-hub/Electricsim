@@ -679,14 +679,40 @@
                 const cathodeKey = `${comp.id}:cathode`;
                 const anodeVal = getPinValue(anodeKey);
                 const cathodeVal = getPinValue(cathodeKey);
+                const anodeWired = wireConnectedPins.has(anodeKey);
                 const cathodeWired = wireConnectedPins.has(cathodeKey);
-                // Lamp lights up when Anode is HIGH (1) and Cathode is LOW (0) (or left unwired in probe mode)
-                const lit = anodeVal === 1 && (cathodeVal === 0 || !cathodeWired);
+
+                // Physical circuit rule: An LED/Lamp MUST have a complete, closed circuit to ground.
+                // It CANNOT light up if the cathode is floating/open or not connected to GND (0V) / Battery (−).
+                let lit = false;
+                let reason = 'off';
+
+                if (anodeVal === 1 && cathodeWired && cathodeVal === 0) {
+                    lit = true;
+                    reason = 'lit';
+                } else if (anodeVal === 1 && (!cathodeWired || cathodeVal === null)) {
+                    reason = 'open_cathode';
+                } else if (cathodeWired && cathodeVal === 0 && (!anodeWired || anodeVal === null)) {
+                    reason = 'open_anode';
+                } else if (!anodeWired && !cathodeWired) {
+                    reason = 'unconnected';
+                } else if (anodeVal === 1 && cathodeVal === 1) {
+                    reason = 'no_diff_high';
+                } else if (anodeVal === 0 && cathodeVal === 1) {
+                    reason = 'reverse_bias';
+                } else if (anodeVal === 0 && cathodeVal === 0) {
+                    reason = 'low_input';
+                } else {
+                    reason = 'off';
+                }
+
                 lampStates.set(comp.id, {
                     lit,
                     anodeVal,
                     cathodeVal,
-                    cathodeWired
+                    anodeWired,
+                    cathodeWired,
+                    reason
                 });
             } else if (comp.kind === 'seg7') {
                 const a = getPinValue(`${comp.id}:A`);
@@ -1104,8 +1130,10 @@
                 const ic04 = createICComponent('7404', 252, -18, { id: 'ic7404' });
                 const lampHigh = createICComponent('lamp', 90, 144, { id: 'lampHi', color: 'emerald', label: 'ALL HIGH' });
                 const lampLow = createICComponent('lamp', 342, 144, { id: 'lampLo', color: 'red', label: 'INVERTED' });
+                const gndHi = createICComponent('gnd', 126, 216, { id: 'gndHi' });
+                const gndLo = createICComponent('gnd', 378, 216, { id: 'gndLo' });
 
-                doc.components.push(sw1, sw2, sw3, ic11, ic04, lampHigh, lampLow);
+                doc.components.push(sw1, sw2, sw3, ic11, ic04, lampHigh, lampLow, gndHi, gndLo);
 
                 // Wire 3 switches to 7411 Gate 2 inputs (Pins 3, 4, 5)
                 connectICWire(doc, 'sw1:out', 'ic7411:3', [{ x: -216, y: -36 }, { x: -216, y: 90 }, { x: -90, y: 90 }]);
@@ -1114,8 +1142,10 @@
 
                 // 7411 Output Pin 6 -> ALL HIGH Lamp and 7404 Input Pin 1
                 connectICWire(doc, 'ic7411:6', 'lampHi:anode', [{ x: 18, y: 144 }]);
+                connectICWire(doc, 'lampHi:cathode', 'gndHi:pin', [{ x: 126, y: 180 }]);
                 connectICWire(doc, 'ic7411:6', 'ic7404:1', [{ x: 18, y: 90 }, { x: 144, y: 90 }]);
                 connectICWire(doc, 'ic7404:2', 'lampLo:anode', [{ x: 180, y: 144 }]);
+                connectICWire(doc, 'lampLo:cathode', 'gndLo:pin', [{ x: 378, y: 180 }]);
 
                 return doc;
             }
@@ -1131,12 +1161,14 @@
                 const ic00 = createICComponent('7400', -36, 0, { id: 'ic7400' });
                 const lamp = createICComponent('lamp', 216, 108, { id: 'lamp1', color: 'cyan', label: 'NAND OUT' });
                 const seg = createICComponent('seg7', 252, -36, { id: 'seg1' });
+                const gnd1 = createICComponent('gnd', 252, 180, { id: 'gnd1' });
 
-                doc.components.push(clk, sw, ic00, lamp, seg);
+                doc.components.push(clk, sw, ic00, lamp, seg, gnd1);
 
                 connectICWire(doc, 'clk1:out', 'ic7400:1', [{ x: -198, y: -36 }, { x: -198, y: 72 }, { x: -144, y: 72 }]);
                 connectICWire(doc, 'sw1:out', 'ic7400:2', [{ x: -108, y: 54 }]);
                 connectICWire(doc, 'ic7400:3', 'lamp1:anode', [{ x: -72, y: 108 }]);
+                connectICWire(doc, 'lamp1:cathode', 'gnd1:pin', [{ x: 252, y: 144 }]);
                 connectICWire(doc, 'clk1:out', 'seg1:A', [{ x: -198, y: -36 }, { x: -198, y: -108 }, { x: 180, y: -108 }, { x: 180, y: -90 }]);
                 connectICWire(doc, 'ic7400:3', 'seg1:B', [{ x: -72, y: 108 }, { x: 144, y: 108 }, { x: 144, y: -54 }]);
 
@@ -1440,7 +1472,12 @@
             const mainWidth = selected ? 3.4 : value === 1 ? 2.6 : 2.1;
 
             ctx.save();
-            if (preview) ctx.setLineDash([6, 5]);
+            if (preview) {
+                ctx.setLineDash([6, 5]);
+            } else if (value === null && !conflict && !selected) {
+                // Open / floating wire: clean dashed pattern to clearly distinguish open from grounded 0V
+                ctx.setLineDash([5, 4]);
+            }
             ctx.strokeStyle = strokeColor;
             ctx.lineWidth = mainWidth;
             ctx.lineCap = 'round';
@@ -1837,9 +1874,14 @@
                 ctx.beginPath();
                 ctx.moveTo(-36, 0);
                 ctx.lineTo(-18, 0);
+                ctx.strokeStyle = lit ? lampColor : lState?.anodeVal === 1 ? COLORS.wire1 : '#8fa0b5';
+                ctx.lineWidth = 2.4;
+                ctx.stroke();
+
+                ctx.beginPath();
                 ctx.moveTo(18, 0);
                 ctx.lineTo(36, 0);
-                ctx.strokeStyle = lit ? lampColor : '#8fa0b5';
+                ctx.strokeStyle = lit ? lampColor : lState?.reason === 'open_cathode' ? '#f6b944' : lState?.cathodeVal === 0 ? COLORS.wire0 : '#8fa0b5';
                 ctx.lineWidth = 2.4;
                 ctx.stroke();
 
@@ -1861,7 +1903,7 @@
                 ctx.fillStyle = lit ? lampColor : '#121722';
                 ctx.fill();
                 ctx.lineWidth = isSelected ? 2.5 : 1.8;
-                ctx.strokeStyle = isSelected ? COLORS.selected : lit ? '#ffffff' : '#9fb0c7';
+                ctx.strokeStyle = isSelected ? COLORS.selected : lit ? '#ffffff' : lState?.reason === 'open_cathode' ? '#f6b944' : '#9fb0c7';
                 ctx.stroke();
 
                 // Filament / LED inner dome reflection
@@ -1875,12 +1917,31 @@
                 ctx.textAlign = 'center';
                 ctx.fillStyle = '#ff9c95';
                 ctx.fillText('+', -25, -8);
-                ctx.fillStyle = '#9db2ce';
+                ctx.fillStyle = lState?.reason === 'open_cathode' ? '#f6b944' : '#9db2ce';
                 ctx.fillText('−', 25, -8);
 
-                ctx.fillStyle = lit ? '#ffffff' : '#96a5ba';
+                let statusLabel = 'OFF';
+                let statusColor = '#96a5ba';
+                if (lit) {
+                    statusLabel = 'ON';
+                    statusColor = '#ffffff';
+                } else if (lState?.reason === 'open_cathode') {
+                    statusLabel = 'NO GND';
+                    statusColor = '#f6b944';
+                } else if (lState?.reason === 'open_anode') {
+                    statusLabel = 'OPEN +';
+                    statusColor = '#f6b944';
+                } else if (lState?.reason === 'reverse_bias') {
+                    statusLabel = 'REV POL';
+                    statusColor = '#ff5a52';
+                } else if (lState?.reason === 'no_diff_high') {
+                    statusLabel = 'NO DIFF';
+                    statusColor = '#96a5ba';
+                }
+
+                ctx.fillStyle = statusColor;
                 ctx.font = '700 9.5px "Inter", sans-serif';
-                ctx.fillText(`${comp.label || 'LED'}: ${lit ? 'ON' : 'OFF'}`, 0, 29);
+                ctx.fillText(`${comp.label || 'LED'}: ${statusLabel}`, 0, 29);
             } else if (comp.kind === 'gnd') {
                 ctx.strokeStyle = isSelected ? COLORS.selected : '#9db2ce';
                 ctx.lineWidth = 2.2;
@@ -2018,7 +2079,7 @@
                 : val === 1
                 ? '#3dd9ff'
                 : val === 0
-                ? '#1b2436'
+                ? '#243247'
                 : '#141824';
             ctx.fill();
             ctx.lineWidth = 1.6;
@@ -2026,7 +2087,9 @@
                 ? '#ffffff'
                 : val === 1
                 ? '#9beeff'
-                : '#8fa0b5';
+                : val === 0
+                ? '#657e9f'
+                : '#424f63';
             ctx.stroke();
             ctx.restore();
         }
@@ -2112,7 +2175,7 @@
             if (uiState.hoverPinKey && evalData.pins.has(uiState.hoverPinKey)) {
                 const hp = evalData.pins.get(uiState.hoverPinKey);
                 const v = evalData.pinValues.get(uiState.hoverPinKey);
-                const stateStr = v === 1 ? 'HIGH (5V)' : v === 0 ? 'LOW (0V)' : 'OPEN';
+                const stateStr = v === 1 ? 'HIGH (+5V)' : v === 0 ? 'LOW (0V GND)' : 'OPEN (Floating)';
                 const label = `${hp.title} · ${stateStr}`;
                 ctx.font = '600 11px "Inter", sans-serif';
                 const tw = ctx.measureText(label).width + 14;
@@ -2563,7 +2626,7 @@
                     const v = evalData.pinValues.get(p.key);
                     const pill = document.createElement('div');
                     pill.className = 'ic-pin-pill'
-                        + (v === 1 ? ' is-high' : '')
+                        + (v === 1 ? ' is-high' : v === 0 ? ' is-low' : ' is-open')
                         + (p.pinNumber === 14 ? ' is-vcc' : '')
                         + (p.pinNumber === 7 ? ' is-gnd' : '');
                     const left = document.createElement('span');
@@ -2593,8 +2656,28 @@
                 $('icInspectorMeta').textContent = 'Current-limiting series resistor (Red-Red-Brown-Gold) used between IC output pins and LED / Lamp indicators.';
             } else if (comp.kind === 'lamp') {
                 const lst = evalData.lampStates.get(comp.id);
-                $('icInspectorTitle').textContent = `Indicator Lamp (${lst?.lit ? 'ILLUMINATED' : 'OFF'})`;
-                $('icInspectorMeta').textContent = 'Lights up when Anode (+) is driven HIGH (5V) and Cathode (−) returns to GND (0V).';
+                if (lst?.lit) {
+                    $('icInspectorTitle').textContent = `Indicator Lamp (${comp.label || 'LED'} — ILLUMINATED · 5V → GND)`;
+                    $('icInspectorMeta').textContent = '✓ Closed Circuit Conducting: Anode (+) receives +5V (Logic 1) and Cathode (−) is connected to 0V GND.';
+                } else if (lst?.reason === 'open_cathode') {
+                    $('icInspectorTitle').textContent = `Indicator Lamp (${comp.label || 'LED'} — OFF: OPEN GND)`;
+                    $('icInspectorMeta').textContent = '⚠ Open Circuit: Anode (+) is HIGH (+5V), but Cathode (−) is NOT grounded! A lamp cannot work without connecting its negative terminal to GND (0V) or Battery (−).';
+                } else if (lst?.reason === 'open_anode') {
+                    $('icInspectorTitle').textContent = `Indicator Lamp (${comp.label || 'LED'} — OFF: OPEN ANODE)`;
+                    $('icInspectorMeta').textContent = '⚠ Open Circuit: Cathode (−) is connected to GND, but Anode (+) is left floating. Connect Anode (+) to an IC output pin or +5V.';
+                } else if (lst?.reason === 'reverse_bias') {
+                    $('icInspectorTitle').textContent = `Indicator Lamp (${comp.label || 'LED'} — OFF: REVERSED)`;
+                    $('icInspectorMeta').textContent = '⚠ Reverse Polarity: Cathode (−) is at +5V while Anode (+) is at 0V. The diode blocks reverse current.';
+                } else if (lst?.reason === 'no_diff_high') {
+                    $('icInspectorTitle').textContent = `Indicator Lamp (${comp.label || 'LED'} — OFF: 0V DROP)`;
+                    $('icInspectorMeta').textContent = 'Both Anode (+) and Cathode (−) are at +5V. Current requires a potential difference to flow.';
+                } else if (lst?.reason === 'low_input') {
+                    $('icInspectorTitle').textContent = `Indicator Lamp (${comp.label || 'LED'} — OFF: LOGIC 0)`;
+                    $('icInspectorMeta').textContent = 'Cathode (−) is grounded, but Anode (+) is driven LOW (0V). The lamp will turn ON when the driving gate outputs HIGH (+5V).';
+                } else {
+                    $('icInspectorTitle').textContent = `Indicator Lamp (${comp.label || 'LED'} — OFF)`;
+                    $('icInspectorMeta').textContent = 'Lights up when Anode (+) is driven HIGH (5V) and Cathode (−) returns to GND (0V) or Battery (−).';
+                }
                 $('icLampColorSelect').value = comp.color || 'emerald';
             } else if (comp.kind === 'gnd') {
                 $('icInspectorTitle').textContent = 'Ground Terminal (0V)';
@@ -2659,6 +2742,27 @@
                 row.style.cursor = 'pointer';
                 row.addEventListener('click', () => {
                     selected = { kind: 'comp', id: ic.id };
+                    syncInspector();
+                    scheduleRender();
+                });
+                wrap.appendChild(row);
+            }
+
+            for (const lamp of lamps) {
+                const lst = evalData.lampStates.get(lamp.id);
+                const row = document.createElement('div');
+                row.className = 'ic-summary-item';
+                const statusHtml = lst?.lit
+                    ? '<strong style="color:#37e0a1;">✓ ON (5V → GND)</strong>'
+                    : lst?.reason === 'open_cathode'
+                    ? '<strong style="color:#f6b944;">⚠ Open Cathode (No GND)</strong>'
+                    : lst?.reason === 'reverse_bias'
+                    ? '<strong style="color:#ff5a52;">⚠ Reverse Bias</strong>'
+                    : '<strong style="color:#8fa0b5;">OFF (0V)</strong>';
+                row.innerHTML = `<span><strong>${lamp.label || 'LED'}</strong> · <small style="color:#96a5ba;">Indicator</small></span>${statusHtml}`;
+                row.style.cursor = 'pointer';
+                row.addEventListener('click', () => {
+                    selected = { kind: 'comp', id: lamp.id };
                     syncInspector();
                     scheduleRender();
                 });
