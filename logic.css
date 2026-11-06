@@ -108,8 +108,8 @@ button[aria-selected="true"] {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 18px;
-  padding: 12px 22px;
+  gap: 14px;
+  padding: 9px 12px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
   background: rgba(6, 8, 13, 0.86);
   backdrop-filter: blur(10px);
@@ -186,12 +186,13 @@ button[aria-selected="true"] {
 }
 
 .logic-main {
-  padding: 14px 22px 18px;
+  padding: 8px 10px 10px;
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  max-width: 1680px;
-  margin: 0 auto;
+  gap: 8px;
+  width: 100%;
+  max-width: 100%;
+  margin: 0;
 }
 
 /* Live Boolean Formula Bar */
@@ -471,32 +472,37 @@ button[aria-selected="true"] {
 /* Main Workspace (Left Component Sidebar + Canvas + Right Dock) */
 .logic-workspace {
   display: grid;
-  grid-template-columns: 232px minmax(0, 1fr) 360px;
-  gap: 14px;
+  grid-template-columns: 208px minmax(0, 1fr) 340px;
+  gap: 10px;
   align-items: start;
+  position: relative;
+}
+
+#icMain .logic-workspace {
+  grid-template-columns: 208px minmax(0, 1fr);
 }
 
 /* Left Component Palette Sidebar */
 .logic-palette-sidebar {
-  padding: 12px;
+  padding: 10px;
   border-radius: 12px;
   border: 1px solid rgba(255, 255, 255, 0.12);
   background: rgba(11, 13, 20, 0.94);
-  max-height: calc(100dvh - 205px);
+  max-height: calc(100dvh - 154px);
   overflow-y: auto;
   scrollbar-gutter: stable;
   user-select: none;
 }
 
 #gatesMain .logic-palette-sidebar {
-  max-height: calc(100dvh - 285px);
+  max-height: calc(100dvh - 240px);
 }
 
 .logic-sidebar-tools {
   display: flex;
   flex-direction: column;
   align-items: stretch;
-  gap: 12px;
+  gap: 10px;
 }
 
 .palette-section {
@@ -554,14 +560,14 @@ button[aria-selected="true"] {
 #icCanvas {
   display: block;
   width: 100%;
-  height: calc(100dvh - 285px);
-  min-height: 450px;
+  height: calc(100dvh - 240px);
+  min-height: 500px;
   touch-action: none;
 }
 
 #icCanvas {
-  height: calc(100dvh - 205px);
-  min-height: 500px;
+  height: calc(100dvh - 154px);
+  min-height: 580px;
 }
 
 .logic-sidebar {
@@ -569,13 +575,25 @@ button[aria-selected="true"] {
   flex-direction: column;
   gap: 12px;
   min-width: 0;
-  max-height: calc(100dvh - 285px);
+  max-height: calc(100dvh - 240px);
   overflow-y: auto;
   scrollbar-gutter: stable;
 }
 
 #icMain .logic-sidebar {
-  max-height: calc(100dvh - 205px);
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 330px;
+  max-width: calc(100% - 230px);
+  max-height: calc(100dvh - 178px);
+  z-index: 15;
+  pointer-events: none;
+}
+
+#icMain .logic-sidebar > * {
+  pointer-events: auto;
+  box-shadow: 0 14px 36px rgba(0, 0, 0, 0.65);
 }
 
 /* Inspector */
@@ -929,8 +947,8 @@ button[aria-selected="true"] {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 10px 20px;
-  padding: 10px 14px;
+  gap: 8px 18px;
+  padding: 7px 12px;
   border-radius: 10px;
   border: 1px solid rgba(255, 255, 255, 0.09);
   background: rgba(9, 11, 17, 0.9);
@@ -1101,13 +1119,17 @@ button[aria-selected="true"] {
 /* Responsive Breakpoints */
 @media (max-width: 1180px) {
   .logic-workspace {
-    grid-template-columns: 205px minmax(0, 1fr) 310px;
+    grid-template-columns: 196px minmax(0, 1fr) 310px;
     gap: 10px;
+  }
+  #icMain .logic-workspace {
+    grid-template-columns: 196px minmax(0, 1fr);
   }
 }
 
 @media (max-width: 980px) {
-  .logic-workspace {
+  .logic-workspace,
+  #icMain .logic-workspace {
     grid-template-columns: minmax(0, 1fr);
   }
   .logic-palette-sidebar,
@@ -1123,13 +1145,17 @@ button[aria-selected="true"] {
   }
   #logicCanvas,
   #icCanvas {
-    height: 52dvh;
-    min-height: 320px;
+    height: 58dvh;
+    min-height: 360px;
   }
   .logic-sidebar,
   #icMain .logic-sidebar {
+    position: static;
+    width: 100%;
+    max-width: 100%;
     max-height: none;
     overflow-y: visible;
+    pointer-events: auto;
   }
 }
 

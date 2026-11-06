@@ -350,7 +350,7 @@
         <canvas id="icCanvas" tabindex="0" role="group" aria-label="74xx Logic IC bench canvas" aria-describedby="icToolHint"></canvas>
       </div>
 
-      <aside class="logic-sidebar" aria-label="IC Datasheet and Pinout Inspector">
+      <aside class="logic-sidebar" aria-label="IC Component Inspector">
         <!-- Selected IC / Component Inspector -->
         <section id="icInspectorCard" class="logic-inspector glass-panel-small" hidden aria-label="Selected bench component inspector">
           <div class="logic-inspector-head">
@@ -385,47 +385,6 @@
             <button id="icRotateBtn" type="button">↻ Rotate (R)</button>
             <button id="icDuplicateBtn" type="button">Duplicate</button>
             <button id="icDeleteBtn" type="button" class="logic-danger-btn">Delete</button>
-          </div>
-        </section>
-
-        <!-- Bench Reference & Live Circuit Diagnostics Dock -->
-        <section class="logic-dock glass-panel-small" aria-label="74xx Datasheet Guide and Bench Status">
-          <div class="logic-panel-subhead">
-            <span>Bench Diagnostics &amp; 74xx Pinout Guide</span>
-            <span id="icBenchStatusBadge" class="logic-badge">Ready</span>
-          </div>
-          <p class="logic-panel-hint">
-            Standard 14-pin DIP ICs count counter-clockwise from the left notch: <strong>Pins 1–7</strong> along the bottom (<strong>Pin 7 = GND</strong>) and <strong>Pins 8–14</strong> along the top right-to-left (<strong>Pin 14 = +5V VCC</strong>).
-          </p>
-
-          <div id="icActiveSummaryList" class="ic-summary-list"></div>
-
-          <div class="ic-catalog-reference">
-            <h4>74xx Series Quick Reference</h4>
-            <div class="ic-ref-table-wrap">
-              <table class="logic-truth-table ic-ref-table">
-                <thead>
-                  <tr>
-                    <th>IC</th>
-                    <th>Internal Gates</th>
-                    <th>Pin Mapping (In → Out)</th>
-                  </tr>
-                </thead>
-                <tbody id="icCatalogTableBody">
-                  <tr data-ic-ref="7404"><td><strong>7404</strong></td><td>6× NOT (1-in)</td><td>1→2, 3→4, 5→6, 9→8, 11→10, 13→12</td></tr>
-                  <tr data-ic-ref="7400"><td><strong>7400</strong></td><td>4× NAND (2-in)</td><td>1,2→3 · 4,5→6 · 9,10→8 · 12,13→11</td></tr>
-                  <tr data-ic-ref="7402"><td><strong>7402</strong></td><td>4× NOR (2-in)</td><td>2,3→1 · 5,6→4 · 8,9→10 · 11,12→13</td></tr>
-                  <tr data-ic-ref="7408"><td><strong>7408</strong></td><td>4× AND (2-in)</td><td>1,2→3 · 4,5→6 · 9,10→8 · 12,13→11</td></tr>
-                  <tr data-ic-ref="7432"><td><strong>7432</strong></td><td>4× OR (2-in)</td><td>1,2→3 · 4,5→6 · 9,10→8 · 12,13→11</td></tr>
-                  <tr data-ic-ref="7486"><td><strong>7486</strong></td><td>4× XOR (2-in)</td><td>1,2→3 · 4,5→6 · 9,10→8 · 12,13→11</td></tr>
-                  <tr data-ic-ref="74266"><td><strong>74266</strong></td><td>4× XNOR (2-in)</td><td>1,2→3 · 4,5→6 · 9,10→8 · 12,13→11</td></tr>
-                  <tr data-ic-ref="7410"><td><strong>7410</strong></td><td>3× NAND (3-in)</td><td>1,2,13→12 · 3,4,5→6 · 9,10,11→8</td></tr>
-                  <tr data-ic-ref="7411"><td><strong>7411</strong></td><td>3× AND (3-in)</td><td>1,2,13→12 · 3,4,5→6 · 9,10,11→8</td></tr>
-                  <tr data-ic-ref="7427"><td><strong>7427</strong></td><td>3× NOR (3-in)</td><td>1,2,13→12 · 3,4,5→6 · 9,10,11→8</td></tr>
-                </tbody>
-              </table>
-            </div>
-            <p class="logic-panel-hint" style="margin-top:6px;">Tip: Click any row above to select that IC tool for placement.</p>
           </div>
         </section>
       </aside>
