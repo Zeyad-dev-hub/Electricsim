@@ -494,14 +494,15 @@
         }
 
         // Resistors conduct logic polarity between leads a and b
-        // Closed switches conduct between in and out when in is wired
+        // Closed switches conduct between in and out when both terminals are wired in series
         for (const comp of doc.components) {
             if (comp.kind === 'resistor') {
                 addEdge(`${comp.id}:a`, `${comp.id}:b`);
             } else if (comp.kind === 'switch' && comp.closed) {
                 const inKey = `${comp.id}:in`;
-                if (wireConnectedPins.has(inKey)) {
-                    addEdge(inKey, `${comp.id}:out`);
+                const outKey = `${comp.id}:out`;
+                if (wireConnectedPins.has(inKey) && wireConnectedPins.has(outKey)) {
+                    addEdge(inKey, outKey);
                 }
             }
         }
@@ -527,14 +528,15 @@
                     }
                 }
             }
-            nets.push({ id: netIdx, pins: members, value: null, conflict: false });
+            nets.push({ id: netIdx, pins: members, value: null, conflict: false, hasTrueGround: false });
         }
 
         // Track strong vs weak drivers per net
-        // Strong drivers: battery pos (1), battery neg (0), gnd (0), clock (0/1), standalone switch (0/1), IC gate outputs (0/1)
-        // Weak drivers: open switch pull-down (0) so downstream inputs don't float when a series switch opens
+        // Strong drivers: battery pos (1), battery neg (0), gnd (0), clock (0/1), closed standalone switch (1), IC gate outputs (0/1)
+        // Weak drivers: open logic switch pull-down (0) so IC gate inputs read LOW (0) without acting as a current sink to ground
         const baseStrongDrivers = new Map(); // pinKey -> 0 | 1
         const baseWeakDrivers = new Map();   // pinKey -> 0 | 1
+        const openSeriesSwitches = [];       // { inKey, outKey }
 
         for (const comp of doc.components) {
             if (comp.kind === 'battery') {
@@ -547,12 +549,20 @@
             } else if (comp.kind === 'switch') {
                 const inKey = `${comp.id}:in`;
                 const outKey = `${comp.id}:out`;
-                if (!wireConnectedPins.has(inKey)) {
-                    // Standalone logic switch mode: closed = 1 (+5V), open = 0 (0V)
-                    baseStrongDrivers.set(outKey, comp.closed ? 1 : 0);
-                } else if (!comp.closed) {
-                    // Series switch mode when open: weak pull-down to 0V
-                    baseWeakDrivers.set(outKey, 0);
+                const inWired = wireConnectedPins.has(inKey);
+                const outWired = wireConnectedPins.has(outKey);
+                if (inWired && outWired) {
+                    if (!comp.closed) {
+                        openSeriesSwitches.push({ inKey, outKey });
+                    }
+                } else {
+                    // Standalone logic switch mode (works whether user wired 'out' or 'in'):
+                    const activeKey = (inWired && !outWired) ? inKey : outKey;
+                    if (comp.closed) {
+                        baseStrongDrivers.set(activeKey, 1);
+                    } else {
+                        baseWeakDrivers.set(activeKey, 0);
+                    }
                 }
             } else if (comp.kind === 'ic' && doc.autoPower) {
                 baseStrongDrivers.set(`${comp.id}:14`, 1);
@@ -564,7 +574,7 @@
         const icStates = new Map();        // compId -> { powered, fault, gates: Map(gateId -> { outVal, inVals }) }
 
         function resolveNets() {
-            for (const net of nets) {
+            const netState = nets.map(net => {
                 let hasStrong1 = false;
                 let hasStrong0 = false;
                 let hasWeak1 = false;
@@ -587,8 +597,30 @@
                         if (v === 0) hasWeak0 = true;
                     }
                 }
+                return { hasStrong1, hasStrong0, hasWeak1, hasWeak0 };
+            });
+
+            // If an open series switch has +5V (strong 1) on one side and no strong driver on the other,
+            // provide a weak logic-0 pull-down on the load side for IC logic inputs (not a true ground sink).
+            for (const sw of openSeriesSwitches) {
+                const netA = pinToNet.get(sw.inKey);
+                const netB = pinToNet.get(sw.outKey);
+                if (netA === undefined || netB === undefined) continue;
+                const stA = netState[netA];
+                const stB = netState[netB];
+                if (stA.hasStrong1 && !stB.hasStrong1 && !stB.hasStrong0) {
+                    stB.hasWeak0 = true;
+                } else if (stB.hasStrong1 && !stA.hasStrong1 && !stA.hasStrong0) {
+                    stA.hasWeak0 = true;
+                }
+            }
+
+            for (let i = 0; i < nets.length; i++) {
+                const net = nets[i];
+                const { hasStrong1, hasStrong0, hasWeak1, hasWeak0 } = netState[i];
 
                 net.conflict = hasStrong1 && hasStrong0;
+                net.hasTrueGround = hasStrong0 && !hasStrong1;
                 if (net.conflict) {
                     net.value = 1; // energized fault net
                 } else if (hasStrong1) {
@@ -622,11 +654,15 @@
                 const spec = IC_CATALOG[comp.model];
                 if (!spec) continue;
 
-                const vccVal = doc.autoPower ? 1 : getPinValue(`${comp.id}:${spec.vccPin}`);
-                const gndVal = doc.autoPower ? 0 : getPinValue(`${comp.id}:${spec.gndPin}`);
+                const vccPinKey = `${comp.id}:${spec.vccPin}`;
+                const gndPinKey = `${comp.id}:${spec.gndPin}`;
+                const vccVal = doc.autoPower ? 1 : getPinValue(vccPinKey);
+                const gndVal = doc.autoPower ? 0 : getPinValue(gndPinKey);
+                const gndNet = nets[pinToNet.get(gndPinKey)];
+                const hasTrueGnd = doc.autoPower ? true : Boolean(gndNet && gndNet.hasTrueGround);
 
                 const reversePower = (vccVal === 0 && gndVal === 1);
-                const powered = (vccVal === 1 && gndVal === 0);
+                const powered = (vccVal === 1 && gndVal === 0 && hasTrueGnd);
 
                 const gateResults = new Map();
                 for (const g of spec.gates) {
@@ -681,18 +717,20 @@
                 const cathodeVal = getPinValue(cathodeKey);
                 const anodeWired = wireConnectedPins.has(anodeKey);
                 const cathodeWired = wireConnectedPins.has(cathodeKey);
+                const cathodeNet = nets[pinToNet.get(cathodeKey)];
+                const cathodeTrueGnd = Boolean(cathodeWired && cathodeVal === 0 && cathodeNet && cathodeNet.hasTrueGround);
 
-                // Physical circuit rule: An LED/Lamp MUST have a complete, closed circuit to ground.
-                // It CANNOT light up if the cathode is floating/open or not connected to GND (0V) / Battery (−).
+                // Physical circuit rule: An LED/Lamp MUST have a complete, closed circuit to a true ground sink.
+                // It CANNOT light up if the cathode is floating/open, behind an open switch, or ungrounded.
                 let lit = false;
                 let reason = 'off';
 
-                if (anodeVal === 1 && cathodeWired && cathodeVal === 0) {
+                if (anodeVal === 1 && cathodeTrueGnd) {
                     lit = true;
                     reason = 'lit';
-                } else if (anodeVal === 1 && (!cathodeWired || cathodeVal === null)) {
+                } else if (anodeVal === 1 && (!cathodeWired || cathodeVal === null || !cathodeTrueGnd) && cathodeVal !== 1) {
                     reason = 'open_cathode';
-                } else if (cathodeWired && cathodeVal === 0 && (!anodeWired || anodeVal === null)) {
+                } else if (cathodeTrueGnd && (!anodeWired || anodeVal === null)) {
                     reason = 'open_anode';
                 } else if (!anodeWired && !cathodeWired) {
                     reason = 'unconnected';
@@ -3271,6 +3309,7 @@
                         x: comp.position.x + dx,
                         y: comp.position.y + dy
                     };
+                    autoConnectDroppedComponent(next, comp.id);
                     commitDoc(next);
                 }
                 return;
@@ -3297,6 +3336,7 @@
                 const next = cloneICDoc(currentDoc);
                 const comp = createICComponent(tool, pos.x, pos.y, { rotation: placementRotation });
                 next.components.push(comp);
+                autoConnectDroppedComponent(next, comp.id);
                 commitDoc(next);
                 selected = { kind: 'comp', id: comp.id };
                 if (!$('icRepeatToggle')?.checked) setTool('select');

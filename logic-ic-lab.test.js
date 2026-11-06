@@ -413,6 +413,62 @@ check('3.3: Half Adder Preset truth table (A=1, B=0 -> SUM=1, CARRY=0; A=1, B=1 
     assert.equal(res.lampStates.get(lCar.id).lit, false, '0 + 0 -> CARRY off');
 });
 
+check('3.4: Open switch on ground return path NEVER grounds a Lamp or IC Pin 7', () => {
+    // A: Lamp cathode wired to an OPEN standalone switch (not connected to GND) -> MUST STAY OFF
+    const doc1 = Lab.blankICDoc();
+    const bat1 = Lab.createICComponent('battery', -100, 0, { id: 'bat1' });
+    const lamp1 = Lab.createICComponent('lamp', 0, 0, { id: 'lamp1' });
+    const sw1 = Lab.createICComponent('switch', 100, 0, { id: 'sw1', closed: false });
+    doc1.components.push(bat1, lamp1, sw1);
+    Lab.connectICWire(doc1, 'bat1:pos', 'lamp1:anode');
+    Lab.connectICWire(doc1, 'lamp1:cathode', 'sw1:out');
+    let res1 = Lab.evaluateICBench(doc1);
+    assert.equal(res1.lampStates.get('lamp1').lit, false, 'Open ungrounded switch must NOT sink lamp cathode current');
+    assert.equal(res1.lampStates.get('lamp1').reason, 'open_cathode');
+
+    // B: Series switch between GND and Lamp cathode (GND -> sw:in, sw:out -> lamp:cathode)
+    const gnd1 = Lab.createICComponent('gnd', 200, 0, { id: 'gnd1' });
+    doc1.components.push(gnd1);
+    Lab.connectICWire(doc1, 'sw1:in', 'gnd1:pin');
+    // While sw1 is OPEN, lamp must remain OFF and cathode wire must be floating (null)
+    res1 = Lab.evaluateICBench(doc1);
+    assert.equal(res1.lampStates.get('lamp1').lit, false, 'Lamp behind open ground switch must be OFF');
+    assert.equal(res1.lampStates.get('lamp1').reason, 'open_cathode');
+    assert.equal(res1.pinValues.get('lamp1:cathode'), null, 'Cathode behind open ground switch must be floating (null)');
+
+    // Close sw1 -> Lamp lights up!
+    sw1.closed = true;
+    res1 = Lab.evaluateICBench(doc1);
+    assert.equal(res1.lampStates.get('lamp1').lit, true, 'Lamp behind closed ground switch must light up');
+    assert.equal(res1.lampStates.get('lamp1').reason, 'lit');
+
+    // C: Series switch between GND and IC Pin 7 (GND)
+    const doc2 = Lab.blankICDoc();
+    const bat2 = Lab.createICComponent('battery', -200, 0, { id: 'bat2' });
+    const ic2 = Lab.createICComponent('7404', 0, 0, { id: 'ic2' });
+    const swG = Lab.createICComponent('switch', 100, 100, { id: 'swG', closed: false });
+    doc2.components.push(bat2, ic2, swG);
+    Lab.connectICWire(doc2, 'bat2:pos', 'ic2:14');
+    Lab.connectICWire(doc2, 'bat2:neg', 'swG:in');
+    Lab.connectICWire(doc2, 'swG:out', 'ic2:7');
+    let res2 = Lab.evaluateICBench(doc2);
+    assert.equal(res2.icStates.get('ic2').powered, false, 'IC with open switch on Pin 7 GND must be unpowered');
+
+    swG.closed = true;
+    res2 = Lab.evaluateICBench(doc2);
+    assert.equal(res2.icStates.get('ic2').powered, true, 'IC with closed switch on Pin 7 GND must be powered');
+});
+
+check('3.5: Left Component Sidebar layout in logic.html replaces trafficked upper bar', () => {
+    const fs = require('node:fs');
+    const path = require('node:path');
+    const html = fs.readFileSync(path.join(__dirname, 'logic.html'), 'utf8');
+    // Both modes should have .logic-palette-sidebar inside .logic-workspace
+    const sidebarMatches = html.match(/class="logic-palette-sidebar glass-panel-small"/g) || [];
+    assert.equal(sidebarMatches.length, 2, 'Both Gates and IC Lab modes must have a Left Component Sidebar');
+    assert.ok(html.includes('class="logic-tools ic-tools-palette logic-sidebar-tools"'), 'IC tools palette must be styled as sidebar tools');
+});
+
 console.log(`\n=================================================================`);
 console.log(`   ALL ${checks} SCANS & TESTS COMPLETED WITH 100% SUCCESS!   `);
 console.log(`=================================================================`);

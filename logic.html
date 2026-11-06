@@ -8,7 +8,7 @@
   <meta name="description" content="Interactive digital logic circuits simulator with live Boolean algebra equations, truth tables, Karnaugh maps, exact Boolean simplification, and universal NAND/NOR gate conversion.">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="research-theme.css?v=2">
-  <link rel="stylesheet" href="logic.css?v=3">
+  <link rel="stylesheet" href="logic.css?v=4">
 </head>
 <body>
   <canvas id="bgCanvas" aria-hidden="true"></canvas>
@@ -86,28 +86,8 @@
       </div>
     </section>
 
-    <!-- Schematic Tool Palette -->
-    <section class="logic-toolbar-wrap" aria-label="Schematic tools">
-      <nav class="logic-tools" aria-label="Gate and wiring tools">
-        <button type="button" data-tool="select" aria-pressed="true">↖ Move / Edit</button>
-        <button type="button" data-tool="input" id="toolInputBtn" aria-pressed="false">⊕ Input (A–D)</button>
-        <button type="button" data-tool="output" id="toolOutputBtn" aria-pressed="false">⊙ Output (F–Y)</button>
-        <span class="logic-tool-sep" aria-hidden="true"></span>
-        <button type="button" data-tool="AND" aria-pressed="false">AND</button>
-        <button type="button" data-tool="OR" aria-pressed="false">OR</button>
-        <button type="button" data-tool="NOT" aria-pressed="false">NOT</button>
-        <button type="button" data-tool="NAND" aria-pressed="false">NAND</button>
-        <button type="button" data-tool="NOR" aria-pressed="false">NOR</button>
-        <button type="button" data-tool="XOR" aria-pressed="false">XOR</button>
-        <button type="button" data-tool="XNOR" aria-pressed="false">XNOR</button>
-        <button type="button" data-tool="BUF" aria-pressed="false">Buffer</button>
-        <span class="logic-tool-sep" aria-hidden="true"></span>
-        <button type="button" data-tool="const1" aria-pressed="false">Const 1</button>
-        <button type="button" data-tool="const0" aria-pressed="false">Const 0</button>
-        <button type="button" data-tool="wire" aria-pressed="false">─●─ Wire</button>
-        <button type="button" data-tool="pan" aria-pressed="false">✋ Pan</button>
-      </nav>
-
+    <!-- Compact Upper Subbar (View Options & Zoom) -->
+    <section class="logic-toolbar-wrap" aria-label="Schematic options">
       <div class="logic-subbar">
         <div class="logic-placement-opts">
           <label><input id="snapToggle" type="checkbox" checked> Snap to grid</label>
@@ -123,8 +103,45 @@
       </div>
     </section>
 
-    <!-- Main Workspace: Schematic Canvas + Analysis Dock -->
+    <!-- Main Workspace: Left Component Sidebar + Schematic Canvas + Right Analysis Dock -->
     <section class="logic-workspace" aria-label="Logic schematic and analysis workspace">
+      <aside class="logic-palette-sidebar glass-panel-small" aria-label="Gate and wiring component sidebar">
+        <nav class="logic-tools logic-sidebar-tools" aria-label="Gate and wiring tools">
+          <div class="palette-section">
+            <span class="palette-group-title">Cursor &amp; Wiring</span>
+            <div class="palette-grid">
+              <button type="button" data-tool="select" class="palette-span-2" aria-pressed="true">↖ Move / Edit</button>
+              <button type="button" data-tool="wire" aria-pressed="false">─●─ Wire</button>
+              <button type="button" data-tool="pan" aria-pressed="false">✋ Pan</button>
+            </div>
+          </div>
+
+          <div class="palette-section">
+            <span class="palette-group-title">I/O &amp; Constants</span>
+            <div class="palette-grid">
+              <button type="button" data-tool="input" id="toolInputBtn" aria-pressed="false">⊕ Input (A–D)</button>
+              <button type="button" data-tool="output" id="toolOutputBtn" aria-pressed="false">⊙ Output (F–Y)</button>
+              <button type="button" data-tool="const1" aria-pressed="false">Const 1</button>
+              <button type="button" data-tool="const0" aria-pressed="false">Const 0</button>
+            </div>
+          </div>
+
+          <div class="palette-section">
+            <span class="palette-group-title">Logic Gates</span>
+            <div class="palette-grid">
+              <button type="button" data-tool="AND" aria-pressed="false">AND</button>
+              <button type="button" data-tool="OR" aria-pressed="false">OR</button>
+              <button type="button" data-tool="NOT" aria-pressed="false">NOT</button>
+              <button type="button" data-tool="NAND" aria-pressed="false">NAND</button>
+              <button type="button" data-tool="NOR" aria-pressed="false">NOR</button>
+              <button type="button" data-tool="XOR" aria-pressed="false">XOR</button>
+              <button type="button" data-tool="XNOR" aria-pressed="false">XNOR</button>
+              <button type="button" data-tool="BUF" aria-pressed="false">Buffer</button>
+            </div>
+          </div>
+        </nav>
+      </aside>
+
       <div class="logic-canvas-wrap">
         <canvas id="logicCanvas" tabindex="0" role="group" aria-label="Logic gate schematic canvas" aria-describedby="toolHint"></canvas>
       </div>
@@ -262,37 +279,8 @@
   <!-- PART 2: LOGIC IC LAB (74xx Series DIP IC Hardware Bench)              -->
   <!-- ===================================================================== -->
   <main id="icMain" class="logic-main" hidden>
-    <!-- IC Bench Tool Palette -->
-    <section class="logic-toolbar-wrap" aria-label="74xx IC and bench component tools">
-      <nav id="icToolsNav" class="logic-tools ic-tools-palette" aria-label="IC models and bench components">
-        <button type="button" data-ic-tool="select" aria-pressed="true">↖ Move / Edit</button>
-        <button type="button" data-ic-tool="wire" aria-pressed="false">─●─ Wire</button>
-        <button type="button" data-ic-tool="pan" aria-pressed="false">✋ Pan</button>
-        <span class="logic-tool-sep" aria-hidden="true"></span>
-
-        <!-- Bench Circuit Components -->
-        <button type="button" data-ic-tool="battery" class="ic-bench-btn" aria-pressed="false" title="5V DC Battery (+5V VCC and 0V GND)">🔋 5V Battery</button>
-        <button type="button" data-ic-tool="switch" class="ic-bench-btn" aria-pressed="false" title="SPST Toggle Switch (Click on bench to flip ON/OFF)">⏻ Switch</button>
-        <button type="button" data-ic-tool="resistor" class="ic-bench-btn" aria-pressed="false" title="220 Ω Series Current-Limiting Resistor">〰 Resistor</button>
-        <button type="button" data-ic-tool="lamp" class="ic-bench-btn" aria-pressed="false" title="LED / Indicator Lamp">💡 Lamp</button>
-        <button type="button" data-ic-tool="gnd" class="ic-bench-btn" aria-pressed="false" title="Ground Reference Terminal (0V)">⏚ GND</button>
-        <button type="button" data-ic-tool="clock" class="ic-bench-btn" aria-pressed="false" title="1 Hz Square-Wave Clock Generator">⏱ 1Hz Clock</button>
-        <button type="button" data-ic-tool="seg7" class="ic-bench-btn" aria-pressed="false" title="BCD 7-Segment Hex Display (Inputs A, B, C, D)">🔢 7-Seg</button>
-        <span class="logic-tool-sep" aria-hidden="true"></span>
-
-        <!-- 74xx Series DIP-14 ICs (Labeled strictly by Model Number) -->
-        <button type="button" data-ic-tool="7404" class="ic-chip-btn" aria-pressed="false">7404</button>
-        <button type="button" data-ic-tool="7400" class="ic-chip-btn" aria-pressed="false">7400</button>
-        <button type="button" data-ic-tool="7402" class="ic-chip-btn" aria-pressed="false">7402</button>
-        <button type="button" data-ic-tool="7408" class="ic-chip-btn" aria-pressed="false">7408</button>
-        <button type="button" data-ic-tool="7432" class="ic-chip-btn" aria-pressed="false">7432</button>
-        <button type="button" data-ic-tool="7486" class="ic-chip-btn" aria-pressed="false">7486</button>
-        <button type="button" data-ic-tool="74266" class="ic-chip-btn" aria-pressed="false">74266</button>
-        <button type="button" data-ic-tool="7410" class="ic-chip-btn" aria-pressed="false">7410</button>
-        <button type="button" data-ic-tool="7411" class="ic-chip-btn" aria-pressed="false">7411</button>
-        <button type="button" data-ic-tool="7427" class="ic-chip-btn" aria-pressed="false">7427</button>
-      </nav>
-
+    <!-- Compact Upper Subbar (View Options & Zoom) -->
+    <section class="logic-toolbar-wrap" aria-label="74xx IC bench options">
       <div class="logic-subbar">
         <div class="logic-placement-opts">
           <label title="Show semi-transparent datasheet gate symbols and internal pin routing inside every 74xx IC package">
@@ -314,8 +302,50 @@
       </div>
     </section>
 
-    <!-- IC Bench Workspace: Breadboard/Bench Canvas + Live Datasheet Dock -->
+    <!-- IC Bench Workspace: Left Component Sidebar + Breadboard/Bench Canvas + Right Datasheet Dock -->
     <section class="logic-workspace" aria-label="74xx IC bench and live pinout inspector">
+      <aside class="logic-palette-sidebar glass-panel-small" aria-label="74xx IC and bench component sidebar">
+        <nav id="icToolsNav" class="logic-tools ic-tools-palette logic-sidebar-tools" aria-label="IC models and bench components">
+          <div class="palette-section">
+            <span class="palette-group-title">Cursor &amp; Wiring</span>
+            <div class="palette-grid">
+              <button type="button" data-ic-tool="select" class="palette-span-2" aria-pressed="true">↖ Move / Edit</button>
+              <button type="button" data-ic-tool="wire" aria-pressed="false">─●─ Wire</button>
+              <button type="button" data-ic-tool="pan" aria-pressed="false">✋ Pan</button>
+            </div>
+          </div>
+
+          <div class="palette-section">
+            <span class="palette-group-title">Bench Components</span>
+            <div class="palette-grid">
+              <button type="button" data-ic-tool="battery" class="ic-bench-btn" aria-pressed="false" title="5V DC Battery (+5V VCC and 0V GND)">🔋 5V Battery</button>
+              <button type="button" data-ic-tool="gnd" class="ic-bench-btn" aria-pressed="false" title="Ground Reference Terminal (0V)">⏚ GND</button>
+              <button type="button" data-ic-tool="switch" class="ic-bench-btn" aria-pressed="false" title="SPST Toggle Switch (Click on bench to flip ON/OFF)">⏻ Switch</button>
+              <button type="button" data-ic-tool="resistor" class="ic-bench-btn" aria-pressed="false" title="220 Ω Series Current-Limiting Resistor">〰 Resistor</button>
+              <button type="button" data-ic-tool="lamp" class="ic-bench-btn" aria-pressed="false" title="LED / Indicator Lamp">💡 Lamp</button>
+              <button type="button" data-ic-tool="clock" class="ic-bench-btn" aria-pressed="false" title="1 Hz Square-Wave Clock Generator">⏱ 1Hz Clock</button>
+              <button type="button" data-ic-tool="seg7" class="ic-bench-btn palette-span-2" aria-pressed="false" title="BCD 7-Segment Hex Display (Inputs A, B, C, D)">🔢 7-Seg Display</button>
+            </div>
+          </div>
+
+          <div class="palette-section">
+            <span class="palette-group-title">74xx Series ICs</span>
+            <div class="palette-grid">
+              <button type="button" data-ic-tool="7404" class="ic-chip-btn" aria-pressed="false">7404</button>
+              <button type="button" data-ic-tool="7400" class="ic-chip-btn" aria-pressed="false">7400</button>
+              <button type="button" data-ic-tool="7402" class="ic-chip-btn" aria-pressed="false">7402</button>
+              <button type="button" data-ic-tool="7408" class="ic-chip-btn" aria-pressed="false">7408</button>
+              <button type="button" data-ic-tool="7432" class="ic-chip-btn" aria-pressed="false">7432</button>
+              <button type="button" data-ic-tool="7486" class="ic-chip-btn" aria-pressed="false">7486</button>
+              <button type="button" data-ic-tool="74266" class="ic-chip-btn" aria-pressed="false">74266</button>
+              <button type="button" data-ic-tool="7410" class="ic-chip-btn" aria-pressed="false">7410</button>
+              <button type="button" data-ic-tool="7411" class="ic-chip-btn" aria-pressed="false">7411</button>
+              <button type="button" data-ic-tool="7427" class="ic-chip-btn" aria-pressed="false">7427</button>
+            </div>
+          </div>
+        </nav>
+      </aside>
+
       <div class="logic-canvas-wrap">
         <canvas id="icCanvas" tabindex="0" role="group" aria-label="74xx Logic IC bench canvas" aria-describedby="icToolHint"></canvas>
       </div>
@@ -421,7 +451,7 @@
   <script src="logic-renderer.js?v=8"></script>
   <script src="logic-presets.js?v=8"></script>
   <script src="logic.js?v=8"></script>
-  <script src="logic-ic-lab.js?v=2"></script>
+  <script src="logic-ic-lab.js?v=3"></script>
   <script src="shared-bg.js"></script>
 </body>
 </html>
