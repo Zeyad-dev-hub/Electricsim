@@ -4,7 +4,7 @@ const {matches,normalize}=require('./hub-search.js');
 const fs=require('node:fs'),path=require('node:path'),html=fs.readFileSync(path.join(__dirname,'index.html'),'utf8');
 assert.equal(normalize("Gauss’s Law"),'gausss law');
 assert.ok(matches("Gauss's Law Explorer electric flux",' GAUSS flux '));
-assert.ok(matches('Semiconductor Physics Lab thermal excitation doping','DOPING'));
+assert.ok(matches('Semiconductor Physics Simulation thermal excitation doping','DOPING'));
 assert.ok(matches('Circuits Lab resistor capacitor battery ac diode transformer','ac diode'));
 assert.ok(matches('Capacitor Simulator dielectric networks','dielectric'));
 assert.ok(matches('Conductivity Explorer electron drift',''));

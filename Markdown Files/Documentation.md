@@ -64,7 +64,7 @@ Electricsim/ (Workspace Root)
 │       ├── Thermal Lattice Dynamics         # Temperature-dependent ion vibration amplitude and phonon scattering probability
 │       └── Macroscopic Ohm/Joule Solver     # ρ(T) = ρ₀(1 + αΔT), R = ρL/A, drift velocity v_d, current I, and Joule power P
 │
-├── Lab 5: Semiconductor Physics Lab (Atomic Bonds & Transport)
+├── Lab 5: Semiconductor Physics Simulation (Atomic Bonds & Transport)
 │   ├── semiconductor.html                   # Single-crystal panel, closeup transfer stage, band energy diagram, event logger
 │   ├── semiconductor.css                    # Grid styling, carrier legend indicators, and transfer state animators
 │   ├── semiconductor-model.js               # Headless semiconductor physics & discrete teaching engine:
@@ -277,7 +277,7 @@ Materials with negative temperature coefficients (e.g., Carbon $\alpha = -0.0005
 
 ---
 
-### Lab 5: Semiconductor Physics Lab (`semiconductor.html`, `semiconductor-model.js`, `semiconductor.js`)
+### Lab 5: Semiconductor Physics Simulation (`semiconductor.html`, `semiconductor-model.js`, `semiconductor.js`)
 
 #### 1. Bulk Equilibrium Physics & Mass Action Law
 The headless physics engine (`semiconductor-model.js`) evaluates equilibrium carrier statistics in silicon ($E_g = 1.12\text{ eV}$):
@@ -620,11 +620,11 @@ This section is written from the user's perspective, providing a visual and expe
 
 ---
 
-### Lab 5: Semiconductor Physics Lab (`semiconductor.html`)
+### Lab 5: Semiconductor Physics Simulation (`semiconductor.html`)
 
 ```
 +---------------------------------------------------------------------------------------+
-| Semiconductor Physics Lab  [ Intrinsic / N-type / P-type ]             [ Reset Sample]|
+| Semiconductor Physics Simulation [ Intrinsic / N-type / P-type ]       [ Reset Sample]|
 +---------------------------------------------------------------------------------------+
 |  [Canvas 1: Silicon Crystal Lattice]     | [Canvas 3: Band Energy Diagram]            |
 |       (Si) === (Si) === (Si)             |   Conduction Band (Ec)   [ - - - ] (Free e)|
