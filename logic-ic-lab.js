@@ -1212,6 +1212,86 @@
 
                 return doc;
             }
+        },
+        ic_mux_2to1: {
+            title: '7404 + 7408 + 7432 — 2-to-1 Data Multiplexer Bench (D0, D1, Select)',
+            description: 'Select switch S chooses between Data D0 (when S=0) and Data D1 (when S=1) using a 7404 Inverter, 7408 Quad AND, and 7432 Quad OR driving an indicator lamp.',
+            build() {
+                const doc = blankICDoc();
+                doc.autoPower = true;
+                const swD0 = createICComponent('switch', -378, -72, { id: 'swD0', closed: true, label: 'DATA D0' });
+                const swD1 = createICComponent('switch', -378, 18, { id: 'swD1', closed: false, label: 'DATA D1' });
+                const swSel = createICComponent('switch', -378, 108, { id: 'swSel', closed: false, label: 'SELECT S' });
+
+                const ic04 = createICComponent('7404', -162, 126, { id: 'ic7404' });
+                const ic08 = createICComponent('7408', -18, -36, { id: 'ic7408' });
+                const ic32 = createICComponent('7432', 234, -36, { id: 'ic7432' });
+
+                const res = createICComponent('resistor', 342, 126, { id: 'rMux', label: '220Ω' });
+                const lamp = createICComponent('lamp', 450, 126, { id: 'lampMux', color: 'emerald', label: 'MUX OUT' });
+                const gnd = createICComponent('gnd', 504, 198, { id: 'gndMux' });
+
+                doc.components.push(swD0, swD1, swSel, ic04, ic08, ic32, res, lamp, gnd);
+
+                // Select S -> 7404 Pin 1 (invert to S' on Pin 2) and 7408 Gate 2 Pin 5
+                connectICWire(doc, 'swSel:out', 'ic7404:1', [{ x: -270, y: 108 }, { x: -270, y: 198 }]);
+                connectICWire(doc, 'swSel:out', 'ic7408:5', [{ x: -270, y: 108 }, { x: 18, y: 108 }]);
+
+                // Gate 1 of 7408 (Pins 1, 2 -> Out 3): D0 · S'
+                connectICWire(doc, 'swD0:out', 'ic7408:1', [{ x: -126, y: -72 }, { x: -126, y: 36 }]);
+                connectICWire(doc, 'ic7404:2', 'ic7408:2', [{ x: -234, y: 216 }, { x: -90, y: 216 }]);
+
+                // Gate 2 of 7408 (Pins 4, 5 -> Out 6): D1 · S
+                connectICWire(doc, 'swD1:out', 'ic7408:4', [{ x: -18, y: 18 }]);
+
+                // Combine in 7432 OR Gate 1 (Pins 1, 2 -> Out 3)
+                connectICWire(doc, 'ic7408:3', 'ic7432:1', [{ x: -54, y: 72 }, { x: 126, y: 72 }]);
+                connectICWire(doc, 'ic7408:6', 'ic7432:2', [{ x: 54, y: 72 }, { x: 162, y: 72 }]);
+
+                // Output Pin 3 of 7432 -> Resistor -> Lamp -> GND
+                connectICWire(doc, 'ic7432:3', 'rMux:a', [{ x: 198, y: 126 }]);
+                connectICWire(doc, 'rMux:b', 'lampMux:anode');
+                connectICWire(doc, 'lampMux:cathode', 'gndMux:pin', [{ x: 504, y: 126 }]);
+
+                return doc;
+            }
+        },
+        ic_comparator_xnor: {
+            title: '74266 + 7408 — 2-Bit Equality Comparator Bench (A = B Detector)',
+            description: 'Compares two 2-bit binary numbers A(A1,A0) and B(B1,B0) using a 74266 Quad XNOR IC and a 7408 Quad AND IC. The EQUAL lamp illuminates when A1=B1 and A0=B0.',
+            build() {
+                const doc = blankICDoc();
+                doc.autoPower = true;
+                const swA0 = createICComponent('switch', -360, -90, { id: 'swA0', closed: true, label: 'A0' });
+                const swB0 = createICComponent('switch', -360, -18, { id: 'swB0', closed: true, label: 'B0' });
+                const swA1 = createICComponent('switch', -360, 54, { id: 'swA1', closed: false, label: 'A1' });
+                const swB1 = createICComponent('switch', -360, 126, { id: 'swB1', closed: false, label: 'B1' });
+
+                const icXnor = createICComponent('74266', -90, 0, { id: 'ic74266' });
+                const icAnd = createICComponent('7408', 180, 0, { id: 'ic7408' });
+                const lampEq = createICComponent('lamp', 360, 126, { id: 'lampEq', color: 'cyan', label: 'A = B' });
+                const gndEq = createICComponent('gnd', 414, 198, { id: 'gndEq' });
+
+                doc.components.push(swA0, swB0, swA1, swB1, icXnor, icAnd, lampEq, gndEq);
+
+                // Bit 0 equality on 74266 Gate 1 (Pins 1, 2 -> Out 3)
+                connectICWire(doc, 'swA0:out', 'ic74266:1', [{ x: -198, y: -90 }, { x: -198, y: 72 }]);
+                connectICWire(doc, 'swB0:out', 'ic74266:2', [{ x: -162, y: -18 }, { x: -162, y: 72 }]);
+
+                // Bit 1 equality on 74266 Gate 2 (Pins 4, 5 -> Out 6)
+                connectICWire(doc, 'swA1:out', 'ic74266:4', [{ x: -90, y: 54 }]);
+                connectICWire(doc, 'swB1:out', 'ic74266:5', [{ x: -54, y: 126 }]);
+
+                // Combine both XNOR outputs in 7408 Gate 1 (Pins 1, 2 -> Out 3)
+                connectICWire(doc, 'ic74266:3', 'ic7408:1', [{ x: -126, y: 108 }, { x: 72, y: 108 }]);
+                connectICWire(doc, 'ic74266:6', 'ic7408:2', [{ x: -18, y: 90 }, { x: 108, y: 90 }]);
+
+                // 7408 Out Pin 3 -> Lamp -> GND
+                connectICWire(doc, 'ic7408:3', 'lampEq:anode', [{ x: 144, y: 126 }]);
+                connectICWire(doc, 'lampEq:cathode', 'gndEq:pin', [{ x: 414, y: 126 }]);
+
+                return doc;
+            }
         }
     };
 

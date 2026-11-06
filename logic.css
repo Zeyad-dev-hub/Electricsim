@@ -9,11 +9,16 @@
   box-sizing: border-box;
 }
 
+html,
 body {
   margin: 0;
+  height: 100dvh;
+  max-height: 100dvh;
   background: #000000;
   color: #e6eef8;
-  overflow-x: hidden;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
 }
 
 #bgCanvas {
@@ -105,11 +110,12 @@ button[aria-selected="true"] {
 
 /* Header */
 .logic-top {
+  flex-shrink: 0;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 14px;
-  padding: 9px 12px;
+  padding: 7px 12px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
   background: rgba(6, 8, 13, 0.86);
   backdrop-filter: blur(10px);
@@ -186,24 +192,28 @@ button[aria-selected="true"] {
 }
 
 .logic-main {
-  padding: 8px 10px 10px;
+  flex: 1;
+  min-height: 0;
+  padding: 6px 10px 8px;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
   width: 100%;
   max-width: 100%;
   margin: 0;
+  overflow: hidden;
 }
 
 /* Live Boolean Formula Bar */
 .logic-formula-bar {
-  padding: 13px 16px;
-  border-radius: 12px;
+  flex-shrink: 0;
+  padding: 8px 12px;
+  border-radius: 10px;
   border: 1px solid rgba(139, 157, 255, 0.28);
   background: linear-gradient(180deg, rgba(16, 20, 32, 0.94), rgba(9, 11, 18, 0.95));
   display: flex;
   flex-direction: column;
-  gap: 9px;
+  gap: 6px;
 }
 
 .logic-formula-header {
@@ -471,10 +481,13 @@ button[aria-selected="true"] {
 
 /* Main Workspace (Left Component Sidebar + Canvas + Right Dock) */
 .logic-workspace {
+  flex: 1;
+  min-height: 0;
   display: grid;
   grid-template-columns: 208px minmax(0, 1fr) 340px;
+  grid-template-rows: minmax(0, 1fr);
   gap: 10px;
-  align-items: start;
+  align-items: stretch;
   position: relative;
 }
 
@@ -484,35 +497,37 @@ button[aria-selected="true"] {
 
 /* Left Component Palette Sidebar */
 .logic-palette-sidebar {
-  padding: 10px;
+  padding: 9px;
   border-radius: 12px;
   border: 1px solid rgba(255, 255, 255, 0.12);
   background: rgba(11, 13, 20, 0.94);
-  max-height: calc(100dvh - 154px);
+  height: 100%;
+  max-height: 100%;
+  min-height: 0;
   overflow-y: auto;
   scrollbar-gutter: stable;
   user-select: none;
 }
 
 #gatesMain .logic-palette-sidebar {
-  max-height: calc(100dvh - 240px);
+  max-height: 100%;
 }
 
 .logic-sidebar-tools {
   display: flex;
   flex-direction: column;
   align-items: stretch;
-  gap: 10px;
+  gap: 8px;
 }
 
 .palette-section {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 5px;
 }
 
 .palette-section + .palette-section {
-  padding-top: 10px;
+  padding-top: 8px;
   border-top: 1px solid rgba(255, 255, 255, 0.08);
 }
 
@@ -528,13 +543,13 @@ button[aria-selected="true"] {
 .palette-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 6px;
+  gap: 5px;
 }
 
 .palette-grid button {
   width: 100%;
-  min-height: 36px;
-  padding: 6px 5px;
+  min-height: 33px;
+  padding: 5px 5px;
   font-size: 11.5px;
   display: inline-flex;
   align-items: center;
@@ -549,6 +564,8 @@ button[aria-selected="true"] {
 
 .logic-canvas-wrap {
   position: relative;
+  height: 100%;
+  min-height: 0;
   border: 1px solid rgba(255, 255, 255, 0.13);
   border-radius: 12px;
   background: #06070b;
@@ -558,24 +575,23 @@ button[aria-selected="true"] {
 
 #logicCanvas,
 #icCanvas {
+  position: absolute;
+  inset: 0;
   display: block;
   width: 100%;
-  height: calc(100dvh - 240px);
-  min-height: 500px;
+  height: 100%;
+  min-height: 0;
   touch-action: none;
-}
-
-#icCanvas {
-  height: calc(100dvh - 154px);
-  min-height: 580px;
 }
 
 .logic-sidebar {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 10px;
   min-width: 0;
-  max-height: calc(100dvh - 240px);
+  height: 100%;
+  max-height: 100%;
+  min-height: 0;
   overflow-y: auto;
   scrollbar-gutter: stable;
 }
@@ -585,8 +601,9 @@ button[aria-selected="true"] {
   top: 12px;
   right: 12px;
   width: 330px;
+  height: auto;
   max-width: calc(100% - 230px);
-  max-height: calc(100dvh - 178px);
+  max-height: calc(100% - 24px);
   z-index: 15;
   pointer-events: none;
 }
@@ -944,11 +961,12 @@ button[aria-selected="true"] {
 
 /* Footer */
 .logic-footer {
+  flex-shrink: 0;
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 8px 18px;
-  padding: 7px 12px;
+  gap: 6px 18px;
+  padding: 6px 12px;
   border-radius: 10px;
   border: 1px solid rgba(255, 255, 255, 0.09);
   background: rgba(9, 11, 17, 0.9);
@@ -1128,12 +1146,23 @@ button[aria-selected="true"] {
 }
 
 @media (max-width: 980px) {
+  html,
+  body {
+    height: auto;
+    max-height: none;
+    overflow-y: auto;
+  }
+  .logic-main {
+    overflow: visible;
+  }
   .logic-workspace,
   #icMain .logic-workspace {
     grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto;
   }
   .logic-palette-sidebar,
   #gatesMain .logic-palette-sidebar {
+    height: auto;
     max-height: none;
     overflow-y: visible;
   }
@@ -1143,8 +1172,13 @@ button[aria-selected="true"] {
   .palette-grid .palette-span-2 {
     grid-column: span 1;
   }
+  .logic-canvas-wrap {
+    height: 58dvh;
+    min-height: 360px;
+  }
   #logicCanvas,
   #icCanvas {
+    position: static;
     height: 58dvh;
     min-height: 360px;
   }
@@ -1152,6 +1186,7 @@ button[aria-selected="true"] {
   #icMain .logic-sidebar {
     position: static;
     width: 100%;
+    height: auto;
     max-width: 100%;
     max-height: none;
     overflow-y: visible;

@@ -283,6 +283,16 @@
             description: 'Adds two 1-bit inputs A and B to produce Carry F = A·B (MSB) and Sum G = A ⊕ B (LSB).',
             make: makeHalfAdder
         },
+        fullAdder: {
+            name: '1-Bit Full Adder · Carry-Out (F) & Sum (G)',
+            description: 'Adds A, B, and Carry-In (C) using two XOR gates, two AND gates, and an OR gate.',
+            make: makeFullAdder
+        },
+        mux2to1: {
+            name: '2-to-1 Multiplexer · F = A·C\' + B·C',
+            description: 'Select input C routes either data input A (when C=0) or data input B (when C=1) to output F.',
+            make: makeMux2to1
+        },
         deMorgan: {
             name: 'De Morgan\'s Law · (A·B)\' = A\' + B\'',
             description: 'Compare F = (A·B)\' and G = A\' + B\' in the truth table: both outputs match in every row.',

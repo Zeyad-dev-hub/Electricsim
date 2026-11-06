@@ -336,8 +336,9 @@ check('2.3: Wire geometry — T-junction dots and Crossing bridge hops', () => {
 // =========================================================================
 console.log('\n>>> [SCAN 3] UI, Presets & Component Integration Tests');
 
-check('3.1: All 4 Curated Bench Presets are fully closed circuits with no open cathodes', () => {
-    const presetIds = ['ic_7408_bench', 'ic_half_adder', 'ic_7411_3input', 'ic_7400_counter'];
+check('3.1: All 6 Curated Bench Presets are fully closed circuits with no open cathodes', () => {
+    const presetIds = Object.keys(Lab.IC_PRESETS);
+    assert.equal(presetIds.length, 6, 'Should have 6 IC presets');
     for (const id of presetIds) {
         const preset = Lab.IC_PRESETS[id];
         assert.ok(preset, `Preset ${id} missing`);
