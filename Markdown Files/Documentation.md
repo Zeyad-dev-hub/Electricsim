@@ -79,8 +79,8 @@ Electricsim/ (Workspace Root)
 │   │   └── Canvas 3: Band Energy Diagram    # Valence band (E_v), conduction band (E_c), Fermi level (E_F), and impurity levels
 │
 ├── Lab 6: Circuits Lab (DC & AC Dynamics Workspace)
-│   ├── dc-circuit.html                      # Full-screen schematic canvas, component toolbar, inspector drawer, timeline bar
-│   ├── dc-circuit.css                       # Dark research schematic styling, component symbols, floating HUD, and inspector
+│   ├── dc-circuit.html                      # Single-screen (100dvh zero-scroll) schematic canvas, toolbar, inspector, timeline
+│   ├── dc-circuit.css                       # Single-viewport flex/grid schematic styling, component symbols, floating HUD
 │   ├── dc-circuit-model.js                  # Document schema v1, component factories, bounding boxes, and validation checks
 │   ├── dc-circuit-topology.js               # Union-Find net compiler, reference domains, and wire-current balance recovery
 │   ├── dc-circuit-solver.js                 # Modified Nodal Analysis (MNA) solver, adaptive backward Euler, diodes & transformers
@@ -90,19 +90,28 @@ Electricsim/ (Workspace Root)
 │   ├── dc-circuit-presets.js                # Built-in educational circuits (rectifiers, transformers, RC ladders, bridges)
 │   └── dc-circuit.js                        # Controller, pointer/touch gesture engine, keyboard shortcuts, inspector sync
 │
-├── Lab 7: Logic Circuits Lab (Boolean Algebra, Simplification & Universal Gates)
-│   ├── logic.html                           # Live Boolean formula bar, gate palette, schematic canvas, and analysis dock
-│   ├── logic.css                            # Dark-lab styling for formula spans, truth table, K-map cells, and inspector
-│   ├── logic-model.js                       # Schema v1 (max 4 inputs A–D, max 4 outputs F–Y, 8 gate types, fan-in 1..4, History)
-│   ├── logic-evaluator.js                   # Kahn topological sort, feedback cycle detection, 16-bit bitwise truth-mask evaluator
-│   ├── logic-expression.js                  # Gate-to-AST builder, bidirectional gate hover spans, 4 notation printers
-│   ├── logic-simplify.js                    # Isolated & optional 81-cube exact SOP/POS minimizer and Gray-code K-map builder
-│   ├── logic-synthesis.js                   # Deterministic 3-column synthesizer (Minimal SOP/POS, Universal NAND-only & NOR-only)
-│   ├── logic-editor.js                      # 24px grid snapping, pin hit-testing, and obstacle-aware orthogonal wire router
-│   ├── logic-renderer.js                    # Canvas 2D renderer with IEEE distinctive-shape gates, inversion bubbles & glow wires
-│   ├── logic-presets.js                     # 7 curated digital logic presets (De Morgan, 4-NAND XOR, Half/Full Adder, Mux, Voter)
-│   ├── logic.js                             # Main controller syncing canvas gestures, formula bar, truth table, and K-map
-│   └── logic-tests.html                     # Browser-native verification suite (65,536-function exact minimization & synthesis checks)
+├── Lab 7: Logic Circuits Lab (Dual-Mode: Logic Gates Simulator & 74xx Logic IC Lab)
+│   ├── logic.html                           # Dual-mode workspace (top switcher, left component sidebars, maximized 100dvh canvas)
+│   ├── logic.css                            # Zero-scroll 100dvh flex/grid layout, left palette sidebar, floating IC inspector
+│   ├── Sublab 7A: Logic Gates Simulator
+│   │   ├── logic-model.js                   # Schema v1 (max 4 inputs A–D, max 4 outputs F–Y, 8 gate types, fan-in 1..4, History)
+│   │   ├── logic-evaluator.js               # Kahn topological sort, feedback cycle detection, 16-bit bitwise truth-mask evaluator
+│   │   ├── logic-expression.js              # Gate-to-AST builder, bidirectional gate hover spans, 4 notation printers
+│   │   ├── logic-simplify.js                # Isolated & optional 81-cube exact SOP/POS minimizer and Gray-code K-map builder
+│   │   ├── logic-synthesis.js               # Deterministic 3-column synthesizer (Minimal SOP/POS, Universal NAND-only & NOR-only)
+│   │   ├── logic-editor.js                  # 24px grid snapping, pin hit-testing, and obstacle-aware orthogonal wire router
+│   │   ├── logic-renderer.js                # Canvas 2D renderer with IEEE distinctive-shape gates, inversion bubbles & glow wires
+│   │   ├── logic-presets.js                 # 6 curated gate presets (Basic AND/OR, Half Adder, Full Adder, 2:1 Mux, De Morgan, Simplify)
+│   │   └── logic.js                         # Main controller syncing canvas gestures, formula bar, truth table, and K-map
+│   ├── Sublab 7B: Logic IC Lab (74xx Series DIP Breadboard Simulator)
+│   │   └── logic-ic-lab.js                  # Complete 74xx DIP IC bench engine:
+│   │       ├── 14-Pin 74xx IC Catalog       # 10 authentic TTL/CMOS DIP ICs by model number (7404, 7400, 7402, 7408, 7432, 7486, 74266, 7410, 7411, 7427)
+│   │       ├── Bench Circuit Components     # 5V DC Battery, Toggle Switch, 220Ω Series Resistor, Multi-Color LED Lamp, GND, 1Hz Clock, BCD 7-Seg
+│   │       ├── Closed-Circuit Net Solver    # Union-Find net solver enforcing true ground return paths (`hasTrueGround`), VCC/GND & short protection
+│   │       ├── Obstacle-Aware Wire Router   # 4-orientation component rotation (`R`), package-bypass routing, draggable segments, hops & junctions
+│   │       ├── X-Ray Datasheet Renderer     # Translucent DIP package rendering internal IEEE mini-gates and live pin-to-gate signal traces
+│   │       └── Curated 74xx Bench Presets   # 6 ready-to-run IC benches (7408 Bench, Half Adder, 3-Input 7411, 7400 Counter, 2:1 Mux, 2-Bit Comparator)
+│   └── logic-tests.html                     # Browser-native verification suite (65,536-function exact minimization, synthesis & IC ground checks)
 │
 ├── Markdown Files/ (Platform Documentation & Reviews)
 │   ├── Documentation.md                     # Central architectural specification and comprehensive platform reference
@@ -112,13 +121,14 @@ Electricsim/ (Workspace Root)
 │   └── SEMICONDUCTOR_RESTRUCTURE_PLAN.md    # Restructuring blueprint consolidating multi-scene models into unified crystal
 │
 └── Supplementary Verification Scripts (Optional)
-    ├── hub-search.test.js                   # Verifies lab search filtering logic and ARIA accessibility attributes
+    ├── hub-search.test.js                   # Verifies lab search filtering logic, 7 lab cards, and ARIA accessibility attributes
     ├── semiconductor-model.test.js          # Verifies carrier equilibrium, mass-action law, and doping calculations
     ├── dc-circuit.test.js                   # Verifies KVL/KCL, series/parallel reductions, and RC curves
     ├── dc-circuit.math.test.js              # Verifies MNA matrix solver accuracy across 360 circuit meshes
     ├── dc-circuit.improvements.test.js      # Verifies undo/redo state preservation and wire current calculations
     ├── dc-circuit.interaction.test.js       # Verifies component placement previews and drag interactions
-    └── dc-circuit.browser.test.js           # Verifies interactive circuit editing and mobile responsiveness
+    ├── dc-circuit.browser.test.js           # Verifies interactive circuit editing and mobile responsiveness
+    └── logic-ic-lab.test.js                 # 3 full systematic verification scans (14 suites) for Logic IC Lab physics, routing & UI
 ```
 
 ---
@@ -357,31 +367,30 @@ Dynamic components (capacitors and transformers) are discretized across time ste
 
 ---
 
-### Lab 7: Logic Circuits Lab (`logic.html`, `logic-*.js`)
+### Lab 7: Logic Circuits Lab (`logic.html`, `logic-*.js`, `logic-ic-lab.js`)
+
+The **Logic Circuits Lab** is a dual-mode digital engineering suite modeled after the Capacitor Lab's top-bar mode switcher (`Logic Gates Simulator` and `Logic IC Lab`), built inside a zero-scroll (`100dvh`) single-viewport layout with dedicated Left Component Sidebars.
 
 ```
 +---------------------------------------------------------------------------------------+
-|                                Logic Circuits Lab Stack                               |
-+---------------------------------------------------------------------------------------+
-|  logic.js            UI Controller, Pointer/Touch Gestures, Formula/Table/K-Map Sync  |
-+---------------------------------------------------------------------------------------+
-|  logic-editor.js     24px Grid Snap, Pin Hit-Testing, Obstacle-Aware 90° Wire Router  |
-+---------------------------------------------------------------------------------------+
-|  logic-renderer.js   Canvas 2D IEEE Gate Symbols, Inversion Bubbles, Live Wire Glow   |
-+---------------------------------------------------------------------------------------+
-|  logic-synthesis.js  Deterministic 3-Column SOP, POS, NAND-Only & NOR-Only Generator  |
-+---------------------------------------------------------------------------------------+
-|  logic-simplify.js   ISOLATED & OPTIONAL: 81-Cube Exact Minimizer & Gray-Code K-Map   |
-+---------------------------------------------------------------------------------------+
-|  logic-expression.js Gate-to-AST Builder, Gate-ID Hover Spans, 4 Notation Printers    |
-+---------------------------------------------------------------------------------------+
-|  logic-evaluator.js  Kahn Topological Sort, Cycle Detection, 16-Bit Truth-Mask Engine |
-+---------------------------------------------------------------------------------------+
-|  logic-model.js      Schema v1 (Max 4 Inputs A-D, 4 Outputs F-Y, 8 Gates, History)    |
-+---------------------------------------------------------------------------------------+
+|                        Logic Circuits Lab (Dual-Mode Stack)                           |
++-------------------------------------------+-------------------------------------------+
+|       Sublab 7A: Logic Gates Simulator    |         Sublab 7B: 74xx Logic IC Lab      |
++-------------------------------------------+-------------------------------------------+
+| logic.js            UI, Formula & K-Map   | logic-ic-lab.js   Complete 74xx Engine:   |
+| logic-editor.js     Grid & 90° Router     |  - 10 Authentic 14-Pin DIP ICs (7404..27) |
+| logic-renderer.js   IEEE Gates & Glow     |  - X-Ray Datasheet Internal Gate Overlay  |
+| logic-synthesis.js  SOP/POS/NAND/NOR      |  - Closed-Circuit Ground Return Solver    |
+| logic-simplify.js   81-Cube Exact Solver  |  - Obstacle-Aware Router & 4-Way Rotation |
+| logic-expression.js AST & 4 Notations     |  - Battery, Switch, 220Ω, Lamp, GND, Seg7 |
+| logic-evaluator.js  16-Bit Bitwise Engine |  - 6 Ready-to-Run 74xx Breadboard Presets |
+| logic-model.js      Schema v1 & History   |                                           |
++-------------------------------------------+-------------------------------------------+
 ```
 
-#### 1. Single-Pass 16-Bit Bitwise Truth-Mask Evaluator (`logic-evaluator.js`)
+#### Sublab 7A: Logic Gates Simulator (`logic-model.js` – `logic.js`)
+
+##### 1. Single-Pass 16-Bit Bitwise Truth-Mask Evaluator (`logic-evaluator.js`)
 Because the workspace supports at most $n \le 4$ input variables (`A, B, C, D`), every signal's complete 16-row truth table fits inside a single 16-bit unsigned integer (`0x0000`–`0xFFFF`):
 - Input basis masks:
   $$\text{MASK}_A = \text{0xFF00}, \quad \text{MASK}_B = \text{0xF0F0}, \quad \text{MASK}_C = \text{0xCCCC}, \quad \text{MASK}_D = \text{0xAAAA}$$
@@ -389,19 +398,55 @@ Because the workspace supports at most $n \le 4$ input variables (`A, B, C, D`),
 - **Bitwise Gate Evaluation**: Each gate evaluates all 16 input combinations simultaneously in $O(1)$ CPU bitwise instructions (`&`, `|`, `^`, `(~x) & 0xFFFF`).
 - **Live Signal Extraction**: For active input switch states $(A, B, C, D) \in \{0, 1\}^4$, row index $r_{16} = (A \ll 3) \mid (B \ll 2) \mid (C \ll 1) \mid D$ extracts every wire's live logic state via `(mask >> r16) & 1`.
 
-#### 2. Expression AST & Bidirectional Gate Highlighting (`logic-expression.js`)
+##### 2. Expression AST & Bidirectional Gate Highlighting (`logic-expression.js`)
 - Walks backward from each output terminal (`F, G, H, Y`) to construct an operator-precedence AST (`NOT` > `AND`/`NAND` > `XOR`/`XNOR` > `OR`/`NOR`).
 - Renders safe DOM `<span class="logic-expr-gate" data-node-id="...">` wrappers so hovering any sub-expression in the Formula Bar illuminates the corresponding gate and its output wires on `#logicCanvas`.
 - Supports 4 live notation printers: **Engineering** (`A·B + A'`), **Textbook Overbar** (`A·B + A̅`), **Symbolic** (`(A ∧ B) ∨ ¬A`), and **Code** (`(A && B) || !A`).
 
-#### 3. Isolated 81-Cube Exact Boolean Minimizer (`logic-simplify.js`)
+##### 3. Isolated 81-Cube Exact Boolean Minimizer (`logic-simplify.js`)
 - **Complete Architectural Isolation**: Accepts only `{ vars, mask16 }` and returns plain data structures. Zero DOM, canvas, or schematic coupling; if `logic-simplify.js` is omitted, the schematic editor, formula bar, and truth table operate uninterrupted.
 - **Exact $3^k \le 81$ Cube Search**: Enumerates all $3^k$ product cubes over the $k \le 4$ active variables, filters valid implicants `(cMask & ~truth) === 0`, extracts Prime Implicants by subsumption, locks in Essential Prime Implicants, and solves any remaining cyclic chart via branch-and-bound minimizing `(termCount, literalCount)`.
 - **Minimal POS via De Morgan Dual**: Evaluates `solveExactSop` on `(~truth) & fullMask` and applies De Morgan inversion (`AND ↔ OR`, literal negation flip) to produce exact Minimal POS.
 
-#### 4. Deterministic 3-Column Universal Gate Synthesis (`logic-synthesis.js`)
+##### 4. Deterministic 3-Column Universal Gate Synthesis (`logic-synthesis.js`)
 - Rewrites any valid combinational schematic into **Minimal SOP**, **Minimal POS**, **Universal NAND-Only**, or **Universal NOR-Only** aligned across fixed grid columns (`Inputs → Shared Inverters → Term Gates → Output Combining Gate → Outputs`).
 - Automatically chunks expressions with 5–8 prime implicants (such as 4-input XOR `0x6996`) into balanced 2-stage sub-trees so every gate strictly obeys `fanIn ≤ 4`, then self-verifies `newMask16 === oldMask16` before committing to `History`.
+
+---
+
+#### Sublab 7B: Logic IC Lab — 74xx Series DIP Breadboard Simulator (`logic-ic-lab.js`)
+
+##### 1. Authentic 14-Pin 74xx Series DIP IC Catalog (`IC_CATALOG`)
+All integrated circuits are presented in the Left Component Sidebar strictly by their **74xx model numbers** (never by gate name) and follow standard 14-pin Dual In-Line Package (DIP-14) counterclockwise pin numbering from the left half-moon notch (**Pins 1–7** along the bottom edge with **Pin 7 = GND**, and **Pins 8–14** along the top edge right-to-left with **Pin 14 = +5V VCC**):
+- **1-Input Hex Inverter**:
+  - `7404` (SN7404N): Hex Inverter (`1→2, 3→4, 5→6, 9→8, 11→10, 13→12`)
+- **2-Input Quad Gate ICs**:
+  - `7400` (SN7400N): Quad 2-Input NAND (`1,2→3 · 4,5→6 · 9,10→8 · 12,13→11`)
+  - `7402` (SN7402N): Quad 2-Input NOR (`2,3→1 · 5,6→4 · 8,9→10 · 11,12→13` — authentic reversed pinout!)
+  - `7408` (SN7408N): Quad 2-Input AND (`1,2→3 · 4,5→6 · 9,10→8 · 12,13→11`)
+  - `7432` (SN7432N): Quad 2-Input OR (`1,2→3 · 4,5→6 · 9,10→8 · 12,13→11`)
+  - `7486` (SN7486N): Quad 2-Input XOR (`1,2→3 · 4,5→6 · 9,10→8 · 12,13→11`)
+  - `74266` (SN74266N): Quad 2-Input XNOR (`1,2→3 · 4,5→6 · 9,10→8 · 12,13→11`)
+- **3-Input Triple Gate ICs**:
+  - `7410` (SN7410N): Triple 3-Input NAND (`1,2,13→12 · 3,4,5→6 · 9,10,11→8`)
+  - `7411` (SN7411N): Triple 3-Input AND (`1,2,13→12 · 3,4,5→6 · 9,10,11→8`)
+  - `7427` (SN7427N): Triple 3-Input NOR (`1,2,13→12 · 3,4,5→6 · 9,10,11→8`)
+
+##### 2. Strict Closed-Circuit & Ground Return Path Solver (`evaluateICBench`)
+The bench solver enforces physical closed-circuit electricity rather than idealized single-wire logic:
+- **Passband Passive & Switch Bridging**: Closed switches (`sw:in ↔ sw:out`, when `sw:in` is wired) and `220 Ω` series resistors (`r:a ↔ r:b`) bridge connected nets via a Union-Find disjoint-set compiler.
+- **True Ground Return Tracking (`net.hasTrueGround`)**: A net only qualifies as a valid ground return (`0V`) if it is connected to a real low-impedance `0V` sink (`Battery (−)`, `GND` terminal, an active-low powered IC gate output, or a closed standalone switch in `0` state). Open switches never provide a ground return path.
+- **IC Power Rail Validation**: Unless the optional *Auto-power VCC/GND* bench helper is enabled, every 74xx IC requires **Pin 14** connected to `+5V` AND **Pin 7** connected to a true ground return (`hasTrueGround`). Reversed polarity (`Pin 14 = 0V` and `Pin 7 = +5V`) triggers an immediate `⚠ REVERSE POWER!` fault.
+- **Strict Lamp Illumination Physics**: An indicator Lamp (`anode`, `cathode`) illuminates **if and only if** `Anode === 1 (+5V)` **AND** `Cathode === 0 (GND)` with `cathodeNet.hasTrueGround === true`. If Anode is driven HIGH (`+5V`) while Cathode is left unweighted/open (or connected to an open switch), the lamp remains strictly **OFF** and displays an amber **`OPEN GND`** badge on the canvas.
+
+##### 3. X-Ray Datasheet IC Overlay & Obstacle-Aware Wire Management
+- **Translucent X-Ray Package Rendering**: Every 74xx DIP chip is drawn with a semi-transparent housing (`rgba(13, 19, 31, 0.80)`) revealing the internal mini IEEE gate symbols and internal metallic micro-traces linking each external pin to its internal gate input/output.
+- **Visual Wire State Differentiation**:
+  - `+5V (HIGH)`: Glowing cyan (`#3dd9ff`)
+  - `0V (Grounded LOW)`: Solid slate-blue (`#59677f`) with `0V` badge
+  - `OPEN (Unconnected / Floating)`: Dashed muted gray line (`setLineDash([5, 4])`) with `OPEN` badge
+  - `SHORT / CONTENTION`: Red warning glow (`#ff5a52`)
+- **Circuits-Lab-Grade Wire & Component Ergonomics**: Supports 4-angle component rotation (`R` key: `0°, 90°, 180°, 270°`), obstacle-aware orthogonal routing around DIP packages, automatic parallel lane separation, draggable wire segments, double-click route reset, T-junction dots, crossing bridge hops, and a maximized full-bleed simulation canvas with a floating top-right component inspector.
 
 ---
 
@@ -414,26 +459,26 @@ This section is written from the user's perspective, providing a visual and expe
 |                                Electricsim Central Hub                                |
 |    [ Kicker: Scientific simulation suite ]                                            |
 |    Title: Electricsim Platform                                                        |
-|    Subtitle: Turn equations into observable systems...                                |
-|    Metrics: [ 6 interactive labs ]  [ Live SI measurements ]  [ Cause->Effect ]       |
+|    Dedication: Developed by Zeyad Mahmoud · Faculty of Engineering at Shoubra         |
+|    Metrics: [ 7 interactive labs ]  [ Live SI measurements ]  [ Cause->Effect ]       |
 |                                                                                       |
 |    [ Find a lab: Search by name or topic...                           ] [Clear]       |
-|    Live Output: 6 labs                                                                |
+|    Live Output: 7 labs                                                                |
 +---------------------------------------------------------------------------------------+
 |  [Card 1] Electrostatics       |  [Card 2] Gauss's Law         |  [Card 3] Capacitors |
-|  Vectors, potentials & BEM     |  Flux & Gaussian surfaces     |  Dielectrics & nets  |
 |--------------------------------+-------------------------------+----------------------|
 |  [Card 4] Conductivity         |  [Card 5] Semiconductors      |  [Card 6] Circuits   |
-|  Drude drift & lattice heat    |  Covalent bonds & carriers    |  MNA schematic editor|
+|--------------------------------+-------------------------------+----------------------|
+|  [Card 7] Logic Circuits Lab                                                          |
 +---------------------------------------------------------------------------------------+
 ```
 
 ---
 
 ### Central Hub (`index.html`)
-- **Atmosphere & Visual Style**: Deep obsidian-black background with a subtle, ambient glowing particle grid. Typography is crisp, modern, and technical.
-- **Instant Search & Filtering**: A prominent search bar allows typing any topic or concept (e.g., *"charge"*, *"transient"*, *"silicon"*, *"inductor"*, *"resistor"*). Cards filter dynamically with zero lag. Pressing `Escape` or clicking `Clear` instantly restores all cards.
-- **Responsive Navigation**: Clean cards present descriptive summaries, category metadata kickers, and direct launch buttons. Works seamlessly on desktop displays, tablets, and smartphones down to 320px width.
+- **Atmosphere & Visual Style**: Deep obsidian-black background with a subtle, ambient glowing particle grid. Typography is crisp, modern, and technical, featuring streamlined centered-title lab cards across all 7 virtual laboratories and a dedicated academic attribution to the **Faculty of Engineering at Shoubra**.
+- **Instant Search & Filtering**: A prominent search bar allows typing any topic or concept (e.g., *"charge"*, *"transient"*, *"silicon"*, *"boolean"*, *"karnaugh"*, *"resistor"*). Cards filter dynamically with zero lag. Pressing `Escape` or clicking `Clear` instantly restores all 7 cards.
+- **Responsive Navigation**: Clean cards present centered laboratory titles and direct click-to-launch navigation. Works seamlessly on desktop displays, tablets, and smartphones down to 320px width.
 
 ---
 
@@ -665,40 +710,65 @@ This section is written from the user's perspective, providing a visual and expe
 
 ```
 +---------------------------------------------------------------------------------------+
-| Logic Circuits Lab   [ Examples v ]  [ Undo ]  [ Redo ]  [ Clear ]      [ Hub Button ]|
+| ← Electricsim  Logic Circuits Lab   [ Logic Gates Simulator | Logic IC Lab ]  [Presets]|
 +---------------------------------------------------------------------------------------+
+| [Sublab 7A: Logic Gates Simulator (100dvh Zero-Scroll Single Screen)]                 |
 | LIVE BOOLEAN ALGEBRA                     [ Notation: A·B + A' v ] [ Copy ] [Simplify] |
-|  F = (A · B) + (A · B') + (A · C)                                      [ Now: 1 ]     |
-|  ↳ Minimal SOP: F = A  (saves 5 gates · 4 literals)  [Apply Minimal] [NAND] [NOR]     |
-+---------------------------------------------------------------------------------------+
-| Tools: [Move] [+Input] [+Output] [AND] [OR] [NOT] [NAND] [NOR] [XOR] [XNOR] [BUF]     |
-+---------------------------------------------------+-----------------------------------+
-| SCHEMATIC WORKSPACE                               | ANALYSIS DOCK                     |
-|                                                   | [Truth Table] [K-Map] [Simplify]  |
-|   [A | 1] ●───┬───[AND]●───┐                      |                                   |
-|               │            ├───[OR]●────● [F = 1] |   A  B  C │ F                     |
-|   [B | 0] ●───┼───[AND]●───┘                      |   0  0  0 │ 0                     |
-|               └─[NOT]●┘                           |  ▶1  0  1 │ 1◀ (Click any row)    |
-|   [C | 1] ●────────────────                       |                                   |
-|                                                   |  Minterms: Σm(4, 5, 6, 7)         |
-+---------------------------------------------------+-----------------------------------+
-| Gates: 5 · Inputs: 3/4 · Outputs: 1/4 · Depth: 3 levels · Est. CMOS: 26T · ✓ Valid    |
-+---------------------------------------------------------------------------------------+
+|  F = (A · B) + (A · B') + (A · C)  ↳ Minimal SOP: F = A  [Apply Minimal] [NAND] [NOR] |
++---------------------+-------------------------------------------+---------------------+
+| LEFT COMPONENT CARD | SCHEMATIC WORKSPACE                       | ANALYSIS DOCK       |
+| [↖ Move / Edit    ] |                                           | [Table][K-Map][Simp]|
+| [─●─ Wire] [✋ Pan] |   [A | 1] ●──┬──[AND]●──┐                 |  A B C │ F          |
+| [Input (A-D)]       |              │          ├──[OR]●──●[F=1]  |  0 0 0 │ 0          |
+| [Output (F-Y)]      |   [B | 0] ●──┼──[AND]●──┘                 | ▶1 0 1 │ 1◀         |
+| [AND][OR][NOT][NAND]|              └─[NOT]●┘                    |                     |
+| [NOR][XOR][XNOR]    |   [C | 1] ●──────────────                 |  Σm(4, 5, 6, 7)     |
++---------------------+-------------------------------------------+---------------------+
+| [Sublab 7B: Logic IC Lab (Maximized 100dvh Canvas + Left Component Sidebar)]          |
++---------------------+-----------------------------------------------------------------+
+| LEFT COMPONENT CARD | MAXIMIZED 74xx DIP BREADBOARD SIMULATION CANVAS                 |
+| [↖ Move / Edit    ] |                                                                 |
+| [─●─ Wire] [✋ Pan] |   [5V Battery] (+) ───────► Pin 14 (VCC)                        |
+| [5V Bat] [Switch]   |                (−) ──┐   ┌───────────────────────────────┐      |
+| [220 Ω ] [Lamp]     |                      │   │ 14  13  12  11  10   9   8    │      |
+| [⏚ GND ] [1Hz Clk]  |   [SW A] ●───────────┼──►│ )   [X-Ray Mini Gates]        │      |
+| [7-Seg BCD Display] |   [SW B] ●───────────┼──►│ 1   2   3   4   5   6   7     │      |
+| 74xx Series DIP ICs:|                      │   └─────────┬───────────────┬─────┘      |
+| [7404] [7400] [7402]|                      │             └──[220Ω]──►(Lamp)─┐         |
+| [7408] [7432] [7486]|                      └────────────────────────────────┴─► ⏚ GND |
+| [74266][7410] [7411]|                                                                 |
+| [7427]              |                                                                 |
++---------------------+-----------------------------------------------------------------+
 ```
 
-#### What You See on the Screen
+#### Sublab 7A: Logic Gates Simulator View
+- **Zero-Scroll Single-Screen Workspace**: Fits 100% within a single desktop screen (`100dvh`) with a dedicated **Left Component Sidebar** (`Move / Edit`, `Wire`, `Pan`, `Input (A-D)`, `Output (F-Y)`, `Const 1/0`, and all 8 IEEE gates), a central schematic canvas, and the Right Analysis Dock.
 - **Live Boolean Formula Bar (Top)**: As soon as you wire logic gates together, the exact Boolean algebra equation for each output (`F, G, H, Y`) appears above the schematic. Hovering your mouse over any bracketed term in the formula highlights the exact gate on the canvas that produces that term.
 - **Quiet Simplification Preview**: Directly beneath your formula, an automatic preview tells you if your circuit can be simplified (for example, showing that `F = (A·B) + (A·B') + (A·C)` simplifies to `F = A` and saves 5 gates), or confirms `✓ Minimal` when no further reduction is possible.
-- **Glowing Digital Schematic Canvas**: Standard IEEE distinctive-shape gate symbols (`AND`, `OR`, `NOT`, `NAND`, `NOR`, `XOR`, `XNOR`, `Buffer`). Wires carrying Logic `1` glow bright cyan (`#3dd9ff`), while Logic `0` wires stay muted slate.
 - **Three-Tab Analysis Dock (Right)**:
   - **Truth Table**: Displays all input combinations (`2`, `4`, `8`, or `16` rows) alongside every output column, plus canonical minterm (`Σm`) and maxterm (`ΠM`) lists.
-  - **Karnaugh Map (K-Map)**: A Gray-code 2D table with interactive Prime Implicant chips underneath. Hovering or clicking a chip highlights the corresponding K-map group cells in emerald green.
-  - **Simplify & Convert**: Compares your drawn circuit against its Minimal SOP and Minimal POS forms and provides one-click universal gate converters.
+  - **Karnaugh Map (K-Map)**: A Gray-code 2D table with interactive Prime Implicant chips underneath.
+  - **Simplify & Convert**: Compares your drawn circuit against its Minimal SOP and Minimal POS forms and provides one-click **Apply Minimal**, **NAND-Only**, and **NOR-Only** converters.
+- **6 Built-In Gate Examples**:
+  1. *Basic AND / OR circuit (`F = A·B + C`)*
+  2. *Half Adder (`Carry F & Sum G`)*
+  3. *1-Bit Full Adder (`Carry-Out F & Sum G`)*
+  4. *2-to-1 Multiplexer (`F = A·C' + B·C`)*
+  5. *De Morgan's Law (`(A·B)' = A' + B'`)*
+  6. *Simplification Demo (`F = A·B + A·B' + A·C`)*
 
-#### What You Can Do & How to Interact
-1. **Build & Toggle Live**: Add up to 4 inputs (`A, B, C, D`), unlimited gates (each configurable for `2`, `3`, or `4` input pins in the inspector), and up to 4 outputs (`F, G, H, Y`). Click any input's `[0/1]` badge on the canvas to flip its state and watch signals propagate immediately.
-2. **Click Truth Table Rows or K-Map Cells to Test**: Click any row in the Truth Table (or any cell in the K-Map) to set the canvas input switches `A–D` to that binary combination automatically.
-3. **One-Click Simplification & Universal Gate Conversion**: Click **Apply Minimal**, **NAND-Only**, or **NOR-Only** to watch the lab rebuild your schematic into a clean, auto-aligned minimal or universal-gate circuit while preserving all 16 truth-table rows. Press **Undo (`Ctrl+Z`)** at any time to return to your original hand-drawn circuit.
+#### Sublab 7B: Logic IC Lab View (74xx Series DIP Breadboard)
+- **Maximized Full-Screen Bench Canvas**: Places a compact **Left Component Sidebar** flush on the left edge and expands the interactive breadboard canvas across the entire remaining viewport width and height. Clicking any component opens a sleek floating inspector card in the top-right corner without shrinking the canvas.
+- **10 Authentic 74xx DIP ICs by Model Number**: Select `7404`, `7400`, `7402`, `7408`, `7432`, `7486`, `74266`, `7410`, `7411`, or `7427` from the left sidebar. Toggle **X-Ray internal gates** to peer inside each translucent 14-pin DIP package and see the datasheet gate connections between pins!
+- **Real Closed-Circuit Bench Components**: Wire a **5V Battery**, **Toggle Switches**, **220 Ω Resistors**, **Multi-Color Indicator Lamps**, **Ground (`⏚ GND`)**, **1 Hz Clock**, and **BCD 7-Segment Display**.
+- **True Ground Return Enforcement**: Indicator lamps only illuminate when their **Anode (`+`)** receives `+5V` AND their **Cathode (`−`)** has a closed return path to **Ground (`0V`)** or **Battery (`−`)**. Unconnected/open wires render as dashed gray lines (`OPEN`), and ungrounded lamps display an amber **`OPEN GND`** diagnostic badge.
+- **6 Curated 74xx IC Bench Presets**:
+  1. *`7408` — Quad 2-Input AND Bench (Battery + Switches + Resistor + Lamp)*
+  2. *`7486 + 7408` — 74xx Half Adder Breadboard (Sum & Carry Lamps)*
+  3. *`7411 + 7404` — 3-Input Majority/All-High Detector & Inverter*
+  4. *`7400 + 7-Seg` — Quad NAND Logic Decoder & Clock Bench*
+  5. *`7404 + 7408 + 7432` — 2-to-1 Data Multiplexer Bench (D0, D1, Select)*
+  6. *`74266 + 7408` — 2-Bit Equality Comparator Bench (A = B Detector)*
 
 ---
 
@@ -710,13 +780,14 @@ To guarantee scientific precision and protect against regressions, the repositor
 
 | Script | Verification Focus | Checks |
 | :--- | :--- | :--- |
-| `hub-search.test.js` | Keyword search filtering, multi-keyword queries, UI aria attributes | 15 checks |
+| `hub-search.test.js` | Keyword search filtering, 7 centered-title lab cards, UI aria attributes | 15 checks |
 | `semiconductor-model.test.js` | Mass-action law ($np = n_i^2$), carrier freeze-out, doping transitions | 14 checks |
 | `dc-circuit.test.js` | KVL/KCL balance, series/parallel networks, RC curves, lamp glow | 28 checks |
 | `dc-circuit.math.test.js` | 360 randomized circuit meshes, MNA linear solver, AC transformers, diodes | 17 suites |
 | `dc-circuit.improvements.test.js` | Undo/redo stability, time-slice budgeting, wire current caching | 24 checks |
 | `dc-circuit.browser.test.js` / `.interaction.test.js` | UI verification tests for circuit drawing, touch gestures, and responsive screens | E2E browser checks |
-| `logic-tests.html` | Browser-native test suite: all 8 gate types, cycle detection, exhaustive 65,536-function SOP/POS minimization, and NAND/NOR universal synthesis | 6 suites (65,536+ checks) |
+| `logic-ic-lab.test.js` | 3 full systematic scans: closed-circuit lamp ground enforcement, open-switch return isolation, 10 74xx IC truth tables, 4-way rotation, obstacle routing, and all 6 IC presets | 14 suites |
+| `logic-tests.html` | Browser-native test suite: all 8 gate types, cycle detection, exhaustive 65,536-function SOP/POS minimization, NAND/NOR synthesis, and IC ground checks | 7 suites (65,536+ checks) |
 
 *(Note: These verification scripts are purely supplementary regression checks. The application itself requires only a browser to open `index.html`.)*
 
