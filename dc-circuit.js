@@ -2,7 +2,7 @@
     'use strict';
     const D=window.DCCircuit,$=id=>document.getElementById(id),canvas=$('circuitCanvas');
     const renderer=new D.Renderer(canvas),simulation=new D.Simulation(),motion=new D.CurrentMotion();
-    const units={resistor:[[1,'Ω'],[1e3,'kΩ'],[1e6,'MΩ']],lamp:[[1,'Ω'],[1e3,'kΩ'],[1e6,'MΩ']],capacitor:[[1,'F'],[1e-3,'mF'],[1e-6,'µF'],[1e-9,'nF']],voltage:[[1,'V'],[1e-3,'mV']],ac:[[1,'V'],[1e-3,'mV']]};
+    const units={resistor:[[1,'Ω'],[1e3,'kΩ'],[1e6,'MΩ']],lamp:[[1,'Ω'],[1e3,'kΩ'],[1e6,'MΩ']],capacitor:[[1,'F'],[1e-3,'mF'],[1e-6,'µF'],[1e-9,'nF']],voltage:[[1,'V'],[1e-3,'mV']],current:[[1,'A'],[1e-3,'mA'],[1e-6,'µA']],ac:[[1,'V'],[1e-3,'mV']]};
     const TYPE_LABEL={voltage:'battery',ac:'AC source',diode:'diode',transformer:'transformer',resistor:'resistor',lamp:'lamp',capacitor:'capacitor',switch:'switch',current:'current source'};
     const typeName=t=>TYPE_LABEL[t]||t;
     const reducedMotion=window.matchMedia('(prefers-reduced-motion: reduce)');
@@ -21,7 +21,7 @@
     renderer.onresize=()=>{if(viewportWidth!==window.innerWidth){viewportWidth=window.innerWidth;renderer.fit(doc());}requestDraw();};
     function readyMessage(){
         if(simulation.error)message('Circuit cannot be solved: '+simulation.error.message,true);
-        else message(doc().components.length?(running?'Running':'Paused')+' · voltage A − B; current A → B.':'Place a component, then connect its terminal dots with Wire.');
+        else message(doc().components.length?(running?'Running':'Paused')+' · loads show voltage across / current through; sources show their output.':'Place a component, then connect its terminal dots with Wire.');
     }
     function option(value,text){const e=document.createElement('option');e.value=value;e.textContent=text;return e;}
     function selectionValue(hit){return hit?`${hit.kind}:${hit.id}`:'';}
@@ -53,8 +53,8 @@
             $('transformerRow').hidden=c.type!=='transformer';
             $('toggleSwitchBtn').hidden=c.type!=='switch';$('capacitorNote').hidden=c.type!=='capacitor';
             $('lampNote').hidden=c.type!=='lamp';$('switchNote').hidden=c.type!=='switch';
-            $('diodeNote').hidden=c.type!=='diode';$('acNote').hidden=c.type!=='ac';$('transformerNote').hidden=c.type!=='transformer';
-            $('valueLabel').textContent=c.type==='lamp'?'Resistance':c.type==='ac'?'Peak voltage':'Value';
+            $('diodeNote').hidden=c.type!=='diode';$('acNote').hidden=c.type!=='ac';$('transformerNote').hidden=c.type!=='transformer';$('currentNote').hidden=c.type!=='current';
+            $('valueLabel').textContent=c.type==='lamp'?'Resistance':c.type==='ac'?'Peak voltage':c.type==='current'?'Current (arrow direction)':'Value';
             if(c.type==='switch'){$('toggleSwitchBtn').textContent=c.closed?'Open switch':'Close switch';$('toggleSwitchBtn').setAttribute('aria-pressed',String(c.closed));}
             else if(c.type==='transformer'){
                 $('turnsPrimaryInput').value=Number.isInteger(c.turnsPrimary)?String(c.turnsPrimary):'';
@@ -320,13 +320,23 @@
     document.addEventListener('visibilitychange',()=>{lastFrame=performance.now();if(simulation.state)targetTime=simulation.state.time;if(document.hidden)abandonPointers();else requestDraw();});
     function detail(label,value){const dt=document.createElement('dt'),dd=document.createElement('dd');dt.textContent=label;dd.textContent=value;return [dt,dd];}
     function exact(value,unit){return Number.isFinite(value)?`${Number(value.toPrecision(6))} ${unit}`:'Unavailable';}
+    function nodeDetails(info){
+        if(!info)return detail('Node voltage','Unavailable');
+        const list=info.connections.map(x=>`${x.label}:${x.terminal}`).join(', ')||'Nothing yet';
+        return [...detail('Node',info.label),...detail('Node voltage, detail',exact(info.voltage,'V')),...detail('Measured from',info.referenceLabel||'Unavailable'),...detail('Connected terminals',list),...detail('Junctions on node',String(info.junctions))];
+    }
+    function updateNodeCard(info,solved){
+        $('nodeVoltageCard').hidden=!info;if(!info)return;
+        $('nodeVoltageValue').textContent=solved&&Number.isFinite(info.voltage)?D.format(info.voltage,'V'):'—';
+        $('nodeVoltageRef').textContent=!solved?'Circuit not solved':info.ground?'This node is ground (0 V reference)':info.local?(info.isReference?'Local reference node (no ground in this part of the circuit)':'Relative to a local reference · add Ground for absolute values'):'Relative to ground (0 V)';
+    }
     function refreshMeasurements(force=false){
         const now=performance.now();if(!force&&now-lastRefresh<200)return;lastRefresh=now;
         const solution=simulation.error?null:simulation.state?.acceptedSolution,c=component(),selection=selectionValue(selected),time=simulation.state?.time;
         if(!force&&lastReading?.doc===doc()&&lastReading.solution===solution&&lastReading.selection===selection&&lastReading.time===time)return;
         lastReading={doc:doc(),solution,selection,time};
         if(lastTableDoc!==doc()||lastTableSolution!==solution){
-            const rows=[];for(const item of doc().components){const r=solution?.componentResults[item.id],tr=document.createElement('tr');for(const text of [item.label,D.reading(r?.voltage,'V'),D.reading(r?.current,'A'),D.format(r?.power,'W')]){const td=document.createElement('td');td.textContent=text;tr.append(td);}rows.push(tr);}
+            const rows=[];for(const item of doc().components){const r=solution?.componentResults[item.id],shown=item.type==='transformer'?r:D.presentResult(item,r),tr=document.createElement('tr');for(const text of [item.label,D.reading(shown?.voltage,'V'),D.reading(shown?.current,'A'),D.format(shown?.power,'W')+(shown?.role==='source'?' delivered':shown?.role==='load'?' absorbed':'')]){const td=document.createElement('td');td.textContent=text;tr.append(td);}rows.push(tr);}
             $('measurementRows').replaceChildren(...rows);lastTableDoc=doc();lastTableSolution=solution;
         }
         const details=[];
@@ -343,10 +353,17 @@
                     ...detail('Power',D.format(r?.power,'W'))
                 );
             }else{
-                details.push(...detail('Voltage A − B',D.reading(r?.voltage,'V')),...detail('Current A → B',D.reading(r?.current,'A')),...detail('Current, detail',exact(r?.current,'A')),...detail('Power',D.format(r?.power,'W')));
+                const shown=D.presentResult(c,r);
+                if(shown?.role==='source'||(!r&&['voltage','ac','current'].includes(c.type))){
+                    const plus=c.type==='current'?'B':'A',minus=plus==='A'?'B':'A';
+                    details.push(...detail(`Output voltage (${plus}+ to ${minus}−)`,D.reading(shown?.voltage,'V')),...detail(`Output current (out of ${plus})`,D.reading(shown?.current,'A')),...detail('Current, detail',exact(shown?.current,'A')),...detail('Power delivered',D.format(shown?.power,'W')));
+                }else{
+                    details.push(...detail('Voltage across',D.reading(shown?.voltage,'V')),...detail('Current through',D.reading(shown?.current,'A')),...detail('Current, detail',exact(shown?.current,'A')),...detail('Power absorbed',D.format(shown?.power,'W')));
+                    if(shown)details.push(...detail('Higher potential',shown.higher?`Terminal ${shown.higher} (+)`:'Equal'),...detail('Current direction',shown.flow||'No current'));
+                }
                 if(r){details.push(...detail('Terminal A',D.format(r.va,'V')+(solution.nodeVoltages[simulation.compiled.netOf.get(c.terminals[0])]?.local?' · local':'')),...detail('Terminal B',D.format(r.vb,'V')+(solution.nodeVoltages[simulation.compiled.netOf.get(c.terminals[1])]?.local?' · local':'')));}
-                if(c.type==='capacitor')details.push(...detail('Charge on A',D.format(r?.charge,'C')),...detail('Stored energy',D.format(r?.energy,'J')),...detail('State',!r?'Unavailable':Math.abs(r.power||0)<1e-12?'Holding':r.power>0?'Charging':'Discharging'));
-                if(c.type==='voltage'&&r)details.push(...detail('Source',Math.abs(r.power||0)<1e-12?'Idle':r.power<0?'Delivering power':'Absorbing power'));
+                if(c.type==='capacitor')details.push(...detail('Charge',D.format(Math.abs(r?.charge??NaN),'C')),...detail('Stored energy',D.format(r?.energy,'J')),...detail('State',!r?'Unavailable':Math.abs(r.power||0)<1e-12?'Holding':r.power>0?'Charging':'Discharging'));
+                if(['voltage','ac','current'].includes(c.type)&&shown)details.push(...detail('Source',shown.state));
                 if(c.type==='ac'&&r)details.push(...detail('Peak voltage',D.format(c.value,'V')),...detail('RMS voltage',D.format(r.rmsVoltage,'V')),...detail('Frequency',D.format(c.frequency,'Hz')),...detail('Phase',`${c.phase||0}°`));
                 if(c.type==='diode')details.push(...detail('Forward drop Vf',D.format(c.value,'V')),...detail('State',!r?'Unavailable':r.conducting?'Forward biased (ON)':'Reverse biased (OFF)'));
                 if(c.type==='switch')details.push(...detail('State',c.closed?'Closed':'Open'));
@@ -355,9 +372,11 @@
             }
         }else if(selected?.kind==='wire'){
             const r=solution?.wireResults[selected.id];details.push(...detail('Current',!solution?'Unavailable':Number.isFinite(r?.current)?D.reading(r.current,'A'):'Indeterminate wire loop'),...detail('Current, detail',exact(r?.current,'A')));
+            details.push(...nodeDetails(D.nodeInfo(simulation.compiled,solution,selected.id)));
         }else if(selected){
-            const net=simulation.compiled?.netOf.get(selected.id),r=solution?.nodeVoltages[net];details.push(...detail('Potential',r?D.format(r.value,'V')+(r.local?' · local reference':' · ground reference'):'Unavailable'));
+            details.push(...nodeDetails(D.nodeInfo(simulation.compiled,solution,selected.id)));
         }
+        updateNodeCard(c||!selected?null:D.nodeInfo(simulation.compiled,solution,selected.id)||{voltage:null,connections:[],junctions:0},!!solution);
         if(selected&&solution)details.push(...detail('Measurement time',D.format(simulation.state.time,'s')));
         $('selectedReadings').replaceChildren(...details);
     }
@@ -379,7 +398,9 @@
         const target=pointer&&['wire','ground'].includes(tool)?snap(pointer):null;
         if(target?.kind==='grid')target.point=placePoint(pointer,drag?.free);
         const preview=placement&&!gesture?{...placement,position:placePoint(pointer||renderer.center(),drag?.moved||drag?.free)}:null;
-        renderer.draw(draft||doc(),solution,{selected:drag?.hit&&drag.moved?drag.hit:selected,errors:simulation.error?.ids||[],connection,pointer:target?.point||pointer,snap:target,placement:preview,motion,options:{simple:true,readings:solution,time:simulation.state?.time??0,markers:!simulation.error&&$('motionToggle').checked&&!reducedMotion.matches}});
+        const node=solution&&selected&&selected.kind!=='component'&&!drag?.moved?D.nodeInfo(simulation.compiled,solution,selected.id):null;
+        const nodeLabel=node&&Number.isFinite(node.voltage)&&selected.kind!=='wire'?{id:selected.id,text:`${node.ground?'GND':node.label} · ${D.format(node.voltage,'V')}${node.local?' (local)':''}`}:null;
+        renderer.draw(draft||doc(),solution,{selected:drag?.hit&&drag.moved?drag.hit:selected,errors:simulation.error?.ids||[],connection,pointer:target?.point||pointer,snap:target,placement:preview,motion,options:{simple:true,readings:solution,time:simulation.state?.time??0,markers:!simulation.error&&$('motionToggle').checked&&!reducedMotion.matches,nodeLabel}});
         if(!document.hidden&&(running||stepTarget!==null))requestDraw();
     }
     readyMessage();sync();requestDraw();

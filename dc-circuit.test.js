@@ -46,4 +46,76 @@ test('lamp participates in capacitor charging and glow dims as current falls',()
  near(initial.acceptedSolution.componentResults.L.current,.09,1e-7);near(state.capacitorVoltagesById.C,9*(1-Math.exp(-1)),.002);
  near(state.acceptedSolution.componentResults.L.power,.81*Math.exp(-2),.002);assert.ok(D.lampBrightness(state.acceptedSolution.componentResults.L)<D.lampBrightness(initial.acceptedSolution.componentResults.L));
 });
+test('current source divider, polarity, superposition, lamp/diode drive and open/series conflict errors',()=>{
+ const cs=D.component('current',0,0);assert.equal(cs.label.startsWith('I'),true);assert.equal(cs.value,.01);
+ const div=make('currentDivider'),sd=D.solveDC(div);
+ near(sd.componentResults.I1.current,.03);near(sd.componentResults.I1.voltage,-2);near(sd.componentResults.I1.power,-.06);
+ near(sd.componentResults.R1.current,.02);near(sd.componentResults.R1.voltage,2);near(sd.componentResults.R1.power,.04);
+ near(sd.componentResults.R2.current,.01);near(sd.componentResults.R2.voltage,2);near(sd.componentResults.R2.power,.02);
+ near(Object.values(sd.componentResults).reduce((sum,r)=>sum+r.power,0),0);near(sd.residuals.kcl,0);
+ // Reversed/negative current source and parallel current sources
+ const parI=D.compileCircuit(D.fixture([['I1','current','0','a',.05],['I2','current','0','a',-.02],['R1','resistor','a','0',100]])),sp=D.solveDC(parI);
+ near(sp.componentResults.R1.current,.03);near(sp.componentResults.R1.voltage,3);near(sp.residuals.kcl,0);
+ // Current source in series and parallel with voltage source
+ const sv=D.solveDC(D.compileCircuit(D.fixture([['I1','current','0','a',.02],['V1','voltage','a','b',5],['R1','resistor','b','0',100]])));
+ near(sv.componentResults.R1.current,.02);near(sv.componentResults.R1.voltage,2);near(sv.componentResults.V1.current,.02);near(sv.componentResults.I1.voltage,-7);
+ // Current source driving diode + lamp
+ const dl=D.solveDC(D.compileCircuit(D.fixture([['I1','current','0','a',.05],['D1','diode','a','b',.7],['L1','lamp','b','0',100]])));
+ assert.equal(dl.componentResults.D1.conducting,true);near(dl.componentResults.L1.current,.05,1e-5);near(dl.componentResults.L1.voltage,5,1e-3);
+ // Open-circuited current source and conflicting series current sources fail clearly
+ assert.throws(()=>D.solveDC(D.compileCircuit(D.fixture([['I1','current','0','a',.01],['S1','switch','a','0',0,{closed:false}]]))),/Unconstrained|singular/);
+ assert.throws(()=>D.solveDC(D.compileCircuit(D.fixture([['I1','current','0','a',.01],['I2','current','a','b',.02],['R1','resistor','b','0',100]]))),/Unconstrained|singular/);
+ const fs=require('node:fs');
+ const html=fs.readFileSync('dc-circuit.html','utf8'),js=fs.readFileSync('dc-circuit.js','utf8');
+ assert.ok(html.includes('data-tool="current"'));assert.ok(html.includes('id="currentNote"'));
+ assert.ok(js.includes("current:[[1,'A'],[1e-3,'mA'],[1e-6,'µA']]"));
+ assert.ok(js.includes("$('currentNote').hidden=c.type!=='current'"));
+});
+test('display convention: loads are positive magnitudes, sources show positive output when delivering',()=>{
+ const P=(doc,s,id)=>D.presentResult(doc.components.find(c=>c.id===id),s.componentResults[id]);
+ // Resistor wired "upside down" (B on the high side) still reads +V / +I with correct polarity info.
+ let doc=D.fixture([['V1','voltage','a','0',9],['R1','resistor','0','a',100]]),s=D.solveDC(D.compileCircuit(doc));
+ assert.ok(s.componentResults.R1.voltage<0);let r=P(doc,s,'R1');near(r.voltage,9);near(r.current,.09);near(r.power,.81);assert.equal(r.higher,'B');assert.equal(r.flow,'B → A');
+ let v=P(doc,s,'V1');near(v.voltage,9);near(v.current,.09);near(v.power,.81);assert.equal(v.state,'Delivering power');
+ // Current-source divider: source output is +2 V, +30 mA, +60 mW delivered.
+ doc=D.makePreset('currentDivider');s=D.solveDC(D.compileCircuit(doc));const i=P(doc,s,'I1');near(i.voltage,2);near(i.current,.03);near(i.power,.06);assert.equal(i.state,'Delivering power');assert.equal(i.positiveTerminal,'B');
+ // Current source + battery aiding in series: both deliver, the resistor gets +7 V.
+ doc=D.fixture([['I1','current','0','a',.07],['V1','voltage','b','a',5],['R1','resistor','b','0',100]]);s=D.solveDC(D.compileCircuit(doc));
+ near(P(doc,s,'R1').voltage,7);near(P(doc,s,'I1').voltage,2);assert.equal(P(doc,s,'I1').state,'Delivering power');assert.equal(P(doc,s,'V1').state,'Delivering power');
+ // A battery that overpowers a current source: the source reads negative and is labelled absorbing.
+ doc=D.fixture([['I1','current','0','a',.01],['V1','voltage','b','a',12],['R1','resistor','b','0',100]]);s=D.solveDC(D.compileCircuit(doc));
+ near(P(doc,s,'R1').voltage,1);assert.ok(P(doc,s,'I1').voltage<0);assert.equal(P(doc,s,'I1').state,'Absorbing power');
+ // Display powers still balance: delivered = absorbed.
+ for(const id of ['series','parallel','bridge','currentDivider','mixed']){const d=D.makePreset(id),sol=D.solveDC(D.compileCircuit(d));let delivered=0,absorbed=0;for(const c of d.components){const x=D.presentResult(c,sol.componentResults[c.id]);if(x.role==='source')delivered+=x.power;else absorbed+=x.power;assert.ok(x.voltage===null||x.role==='source'||x.voltage>=0);}near(delivered,absorbed);}
+ assert.equal(D.presentResult(null,null),null);
+});
+test('nodal voltage: junctions, terminals, wires and ground report the node potential',()=>{
+ // Series divider: 12 V → R1 100 Ω → node-b → R2 200 Ω → ground. node-a = 12 V, node-b = 8 V.
+ let doc=D.makePreset('series'),c=D.compileCircuit(doc),s=D.solveDC(c);
+ let a=D.nodeInfo(c,s,'node-a'),b=D.nodeInfo(c,s,'node-b'),g=D.nodeInfo(c,s,'node-0');
+ near(a.voltage,12);near(b.voltage,8);near(g.voltage,0);assert.equal(g.ground,true);assert.equal(g.label,'Ground node');assert.equal(a.local,false);assert.equal(a.referenceLabel,'Ground (0 V)');
+ assert.deepEqual(b.connections.map(x=>`${x.label}:${x.terminal}`).sort(),['R1:B','R2:A']);assert.equal(b.junctions,1);
+ // A component terminal and any wire on the node report the same voltage as the junction.
+ near(D.nodeInfo(c,s,'R1:b').voltage,8);near(D.nodeInfo(c,s,'R2:a').voltage,8);
+ const w=doc.wires.find(w=>w.fromEndpoint==='R2:a'||w.toEndpoint==='R2:a');near(D.nodeInfo(c,s,w.id).voltage,8);
+ // Node voltage difference equals the component voltage (KVL).
+ near(a.voltage-b.voltage,s.componentResults.R1.voltage);
+ // Moving ground to node-b shifts every node by −8 V without changing component readings.
+ doc.referenceEndpoints=['node-b'];c=D.compileCircuit(doc);s=D.solveDC(c);near(D.nodeInfo(c,s,'node-a').voltage,4);near(D.nodeInfo(c,s,'node-0').voltage,-8);near(D.nodeInfo(c,s,'node-b').voltage,0);
+ // Bridge: exact nodal potentials 70/13 V and 80/13 V.
+ doc=D.makePreset('bridge');c=D.compileCircuit(doc);s=D.solveDC(c);near(D.nodeInfo(c,s,'node-c').voltage,70/13);near(D.nodeInfo(c,s,'node-d').voltage,80/13);near(D.nodeInfo(c,s,'node-a').voltage,10);
+ // Current-source divider: top node = 30 mA × (100 ∥ 200) = 2 V.
+ doc=D.makePreset('currentDivider');c=D.compileCircuit(doc);s=D.solveDC(c);near(D.nodeInfo(c,s,'node-a').voltage,2);
+ // Ungrounded circuit uses a local reference and says so.
+ doc=D.makePreset('series');doc.referenceEndpoints=[];c=D.compileCircuit(doc);s=D.solveDC(c);const loc=D.nodeInfo(c,s,'node-b');assert.equal(loc.local,true);assert.ok(Number.isFinite(loc.voltage));
+ // Unknown id / missing compile / no solution are handled gracefully.
+ assert.equal(D.nodeInfo(c,s,'nope'),null);assert.equal(D.nodeInfo(null,s,'node-a'),null);assert.equal(D.nodeInfo(c,null,'node-a').voltage,null);
+ // Transient: RC node voltage tracks the capacitor charging curve.
+ const rc=D.fixture([['V','voltage','a','0',10],['R','resistor','a','b',1000],['C','capacitor','b','0',.001]]);c=D.compileCircuit(rc);let st=advance(c,D.initializeTransient(c),1);
+ near(D.nodeInfo(c,st.acceptedSolution,'node-b').voltage,10*(1-Math.exp(-1)),.002);
+ // UI wiring present.
+ const fs=require('node:fs'),html=fs.readFileSync('dc-circuit.html','utf8'),js=fs.readFileSync('dc-circuit.js','utf8'),ren=fs.readFileSync('dc-circuit-renderer.js','utf8');
+ assert.ok(html.includes('id="nodeVoltageCard"')&&html.includes('id="nodeVoltageValue"'));assert.ok(js.includes('D.nodeInfo(')&&js.includes('updateNodeCard('));
+ assert.ok(ren.includes('c.arc(p.x,p.y,r,Math.PI,2*Math.PI)'));
+});
 console.log(`\n${count} DC circuit checks passed.`);

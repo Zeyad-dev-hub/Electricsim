@@ -220,5 +220,17 @@
         for(const c of compiled.components)if(c.type==='switch'&&c.closed){const r=solution.componentResults[c.id];r.current=solution.wireResults[c.id]?.current??null;r.power=r.current===null?null:0;}
         return {...state,time,capacitorVoltagesById:caps,inductorCurrentsById:inductors,acceptedSolution:solution,lastStepSize:h,samples,behind:time<targetTime-1e-9};
     }
-    Object.assign(D,{CircuitError,linearSolve,sourceValue,isDynamic,solveDC:c=>solve(c),solve,initializeTransient,advanceTransient});if(typeof module!=='undefined')module.exports=D;
+    // Nodal voltage of the electrical node (net) containing an endpoint, junction, ground symbol or wire.
+    function nodeInfo(compiled,solution,id){
+        if(!compiled)return null;
+        const wire=compiled.document.wires.find(w=>w.id===id),endpoint=wire?wire.fromEndpoint:id,net=compiled.netOf.get(endpoint);
+        if(net===undefined)return null;
+        const record=compiled.nets.find(n=>n.id===net),r=solution?.nodeVoltages?.[net]||null;
+        const connections=[];
+        for(const c of compiled.document.components)c.terminals.forEach((t,i)=>{if(compiled.netOf.get(t)===net)connections.push({componentId:c.id,label:c.label,type:c.type,terminal:D.terminalName(c,i)});});
+        const junctions=record.endpoints.filter(e=>compiled.points.get(e)?.kind==='junction').length;
+        const referenceNet=r?compiled.nets.find(n=>n.id===r.reference):null;
+        return {net,label:record.ground?'Ground node':record.label,ground:record.ground,voltage:r?r.value:null,local:r?r.local:null,isReference:!!r&&r.reference===net,referenceLabel:!r?null:r.local?(referenceNet?.label||'local node'):'Ground (0 V)',connections,junctions};
+    }
+    Object.assign(D,{CircuitError,linearSolve,sourceValue,isDynamic,solveDC:c=>solve(c),solve,initializeTransient,advanceTransient,nodeInfo});if(typeof module!=='undefined')module.exports=D;
 })(typeof window!=='undefined'?window:globalThis);

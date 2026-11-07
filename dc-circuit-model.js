@@ -28,6 +28,26 @@
     const turnsValid=n=>n===null||(Number.isInteger(n)&&n>=1&&n<=100000);
     // A fixed-resistance teaching model; 1 W is the visual full-glow reference.
     function lampBrightness(result){return Number.isFinite(result?.power)?Math.min(1,Math.max(0,result.power)):0;}
+    // Display layer only. The solver keeps the passive convention (V = A − B, I = A → B);
+    // users see loads as magnitudes plus direction, and sources as their output
+    // (positive voltage/current/power = delivering energy to the circuit).
+    const SOURCE_TYPES=['voltage','ac','current'];
+    function presentResult(comp,r){
+        if(!comp||!r||comp.type==='transformer')return null;
+        const fin=v=>v!==null&&v!==undefined&&Number.isFinite(v);
+        const v=fin(r.voltage)?r.voltage:null,i=fin(r.current)?r.current:null,p=fin(r.power)?r.power:null;
+        const eps=1e-12;
+        if(SOURCE_TYPES.includes(comp.type)){
+            // Battery/AC: A is the + terminal, output current leaves A. Current source: pushes A → B internally, so B is the output (+) terminal.
+            const isCurrent=comp.type==='current';
+            const voltage=v===null?null:(isCurrent?-v:v),current=i===null?null:(isCurrent?i:-i),power=p===null?null:-p;
+            return {role:'source',voltage,current,power,state:power===null?'Unavailable':Math.abs(power)<eps?'Idle':power>0?'Delivering power':'Absorbing power',positiveTerminal:isCurrent?'B':'A'};
+        }
+        const voltage=v===null?null:Math.abs(v),current=i===null?null:Math.abs(i),power=p===null?null:Math.abs(p);
+        const higher=v===null||Math.abs(v)<1e-9?null:v>0?'A':'B';
+        const flow=i===null||Math.abs(i)<1e-14?null:i>0?'A → B':'B → A';
+        return {role:'load',voltage,current,power,higher,flow,absorbing:p===null?null:p>=-eps};
+    }
     function validateDocument(doc){
         const errors=[],fail=message=>errors.push(message),point=p=>p&&Number.isFinite(p.x)&&Number.isFinite(p.y);
         if(!doc||doc.schemaVersion!==1||!['components','junctions','wires','referenceEndpoints','probes'].every(k=>Array.isArray(doc[k])))return ['Invalid circuit document or schema version.'];
@@ -87,6 +107,6 @@
         if(Math.abs(number)>=1000&&scale<1e9){[scale,prefix]=powers[powers.findIndex(([s])=>s===scale)-1];number=Number((value/scale).toPrecision(3));}
         return `${number} ${prefix}${unit}`.trim();
     }
-    Object.assign(D,{clone,TYPES,PREFIX,terminalName,uid,blank,component,terminalPosition,endpoints,validateDocument,History,wire,removeComponent,removeJunction,reading,format,lampBrightness});
+    Object.assign(D,{clone,TYPES,PREFIX,terminalName,uid,blank,component,terminalPosition,endpoints,validateDocument,History,wire,removeComponent,removeJunction,reading,format,lampBrightness,presentResult});
     if(typeof module!=='undefined')module.exports=D;
 })(typeof window!=='undefined'?window:globalThis);

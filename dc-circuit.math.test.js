@@ -120,7 +120,7 @@ test('transformer steps AC voltage by turns ratio and isolates secondary',()=>{
     near(r[load.id].current,.05,1e-2);
 });
 test('all circuit examples including half-wave and full-wave bridge rectifiers solve cleanly',()=>{
-    for(const id of ['halfWave','fullWaveBridge','transformerStepUp','rc','bridge','series','parallel']){
+    for(const id of ['halfWave','fullWaveBridge','transformerStepUp','rc','bridge','series','parallel','currentDivider']){
         const doc=D.makePreset(id),c=D.compileCircuit(doc);
         let state=D.initializeTransient(c);
         state=advance(c,state,.25);

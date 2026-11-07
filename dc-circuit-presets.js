@@ -203,6 +203,22 @@
         doc.referenceEndpoints=[n0.id];
         return doc;
     }
+    function makeCurrentDivider(){
+        const doc=D.blank();
+        const na=junc(doc,'node-a',384,120);
+        const n0=junc(doc,'node-0',384,408);
+        const i1=place(doc,'I1','current',192,264,270,.03);
+        const r1=place(doc,'R1','resistor',384,264,90,100);
+        const r2=place(doc,'R2','resistor',576,264,90,200);
+        D.wire(doc,i1.terminals[0],n0.id);
+        D.wire(doc,i1.terminals[1],na.id);
+        D.wire(doc,r1.terminals[0],na.id);
+        D.wire(doc,r1.terminals[1],n0.id);
+        D.wire(doc,r2.terminals[0],na.id);
+        D.wire(doc,r2.terminals[1],n0.id);
+        doc.referenceEndpoints=[n0.id];
+        return doc;
+    }
     function makeMixed(){
         const doc=D.blank();
         const na=junc(doc,'node-a',120,120);
@@ -254,6 +270,7 @@
         ohm:{name:'Ohm’s law & switch',question:'Toggle S1 or double R1 to see how resistance controls current around the loop.',make:makeOhm,customLayout:true},
         series:{name:'Series · voltage divider',question:'Both resistors carry the same 40 mA current. Notice how the 12 V divides in proportion to resistance.',make:makeSeries,customLayout:true},
         parallel:{name:'Parallel · current split',question:'Equal 12 V across each branch, unequal branch currents. Check KCL at the top junction.',make:makeParallel,customLayout:true},
+        currentDivider:{name:'Current source · parallel divider',question:'I1 injects 30 mA into the top node: 20 mA flows through 100 Ω and 10 mA through 200 Ω (inverse to resistance).',make:makeCurrentDivider,customLayout:true},
         mixed:{name:'Mixed series-parallel network',question:'R2 and R3 share voltage in parallel while R1 carries their combined current in series.',make:makeMixed,customLayout:true},
         bridge:{name:'Wheatstone bridge network',question:'An unbalanced bridge is not a simple series/parallel tree. Change R4 to 100 Ω to balance the bridge and zero the current in R5.',make:makeBridge,customLayout:true},
         rc:{name:'RC · charge & discharge',question:'Press Run to charge C1 through S1 & R1. Then open S1 and close S2 to discharge C1 through R2.',make:makeRCChargeDischarge,customLayout:true},
