@@ -26,6 +26,75 @@
         OR: 1
     };
 
+    function buildBlockPinAst(type, outPin, args, nodeId, state) {
+        const g = (op, ...a) => ({ kind: 'gate', op, args: a, nodeId });
+        const not = a => g('NOT', a);
+        const and = (...a) => g('AND', ...a);
+        const or = (...a) => g('OR', ...a);
+        const xor = (...a) => g('XOR', ...a);
+        const xnor = (...a) => g('XNOR', ...a);
+
+        switch (type) {
+            case 'HA': {
+                const [A, B] = args;
+                if (outPin === 'out1') return and(A, B);
+                return xor(A, B);
+            }
+            case 'FA': {
+                const [A, B, Cin] = args;
+                if (outPin === 'out1') return or(and(A, B), and(Cin, xor(A, B)));
+                return xor(A, B, Cin);
+            }
+            case 'MUX2': {
+                const [D0, D1, S] = args;
+                return or(and(not(S), D0), and(S, D1));
+            }
+            case 'MUX4': {
+                const [D0, D1, D2, D3, S1, S0] = args;
+                return or(
+                    and(not(S1), not(S0), D0),
+                    and(not(S1), S0, D1),
+                    and(S1, not(S0), D2),
+                    and(S1, S0, D3)
+                );
+            }
+            case 'ENC42': {
+                const [D0, D1, D2, D3] = args;
+                if (outPin === 'out') return or(D3, D2);
+                if (outPin === 'out1') return or(D3, and(not(D2), D1));
+                return or(D3, D2, D1, D0);
+            }
+            case 'DEC24': {
+                const [A1, A0] = args;
+                if (outPin === 'out') return and(not(A1), not(A0));
+                if (outPin === 'out1') return and(not(A1), A0);
+                if (outPin === 'out2') return and(A1, not(A0));
+                return and(A1, A0);
+            }
+            case 'COMP2': {
+                const [A, B] = args;
+                if (outPin === 'out') return and(A, not(B));
+                if (outPin === 'out1') return xnor(A, B);
+                return and(not(A), B);
+            }
+            case 'SR_LATCH': {
+                const [S, R] = args;
+                const qPrev = { kind: 'var', name: 'Q', nodeId };
+                if (outPin === 'out1') return and(not(S), or(R, not(qPrev)));
+                return or(S, and(not(R), qPrev));
+            }
+            case 'D_LATCH': {
+                const [D, EN] = args;
+                const qPrev = { kind: 'var', name: 'Q', nodeId };
+                const nextQ = or(and(EN, D), and(not(EN), qPrev));
+                if (outPin === 'out1') return not(nextQ);
+                return nextQ;
+            }
+            default:
+                return { kind: 'gate', op: type, args, nodeId };
+        }
+    }
+
     function buildOutputAst(doc, outputNodeId) {
         const nodeObjById = new Map();
         const nodeKindById = new Map();
@@ -41,7 +110,7 @@
             }
         }
 
-        function walk(nodeId, ancestors) {
+        function walk(nodeId, ancestors, outPin = 'out') {
             if (!nodeId || !nodeKindById.has(nodeId)) {
                 return { kind: 'hole', nodeId: null };
             }
@@ -62,7 +131,7 @@
                 if (!w) return { kind: 'hole', nodeId };
                 const nextAnc = new Set(ancestors);
                 nextAnc.add(nodeId);
-                return walk(w.from.nodeId, nextAnc);
+                return walk(w.from.nodeId, nextAnc, w.from.pin);
             }
             if (kind === 'gate') {
                 const fanIn = L.normalizeFanIn(obj.type, obj.fanIn);
@@ -74,8 +143,11 @@
                     if (!w) {
                         args.push({ kind: 'hole', nodeId });
                     } else {
-                        args.push(walk(w.from.nodeId, nextAnc));
+                        args.push(walk(w.from.nodeId, nextAnc, w.from.pin));
                     }
+                }
+                if (L.BLOCK_SPECS && L.BLOCK_SPECS[obj.type]) {
+                    return buildBlockPinAst(obj.type, outPin, args, nodeId, obj.state);
                 }
                 return {
                     kind: 'gate',
@@ -87,7 +159,7 @@
             return { kind: 'hole', nodeId };
         }
 
-        return walk(outputNodeId, new Set());
+        return walk(outputNodeId, new Set(), 'out');
     }
 
     function countAstLiterals(ast) {

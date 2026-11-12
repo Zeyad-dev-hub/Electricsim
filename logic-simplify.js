@@ -7,14 +7,17 @@
     const VAR_SHIFTS = { A: 3, B: 2, C: 1, D: 0 };
 
     function projectMaskToVars(vars, mask16) {
-        const k = vars.length;
+        const clean = vars.slice(0, 4);
+        const k = clean.length;
+        const allInABCD = clean.every(v => v in VAR_SHIFTS);
         const numRows = 1 << k;
         let truth = 0;
         for (let idx = 0; idx < numRows; idx++) {
             let r16 = 0;
             for (let j = 0; j < k; j++) {
                 const bit = (idx >> (k - 1 - j)) & 1;
-                if (bit) r16 |= (1 << VAR_SHIFTS[vars[j]]);
+                const shift = allInABCD ? VAR_SHIFTS[clean[j]] : (3 - j);
+                if (bit) r16 |= (1 << shift);
             }
             if ((mask16 >> r16) & 1) {
                 truth |= (1 << idx);
@@ -379,8 +382,12 @@
         };
     }
 
-    function simplify({ vars = [], mask16 = 0, truthMask = null, style = 'compact' } = {}) {
-        const cleanVars = [...vars];
+    function simplify(arg1 = {}, arg2 = [], arg3 = 'compact') {
+        const opts = (typeof arg1 === 'number')
+            ? { mask16: arg1, vars: Array.isArray(arg2) ? arg2 : [], style: arg3 }
+            : (arg1 || {});
+        const { vars = [], mask16 = 0, truthMask = null, style = 'compact' } = opts;
+        const cleanVars = [...vars].slice(0, 4);
         const k = cleanVars.length;
         const numRows = 1 << k;
         const fullMask = (1 << numRows) - 1;

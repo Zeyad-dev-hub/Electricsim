@@ -468,7 +468,8 @@ function drawScene(cx, cy, scale) {
 
         case 'plane':
             // Horizontal plane tilted in perspective (crosses at center Y)
-            const planeH = 6;
+            const planeHalfW = Math.min(280, Math.max(110, width * 0.4));
+            const planeSkew = Math.min(40, Math.max(16, width * 0.06));
             ctx.save();
             ctx.shadowColor = colorCharge;
             ctx.shadowBlur = 8;
@@ -478,10 +479,10 @@ function drawScene(cx, cy, scale) {
             
             // Perspective parallelogram
             ctx.beginPath();
-            ctx.moveTo(cx - 320, cy + 40);
-            ctx.lineTo(cx + 280, cy + 40);
-            ctx.lineTo(cx + 320, cy - 40);
-            ctx.lineTo(cx - 280, cy - 40);
+            ctx.moveTo(cx - planeHalfW - planeSkew, cy + 40);
+            ctx.lineTo(cx + planeHalfW, cy + 40);
+            ctx.lineTo(cx + planeHalfW + planeSkew, cy - 40);
+            ctx.lineTo(cx - planeHalfW, cy - 40);
             ctx.closePath();
             ctx.fill();
             ctx.stroke();
@@ -494,8 +495,8 @@ function drawScene(cx, cy, scale) {
                 const frac = i / 5;
                 // horizontal slices
                 ctx.beginPath();
-                ctx.moveTo(cx - 300 + frac * 20, cy + frac * 40);
-                ctx.lineTo(cx + 300 + frac * 20, cy + frac * 40);
+                ctx.moveTo(cx - (planeHalfW + planeSkew * 0.5) + frac * (planeSkew * 0.5), cy + frac * 40);
+                ctx.lineTo(cx + (planeHalfW + planeSkew * 0.5) + frac * (planeSkew * 0.5), cy + frac * 40);
                 ctx.stroke();
             }
             

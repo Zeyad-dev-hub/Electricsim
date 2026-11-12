@@ -1,7 +1,7 @@
 (function(root){
     'use strict';const D=typeof module!=='undefined'?require('./dc-circuit-topology.js'):root.DCCircuit;
     class CircuitError extends Error{constructor(message,ids=[]){super(message);this.ids=ids;this.name='CircuitError';}}
-    const DIODE_RON=1e-3,DIODE_GOFF=1e-12,TRANSFORMER_LM=10,TRANSFORMER_RW=1e-3,TRANSFORMER_GLEAK=1e-12;
+    const DIODE_RON=1e-3,DIODE_GOFF=1e-12,INDUCTOR_RW=1e-6,TRANSFORMER_LM=10,TRANSFORMER_RW=1e-3,TRANSFORMER_GLEAK=1e-12;
     function linearSolve(matrix,rhs){
         const n=rhs.length;if(!n)return [];
         const a=matrix.map((row,i)=>{const scale=Math.max(...row.map(Math.abs));if(!scale)throw new CircuitError('Unconstrained node or source: add a return path or remove redundant ideal sources.');return [...row.map(v=>v/scale),rhs[i]/scale];});
@@ -17,13 +17,13 @@
     }
     function sourceValue(c,time=0){
         if(c.type==='ac'){
-            const f=Number.isFinite(c.frequency)?c.frequency:1,phase=(Number.isFinite(c.phase)?c.phase:0)*Math.PI/180;
+            const f=Number.isFinite(c.frequency)?c.frequency:0.5,phase=(Number.isFinite(c.phase)?c.phase:0)*Math.PI/180;
             return c.value*Math.sin(2*Math.PI*f*time+phase);
         }
         return c.value;
     }
     function isDynamic(compiled){
-        return compiled.components.some(c=>c.type==='capacitor'||c.type==='ac'||(c.type==='transformer'&&c.ratio!==null));
+        return compiled.components.some(c=>c.type==='capacitor'||c.type==='inductor'||c.type==='ac'||(c.type==='transformer'&&c.ratio!==null));
     }
     function constraints(compiled,initial,time=0){
         const accepted=[],adj=new Map(compiled.nets.map(n=>[n.id,[]]));
@@ -45,13 +45,13 @@
         const nodeIds=compiled.nets.map(n=>n.id).filter(id=>!referenceSet.has(id)),index=new Map(nodeIds.map((id,i)=>[id,i]));
         const voltageSources=constraints(compiled,initial,time);
         const transformers=compiled.components.filter(c=>c.type==='transformer'&&c.ratio!==null);
-        const diodes=compiled.components.filter(c=>c.type==='diode');
+        const diodes=compiled.components.filter(c=>c.type==='diode'||c.type==='led'||c.type==='zener');
         const n=nodeIds.length+voltageSources.length+transformers.length;
-        const diodeStates=new Map(diodes.map(d=>[d.id,false]));
+        const diodeStates=new Map(diodes.map(d=>[d.id,'off']));
         const diagnostics=[];
         let x=[],residual=0;
         const seenStates=new Set();
-        const maxIter=diodes.length?Math.min(32,(1<<Math.min(diodes.length,5))+6):1;
+        const maxIter=diodes.length?Math.min(48,(1<<Math.min(diodes.length,5))+8):1;
         for(let iter=0;iter<maxIter;iter++){
             const matrix=Array.from({length:n},()=>Array(n).fill(0)),rhs=Array(n).fill(0);
             const add=(a,b,value)=>{if(index.has(a)&&index.has(b))matrix[index.get(a)][index.get(b)]+=value;};
@@ -61,12 +61,30 @@
                 if(c.type==='resistor'||c.type==='lamp')conductance(c.a,c.b,1/c.value);
                 if(c.type==='current')current(c.a,c.b,sourceValue(c,time));
                 if(c.type==='capacitor'&&mode==='transient'&&!initial){conductance(c.a,c.b,c.value/h);current(c.a,c.b,-c.value/h*(previous[c.id]||0));}
-                if(c.type==='diode'){
-                    const on=diodeStates.get(c.id),vf=Number.isFinite(c.value)&&c.value>0?c.value:.7;
-                    if(on){
+                if(c.type==='inductor'){
+                    const iPrev=previousInductors[c.id]!==undefined?previousInductors[c.id]:(c.initialCurrent||0);
+                    if(mode==='transient'&&!initial){
+                        conductance(c.a,c.b,h/c.value);
+                        current(c.a,c.b,iPrev);
+                    }else if(mode==='dc'){
+                        conductance(c.a,c.b,1/INDUCTOR_RW);
+                    }else if(initial){
+                        conductance(c.a,c.b,1e-12);
+                        current(c.a,c.b,iPrev);
+                    }
+                }
+                if(c.type==='diode'||c.type==='led'||c.type==='zener'){
+                    const st=diodeStates.get(c.id);
+                    const vf=c.type==='zener'?0.7:(Number.isFinite(c.value)&&c.value>0?c.value:(c.type==='led'?2.0:0.7));
+                    const vz=c.type==='zener'&&(Number.isFinite(c.value)&&c.value>0)?c.value:5.1;
+                    if(st==='fwd'){
                         const gon=1/DIODE_RON;
                         conductance(c.a,c.b,gon);
                         current(c.a,c.b,-vf*gon);
+                    }else if(st==='rev'&&c.type==='zener'){
+                        const gon=1/DIODE_RON;
+                        conductance(c.a,c.b,gon);
+                        current(c.a,c.b,vz*gon);
                     }else conductance(c.a,c.b,DIODE_GOFF);
                 }
                 if(c.type==='transformer'){
@@ -94,20 +112,34 @@
                 matrix[j][j]-=TRANSFORMER_RW;
             });
             try{x=linearSolve(matrix,rhs);}catch(error){if(error instanceof CircuitError&&!error.ids.length)error.ids=compiled.components.map(c=>c.id);throw error;}
-            residual=0;for(let i=0;i<n;i++){let sum=-rhs[i],scale=Math.abs(rhs[i]);for(let j=0;j<n;j++){sum+=matrix[i][j]*x[j];scale+=Math.abs(matrix[i][j]*x[j]);}residual=Math.max(residual,Math.abs(sum)/Math.max(1e-12,scale));}
+            const maxX=Math.max(1,...x.map(Math.abs));
+            residual=0;for(let i=0;i<n;i++){let sum=-rhs[i],scale=Math.abs(rhs[i]),rowNorm=0;for(let j=0;j<n;j++){sum+=matrix[i][j]*x[j];scale+=Math.abs(matrix[i][j]*x[j]);rowNorm+=Math.abs(matrix[i][j]);}residual=Math.max(residual,Math.abs(sum)/Math.max(1e-12,scale,rowNorm*maxX*1e-3));}
             if(!diodes.length)break;
-            const stateKey=diodes.map(d=>diodeStates.get(d.id)?'1':'0').join('');
+            const stateKey=diodes.map(d=>diodeStates.get(d.id)).join(',');
             seenStates.add(stateKey);
             let changed=false;
             for(const d of diodes){
                 const va=index.has(d.a)?x[index.get(d.a)]:0,vb=index.has(d.b)?x[index.get(d.b)]:0,vak=va-vb;
-                const vf=Number.isFinite(d.value)&&d.value>0?d.value:.7;
-                const on=diodeStates.get(d.id);
-                if(!on&&vak>vf+1e-7){diodeStates.set(d.id,true);changed=true;}
-                else if(on&&(vak-vf)/DIODE_RON<-1e-9){diodeStates.set(d.id,false);changed=true;}
+                const vf=d.type==='zener'?0.7:(Number.isFinite(d.value)&&d.value>0?d.value:(d.type==='led'?2.0:0.7));
+                const vz=d.type==='zener'&&(Number.isFinite(d.value)&&d.value>0)?d.value:5.1;
+                const st=diodeStates.get(d.id);
+                let nextSt=st;
+                if(st==='off'){
+                    if(vak>vf+1e-7)nextSt='fwd';
+                    else if(d.type==='zener'&&vak<-vz-1e-7)nextSt='rev';
+                }else if(st==='fwd'){
+                    if((vak-vf)/DIODE_RON<-1e-9){
+                        nextSt=(d.type==='zener'&&vak<-vz-1e-7)?'rev':'off';
+                    }
+                }else if(st==='rev'){
+                    if((vak+vz)/DIODE_RON>1e-9){
+                        nextSt=(vak>vf+1e-7)?'fwd':'off';
+                    }
+                }
+                if(nextSt!==st){diodeStates.set(d.id,nextSt);changed=true;}
             }
             if(!changed)break;
-            const nextKey=diodes.map(d=>diodeStates.get(d.id)?'1':'0').join('');
+            const nextKey=diodes.map(d=>diodeStates.get(d.id)).join(',');
             if(seenStates.has(nextKey)){diagnostics.push('Diode switching state settled using hysteresis tie-break.');break;}
         }
         if(!Number.isFinite(residual)||residual>1e-6)throw new CircuitError('Numerical residual is too large; rescale extreme component values.');
@@ -138,14 +170,28 @@
             if(c.type==='current')i=sourceValue(c,time);
             if(c.type==='voltage'||c.type==='ac'){const k=voltageSources.findIndex(s=>s.id===c.id);i=k<0?null:x[nodeIds.length+k];}
             if(c.type==='capacitor')i=mode==='dc'?0:initial?null:c.value/h*(v-(previous[c.id]||0));
-            if(c.type==='diode'){
-                const on=diodeStates.get(c.id),vf=Number.isFinite(c.value)&&c.value>0?c.value:.7;
-                i=v===null?null:on?(v-vf)/DIODE_RON:v*DIODE_GOFF;
+            if(c.type==='inductor'){
+                const iPrev=previousInductors[c.id]!==undefined?previousInductors[c.id]:(c.initialCurrent||0);
+                i=v===null?null:(mode==='transient'&&!initial)?iPrev+(h/c.value)*v:(mode==='dc'?v/INDUCTOR_RW:iPrev);
+            }
+            if(c.type==='diode'||c.type==='led'||c.type==='zener'){
+                const st=diodeStates.get(c.id);
+                const vf=c.type==='zener'?0.7:(Number.isFinite(c.value)&&c.value>0?c.value:(c.type==='led'?2.0:0.7));
+                const vz=c.type==='zener'&&(Number.isFinite(c.value)&&c.value>0)?c.value:5.1;
+                i=v===null?null:st==='fwd'?(v-vf)/DIODE_RON:(st==='rev'?(v+vz)/DIODE_RON:v*DIODE_GOFF);
             }
             if(c.type==='switch'&&c.closed)i=null;
             const result={va,vb,voltage:v,current:i,power:i===null||v===null?null:v*i,domainA:nodeVoltages[c.a].domain,domainB:nodeVoltages[c.b].domain,local:nodeVoltages[c.a].local||nodeVoltages[c.b].local};
             if(c.type==='capacitor'){result.charge=v===null?null:c.value*v;result.energy=v===null?null:.5*c.value*v*v;}
-            if(c.type==='diode'){result.conducting=!!diodeStates.get(c.id);result.forwardVoltage=Number.isFinite(c.value)&&c.value>0?c.value:.7;}
+            if(c.type==='inductor'){result.inductorCurrent=i;result.flux=i===null?null:c.value*i;result.energy=i===null?null:.5*c.value*i*i;}
+            if(c.type==='diode'||c.type==='led'||c.type==='zener'){
+                const st=diodeStates.get(c.id);
+                result.conducting=st!=='off';
+                result.conductionMode=st==='fwd'?'Forward ON':st==='rev'?'Zener Breakdown':'Reverse OFF';
+                result.forwardVoltage=c.type==='zener'?0.7:(Number.isFinite(c.value)&&c.value>0?c.value:(c.type==='led'?2.0:0.7));
+                if(c.type==='zener')result.zenerVoltage=Number.isFinite(c.value)&&c.value>0?c.value:5.1;
+                result.overloaded=i!==null&&Math.abs(i)>(c.type==='led'?0.05:5.0);
+            }
             if(c.type==='ac'){result.instantaneousVoltage=sourceValue(c,time);result.peakVoltage=c.value;result.rmsVoltage=Math.abs(c.value)/Math.SQRT2;result.frequency=c.frequency;result.phase=c.phase||0;}
             componentResults[c.id]=result;
         }
@@ -154,25 +200,37 @@
         return {nodeVoltages,componentResults,wireResults:recovered.wireResults,branchResults:measureWires?D.traceBranches(compiled,componentResults,recovered.wireResults):[],residuals:{matrix:residual,kcl:recovered.maxKCL},diagnostics,initialCurrentEstimate:!!initial&&compiled.components.some(c=>c.type==='capacitor')};
     }
     function voltages(compiled,solution){return Object.fromEntries(compiled.components.filter(c=>c.type==='capacitor').map(c=>[c.id,solution.componentResults[c.id].voltage]));}
-    function inductorCurrents(compiled,solution){return Object.fromEntries(compiled.components.filter(c=>c.type==='transformer'&&c.ratio!==null).map(c=>[c.id,solution.componentResults[c.id].magnetizingCurrent||0]));}
+    function inductorCurrents(compiled,solution){
+        return Object.fromEntries(compiled.components.filter(c=>c.type==='inductor'||(c.type==='transformer'&&c.ratio!==null)).map(c=>[c.id,c.type==='inductor'?(solution.componentResults[c.id].inductorCurrent??solution.componentResults[c.id].current??0):(solution.componentResults[c.id].magnetizingCurrent||0)]));
+    }
     function maxStepForAC(compiled){
         const freqs=compiled.components.filter(c=>c.type==='ac'&&Number.isFinite(c.frequency)&&c.frequency>0).map(c=>c.frequency);
         return freqs.length?Math.min(1,1/(Math.max(...freqs)*48)):1;
     }
     function initialStep(compiled){
-        const rs=compiled.components.filter(c=>c.type==='resistor'||c.type==='lamp').map(c=>c.value),cs=compiled.components.filter(c=>c.type==='capacitor').map(c=>c.value);
-        if(rs.length&&cs.length)return Math.max(1e-14,Math.min(...rs)*Math.min(...cs)*1e-6);
+        const rs=compiled.components.filter(c=>c.type==='resistor'||c.type==='lamp').map(c=>c.value);
+        const cs=compiled.components.filter(c=>c.type==='capacitor').map(c=>c.value);
+        const ls=compiled.components.filter(c=>c.type==='inductor').map(c=>c.value);
+        const candidates=[];
+        if(rs.length&&cs.length)candidates.push(Math.min(...rs)*Math.min(...cs)*1e-6);
+        if(rs.length&&ls.length)candidates.push((Math.min(...ls)/Math.max(...rs))*1e-5);
+        if(ls.length&&cs.length)candidates.push(Math.sqrt(Math.min(...ls)*Math.min(...cs))*1e-5);
+        if(candidates.length)return Math.max(1e-14,Math.min(...candidates));
         const acMax=maxStepForAC(compiled);
         return acMax<1?acMax*1e-2:1e-8;
     }
     function initializeTransient(compiled,initialVoltages,initialInductors,time=0){
         const caps=initialVoltages||Object.fromEntries(compiled.components.filter(c=>c.type==='capacitor').map(c=>[c.id,c.initialVoltage]));
-        const inductors=initialInductors||Object.fromEntries(compiled.components.filter(c=>c.type==='transformer'&&c.ratio!==null).map(c=>[c.id,0]));
+        const inductors=initialInductors||Object.fromEntries(compiled.components.filter(c=>c.type==='inductor'||(c.type==='transformer'&&c.ratio!==null)).map(c=>[c.id,c.type==='inductor'?(c.initialCurrent||0):0]));
         const hasReactive=Object.keys(caps).length>0||Object.keys(inductors).length>0;
         const exact=solve(compiled,{mode:hasReactive?'transient':'dc',initial:caps,previousInductors:inductors,time,measureWires:false});
         if(Object.keys(caps).length){
             const estimate=solve(compiled,{mode:'transient',previous:caps,previousInductors:inductors,h:initialStep(compiled),time,measureWires:false});
-            for(const c of compiled.components){exact.componentResults[c.id].current=estimate.componentResults[c.id].current;exact.componentResults[c.id].power=exact.componentResults[c.id].voltage*estimate.componentResults[c.id].current;}
+            for(const c of compiled.components){
+                if(c.type==='inductor')continue;
+                exact.componentResults[c.id].current=estimate.componentResults[c.id].current;
+                exact.componentResults[c.id].power=exact.componentResults[c.id].voltage*estimate.componentResults[c.id].current;
+            }
         }
         const recovered=D.recoverWireCurrents(compiled,exact.componentResults);exact.wireResults=recovered.wireResults;exact.branchResults=D.traceBranches(compiled,exact.componentResults,exact.wireResults);
         exact.residuals.kcl=recovered.maxKCL;
@@ -183,7 +241,7 @@
         if(!Number.isFinite(targetTime)||targetTime<state.time)throw new CircuitError('Target time must be finite and cannot go backwards.');
         const started=Number.isFinite(budgetMs)?now():0;
         let time=state.time,caps={...state.capacitorVoltagesById},inductors={...(state.inductorCurrentsById||{})},solution=state.acceptedSolution,h=state.lastStepSize||1e-4,attempts=0;const samples=[];
-        const hasCaps=Object.keys(caps).length>0,hasInductors=Object.keys(inductors).length>0,hasAC=compiled.components.some(c=>c.type==='ac');
+        const hasCaps=Object.keys(caps).length>0,hasInductors=Object.keys(inductors).length>0,hasAC=compiled.components.some(c=>c.type==='ac'),hasDiodes=compiled.components.some(c=>c.type==='diode'||c.type==='led'||c.type==='zener');
         if(!hasCaps&&!hasInductors&&!hasAC){
             solution=solve(compiled,{time:targetTime});
             return {...state,time:targetTime,acceptedSolution:solution,samples:[{time:targetTime,solution}],behind:false};
@@ -212,8 +270,11 @@
             const next=voltages(compiled,fine),nextInd=inductorCurrents(compiled,fine);
             let error=0;
             for(const id of Object.keys(caps))error=Math.max(error,Math.abs(next[id]-full.componentResults[id].voltage)/(absolute+relative*Math.max(Math.abs(next[id]),Math.abs(caps[id]))));
-            for(const id of Object.keys(inductors))error=Math.max(error,Math.abs(nextInd[id]-full.componentResults[id].magnetizingCurrent)/(absolute+relative*Math.max(Math.abs(nextInd[id]),Math.abs(inductors[id]))));
-            if(error<=1){time+=h;caps=next;inductors=nextInd;solution=fine;samples.push({time,solution});h*=Math.min(2,Math.max(.5,.9/Math.sqrt(Math.max(error,1e-12))));}else h*=Math.max(.1,.9/Math.sqrt(error));
+            for(const id of Object.keys(inductors)){
+                const fullI=full.componentResults[id].inductorCurrent??full.componentResults[id].magnetizingCurrent??0;
+                error=Math.max(error,Math.abs(nextInd[id]-fullI)/(absolute+relative*Math.max(Math.abs(nextInd[id]),Math.abs(inductors[id]))));
+            }
+            if(error<=1||(hasDiodes&&h<=Math.min(1e-5,stepCap*0.02))){time+=h;caps=next;inductors=nextInd;solution=fine;samples.push({time,solution});h*=error<=1?Math.min(2,Math.max(.5,.9/Math.sqrt(Math.max(error,1e-12)))):1;}else h*=Math.max(.1,.9/Math.sqrt(error));
         }
         const recovered=D.recoverWireCurrents(compiled,solution.componentResults);solution={...solution,wireResults:recovered.wireResults,branchResults:D.traceBranches(compiled,solution.componentResults,recovered.wireResults),residuals:{...solution.residuals,kcl:recovered.maxKCL}};
         solution.componentResults=Object.fromEntries(Object.entries(solution.componentResults).map(([id,r])=>[id,{...r}]));

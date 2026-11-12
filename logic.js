@@ -294,18 +294,25 @@
         const { kind, node } = found;
 
         if (kind === 'gate') {
-            $('inspectorTitle').textContent = `${node.type} Gate`;
+            const spec = L.BLOCK_SPECS && L.BLOCK_SPECS[node.type];
+            $('inspectorTitle').textContent = spec ? `${spec.subLabel} (${spec.label})` : `${node.type} Gate`;
             gateCtrls.hidden = false;
             ioCtrls.hidden = true;
-            toggleValBtn.hidden = true;
+            if (spec && spec.stateful) {
+                toggleValBtn.hidden = false;
+                const q = node.state?.q ? 1 : 0;
+                toggleValBtn.textContent = `Stored Q = ${q} · Click to Toggle Memory`;
+            } else {
+                toggleValBtn.hidden = true;
+            }
             rotateBtn.hidden = false;
             dupBtn.hidden = false;
 
             $('inspectorGateType').value = node.type;
-            const single = L.SINGLE_INPUT_GATES.has(node.type);
-            $('inspectorFanIn').hidden = single;
-            $('inspectorFanInLabel').hidden = single;
-            if (!single) {
+            const fixedFanIn = L.SINGLE_INPUT_GATES.has(node.type) || Boolean(spec);
+            $('inspectorFanIn').hidden = fixedFanIn;
+            $('inspectorFanInLabel').hidden = fixedFanIn;
+            if (!fixedFanIn) {
                 $('inspectorFanIn').value = String(node.fanIn);
             }
         } else if (kind === 'input') {
@@ -485,12 +492,18 @@
     }
 
     function applyMintermIndex(mintermIndex) {
-        const k = truthTable.vars.length;
-        const bits = [];
+        const kmapVars = truthTable.vars.slice(0, 4);
+        const k = kmapVars.length;
+        if (!k) return;
+        const sortedInputs = [...doc().inputs].sort(
+            (a, b) => L.INPUT_NAMES.indexOf(a.name) - L.INPUT_NAMES.indexOf(b.name)
+        );
         for (let j = 0; j < k; j++) {
-            bits.push((mintermIndex >> (k - 1 - j)) & 1);
+            if (sortedInputs[j]) {
+                sortedInputs[j].value = (mintermIndex >> (k - 1 - j)) & 1;
+            }
         }
-        applyInputCombination(bits);
+        recomputeAll();
     }
 
     function renderKmapPanel() {
@@ -511,8 +524,26 @@
 
         const { kmap, sop } = simp;
         const style = $('notationSelect')?.value || 'compact';
-        const activeRow = truthTable.rows.find(r => r.active);
-        const activeMinterm = activeRow ? activeRow.index : -1;
+        const kLen = kmap.vars.length;
+        let activeMinterm = 0;
+        for (let j = 0; j < kLen; j++) {
+            const inp = truthTable.inputs[j];
+            if (inp && inp.value) {
+                activeMinterm |= (1 << (kLen - 1 - j));
+            }
+        }
+
+        if (truthTable.vars.length > 4) {
+            const extraSlice = truthTable.inputs
+                .slice(4)
+                .map(inp => `${inp.name}=${inp.value ? 1 : 0}`)
+                .join(', ');
+            const sliceNote = document.createElement('p');
+            sliceNote.className = 'logic-panel-hint';
+            sliceNote.style.marginBottom = '6px';
+            sliceNote.textContent = `4-Variable K-Map (${kmap.vars.join(', ')}) conditioned on slice: ${extraSlice}`;
+            container.appendChild(sliceNote);
+        }
 
         const table = document.createElement('table');
         table.className = 'logic-kmap-table';
@@ -757,10 +788,10 @@
             setHint('Click or drag from any pin dot to a compatible target pin (Escape cancels).');
         } else if (tool === 'input') {
             const nextName = L.nextInputName(doc());
-            setHint(nextName ? `Click on the canvas to place Input ${nextName} (up to 4 inputs A–D).` : 'Maximum of 4 inputs (A–D) reached.');
+            setHint(nextName ? `Click on the canvas to place Input ${nextName} (up to 12 inputs A–P).` : 'Maximum of 12 inputs (A–P) reached.');
         } else if (tool === 'output') {
             const nextName = L.nextOutputName(doc());
-            setHint(nextName ? `Click on the canvas to place Output ${nextName} (up to 4 outputs F–Y).` : 'Maximum of 4 outputs (F–Y) reached.');
+            setHint(nextName ? `Click on the canvas to place Output ${nextName} (up to 8 outputs F–V).` : 'Maximum of 8 outputs (F–V) reached.');
         } else if (tool === 'const1' || tool === 'const0') {
             setHint(`Click on the canvas to place a constant ${tool === 'const1' ? '1' : '0'} source.`);
         } else if (tool === 'pan') {
@@ -801,7 +832,7 @@
         if (tool === 'input') {
             created = L.createInput(next, pt.x, pt.y);
             if (!created) {
-                setHint('Maximum of 4 inputs (A–D) reached.', true);
+                setHint('Maximum of 12 inputs (A–P) reached.', true);
                 return false;
             }
             next.inputs.push(created);
@@ -809,7 +840,7 @@
         } else if (tool === 'output') {
             created = L.createOutput(next, pt.x, pt.y);
             if (!created) {
-                setHint('Maximum of 4 outputs (F–Y) reached.', true);
+                setHint('Maximum of 8 outputs (F–V) reached.', true);
                 return false;
             }
             next.outputs.push(created);
@@ -853,7 +884,7 @@
                 : mode === 'nand'
                 ? 'Universal NAND-Only'
                 : 'Universal NOR-Only';
-            setHint(`Rebuilt circuit in ${modeLabel} form (all 16 truth-table rows verified). Press Undo to restore.`);
+            setHint(`Rebuilt circuit in ${modeLabel} form (truth-table equivalence verified). Press Undo to restore.`);
         } catch (err) {
             setHint(err.message || 'Cannot synthesize circuit.', true);
         }
@@ -877,7 +908,7 @@
             activeKmapGroup = null;
             renderer.fit(doc());
             recomputeAll();
-            setHint('Workspace cleared. Place inputs (A–D), gates, and outputs (F–Y), or choose an example.');
+            setHint('Workspace cleared. Place inputs (A–P), gates/blocks, and outputs (F–V), or choose an example.');
             return;
         }
         const preset = L.PRESETS[id];
@@ -915,7 +946,7 @@
         exampleSelect.value = '';
         renderer.fit(doc());
         recomputeAll();
-        setHint('Workspace cleared. Add inputs (A–D), gates, and outputs (F–Y).');
+        setHint('Workspace cleared. Add inputs (A–P), gates/blocks, and outputs (F–V).');
     });
 
     // Formula bar controls
@@ -1067,9 +1098,16 @@
     $('toggleSelectedValueBtn').addEventListener('click', () => {
         if (!selected) return;
         const found = L.findNode(doc(), selected.id);
-        if (!found || (found.kind !== 'input' && found.kind !== 'const')) return;
-        found.node.value = found.node.value ? 0 : 1;
-        recomputeAll();
+        if (!found) return;
+        if (found.kind === 'input' || found.kind === 'const') {
+            found.node.value = found.node.value ? 0 : 1;
+            recomputeAll();
+        } else if (found.kind === 'gate' && L.BLOCK_SPECS?.[found.node.type]?.stateful) {
+            const prevQ = found.node.state?.q ? 1 : 0;
+            const nextQ = prevQ ? 0 : 1;
+            found.node.state = { q: nextQ, qBar: nextQ ? 0 : 1, invalid: false, mode: 'HOLD' };
+            recomputeAll();
+        }
     });
 
     $('rotateSelectedBtn').addEventListener('click', () => {
@@ -1451,10 +1489,11 @@
 
         if (action.type === 'wireDrag') {
             const geom = renderer.geometry(history.doc);
+            const snapRadius = (e.pointerType === 'touch' ? 28 : 20) / renderer.view.zoom;
             const endPin = L.findSnapPin(
                 history.doc,
                 worldPt,
-                20 / renderer.view.zoom,
+                snapRadius,
                 action.startPin.role === 'out' ? 'in' : 'out',
                 geom.pins
             );

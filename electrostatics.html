@@ -44,11 +44,17 @@
     <div class="ui-overlay">
         <!-- Header / Info -->
         <header class="glass-panel">
-            <div style="display: flex; justify-content: space-between; align-items: start;">
+            <div style="display: flex; justify-content: space-between; align-items: center; gap: 8px;">
                 <h1>⚡ Electricsim</h1>
-                <a href="index.html" class="btn-icon"
-                    style="position: relative; top: 0; right: 0; text-decoration: none; width: auto; padding: 0 10px; font-size: 0.8rem; height: 28px; display: inline-flex; border-radius: 6px;">⌂
-                    Hub</a>
+                <div style="display: flex; align-items: center; gap: 6px;">
+                    <button id="shortcutsBtn" class="btn-icon" title="Keyboard Shortcuts"
+                        style="position: relative; top: 0; right: 0; width: 28px; height: 28px; border-radius: 6px;">
+                        <span>?</span>
+                    </button>
+                    <a href="index.html" class="btn-icon"
+                        style="position: relative; top: 0; right: 0; text-decoration: none; width: auto; padding: 0 10px; font-size: 0.8rem; height: 28px; display: inline-flex; border-radius: 6px;">⌂
+                        Hub</a>
+                </div>
             </div>
             <p>Drag charges to observe the electric field. <b>Right-click</b> to remove. <b>Delete</b> removes selected.
             </p>
@@ -60,10 +66,6 @@
                 <button id="addChargeBtn" class="btn-primary">+ Add Object</button>
                 <button id="clearAllBtn" class="btn-danger">🗑 Clear All</button>
             </div>
-
-            <button id="shortcutsBtn" class="btn-icon" title="Keyboard Shortcuts">
-                <span>?</span>
-            </button>
         </header>
 
         <!-- Shortcuts popover -->
@@ -90,11 +92,13 @@
                 <div class="reading"><strong>Type:</strong> <span id="selType">—</span></div>
                 <div class="reading"><strong>Charge:</strong> <span id="selCharge">—</span></div>
                 <div class="reading"><strong>Position:</strong> <span id="selPos"
-                        title="Double click to edit coordinates"
+                        title="Double click or tap to edit coordinates"
                         style="cursor: pointer; text-decoration: underline dashed rgba(255,255,255,0.4); text-underline-offset: 3px;">—</span>
                 </div>
                 <div class="reading"><strong>Net Force:</strong> <span id="selForce">—</span></div>
                 <div class="reading"><strong>Potential (V):</strong> <span id="selPotential">—</span></div>
+                <button id="deleteSelectedBtn" type="button" class="btn-danger"
+                    style="width: 100%; margin-top: 0.5rem; padding: 0.45rem 0.6rem; font-size: 0.78rem;">🗑 Remove Selected</button>
             </div>
         </div>
 

@@ -2,11 +2,11 @@
     'use strict';
     const D=root.DCCircuit||(root.DCCircuit={});
     const clone=value=>JSON.parse(JSON.stringify(value));
-    const TYPES=['resistor','lamp','capacitor','voltage','current','switch','diode','ac','transformer'];
-    const PREFIX={resistor:'R',lamp:'L',capacitor:'C',voltage:'V',current:'I',switch:'S',diode:'D',ac:'AC',transformer:'T'};
+    const TYPES=['resistor','lamp','capacitor','inductor','voltage','current','switch','diode','led','zener','ac','transformer'];
+    const PREFIX={resistor:'R',lamp:'L',capacitor:'C',inductor:'L',voltage:'V',current:'I',switch:'S',diode:'D',led:'LED',zener:'ZD',ac:'AC',transformer:'T'};
     const TERMINAL_NAMES={transformer:['P1','P2','S1','S2']};
     const terminalName=(c,i)=>TERMINAL_NAMES[c.type]?.[i]||(i?'B':'A');
-    const defaults={resistor:1000,lamp:100,capacitor:.001,voltage:9,current:.01,switch:0,diode:.7,ac:10,transformer:0};
+    const defaults={resistor:1000,lamp:100,capacitor:.001,inductor:.1,voltage:9,current:.01,switch:0,diode:.7,led:2,zener:5.1,ac:10,transformer:0};
     let serial=0;
     const uid=prefix=>`${prefix}-${Date.now().toString(36)}-${++serial}`;
     function blank(){return {schemaVersion:1,components:[],junctions:[],wires:[],referenceEndpoints:[],probes:[],view:{panX:0,panY:0,zoom:1}};}
@@ -14,20 +14,22 @@
         const id=uid(type);
         const c={id,type,label:label||`${PREFIX[type]}${serial}`,terminals:type==='transformer'?['p1','p2','s1','s2'].map(s=>`${id}:${s}`):[`${id}:a`,`${id}:b`],value:defaults[type],position:{x,y},rotation:0};
         if(type==='capacitor')c.initialVoltage=0;
+        if(type==='inductor')c.initialCurrent=0;
         if(type==='switch')c.closed=false;
-        if(type==='ac'){c.frequency=1;c.phase=0;}
+        if(type==='ac'){c.frequency=0.5;c.phase=0;}
         if(type==='transformer'){c.turnsPrimary=null;c.turnsSecondary=null;}
         return c;
     }
     // Transformers have four terminals: P1/P2 on the left, S1/S2 on the right.
     function terminalPosition(c,index){const angle=(c.rotation||0)*Math.PI/180,four=c.type==='transformer',lx=four?(index<2?-60:60):(index?60:-60),ly=four?(index%2?30:-30):0;return {x:c.position.x+lx*Math.cos(angle)-ly*Math.sin(angle),y:c.position.y+lx*Math.sin(angle)+ly*Math.cos(angle)};}
     function endpoints(doc){const out=new Map(doc.junctions.map(j=>[j.id,{...j.position,id:j.id,kind:'junction'}]));for(const c of doc.components)c.terminals.forEach((id,i)=>out.set(id,{...terminalPosition(c,i),id,kind:'terminal',componentId:c.id,index:i}));return out;}
-    const allowed={resistor:['id','type','label','terminals','value','position','rotation'],capacitor:['id','type','label','terminals','value','position','rotation','initialVoltage'],voltage:['id','type','label','terminals','value','position','rotation'],current:['id','type','label','terminals','value','position','rotation'],switch:['id','type','label','terminals','value','position','rotation','closed']};
-    allowed.lamp=allowed.resistor;allowed.diode=allowed.resistor;
+    const allowed={resistor:['id','type','label','terminals','value','position','rotation'],capacitor:['id','type','label','terminals','value','position','rotation','initialVoltage'],inductor:['id','type','label','terminals','value','position','rotation','initialCurrent'],voltage:['id','type','label','terminals','value','position','rotation'],current:['id','type','label','terminals','value','position','rotation'],switch:['id','type','label','terminals','value','position','rotation','closed']};
+    allowed.lamp=allowed.resistor;allowed.diode=allowed.resistor;allowed.led=allowed.resistor;allowed.zener=allowed.resistor;
     allowed.ac=[...allowed.voltage,'frequency','phase'];allowed.transformer=[...allowed.resistor,'turnsPrimary','turnsSecondary'];
     const turnsValid=n=>n===null||(Number.isInteger(n)&&n>=1&&n<=100000);
     // A fixed-resistance teaching model; 1 W is the visual full-glow reference.
     function lampBrightness(result){return Number.isFinite(result?.power)?Math.min(1,Math.max(0,result.power)):0;}
+    function ledBrightness(result){return (result?.conducting&&Number.isFinite(result?.current))?Math.min(1,Math.max(0,result.current/.02)):0;}
     // Display layer only. The solver keeps the passive convention (V = A − B, I = A → B);
     // users see loads as magnitudes plus direction, and sources as their output
     // (positive voltage/current/power = delivering energy to the circuit).
@@ -52,8 +54,8 @@
         const errors=[],fail=message=>errors.push(message),point=p=>p&&Number.isFinite(p.x)&&Number.isFinite(p.y);
         if(!doc||doc.schemaVersion!==1||!['components','junctions','wires','referenceEndpoints','probes'].every(k=>Array.isArray(doc[k])))return ['Invalid circuit document or schema version.'];
         if(Object.keys(doc).some(k=>!['schemaVersion','components','junctions','wires','referenceEndpoints','probes','view'].includes(k)))fail('Unknown document field.');
-        if(doc.components.length>100)fail('This lab supports up to 100 components.');
-        if(doc.junctions.length>1000||doc.wires.length>2000)fail('This lab supports up to 1000 junctions and 2000 wires.');
+        if(doc.components.length>500)fail('This lab supports up to 500 components.');
+        if(doc.junctions.length>2000||doc.wires.length>4000)fail('This lab supports up to 2000 junctions and 4000 wires.');
         const ids=new Set(),ends=new Set();
         const unique=id=>{if(typeof id!=='string'||!id||ids.has(id))fail('Missing or duplicate ID.');ids.add(id);};
         for(const c of doc.components){
@@ -62,8 +64,9 @@
             if(!TYPES.includes(c.type)){fail('Unknown component type.');continue;}
             if(Object.keys(c).some(k=>!allowed[c.type].includes(k)))fail(`Unknown field on ${c.label||c.id}.`);
             if(typeof c.label!=='string'||c.label.length>50||!point(c.position)||!Number.isFinite(c.rotation)||!Number.isFinite(c.value))fail(`Invalid values on ${c.id}.`);
-            if(['resistor','lamp','capacitor'].includes(c.type)&&c.value<=0)fail(`${c.label}: value must be positive.`);
+            if(['resistor','lamp','capacitor','inductor','led','zener'].includes(c.type)&&c.value<=0)fail(`${c.label}: value must be positive.`);
             if(c.type==='capacitor'&&!Number.isFinite(c.initialVoltage))fail(`${c.label}: invalid initial voltage.`);
+            if(c.type==='inductor'&&!Number.isFinite(c.initialCurrent))fail(`${c.label}: invalid initial current.`);
             if(c.type==='switch'&&typeof c.closed!=='boolean')fail(`${c.label}: invalid switch state.`);
             if(c.type==='ac'&&(!Number.isFinite(c.frequency)||c.frequency<=0||c.frequency>1000||!Number.isFinite(c.phase)))fail(`${c.label}: frequency must be above 0 and at most 1000 Hz.`);
             if(c.type==='transformer'&&(!turnsValid(c.turnsPrimary)||!turnsValid(c.turnsSecondary)))fail(`${c.label}: turns must be whole numbers from 1 to 100000.`);
@@ -107,6 +110,6 @@
         if(Math.abs(number)>=1000&&scale<1e9){[scale,prefix]=powers[powers.findIndex(([s])=>s===scale)-1];number=Number((value/scale).toPrecision(3));}
         return `${number} ${prefix}${unit}`.trim();
     }
-    Object.assign(D,{clone,TYPES,PREFIX,terminalName,uid,blank,component,terminalPosition,endpoints,validateDocument,History,wire,removeComponent,removeJunction,reading,format,lampBrightness,presentResult});
+    Object.assign(D,{clone,TYPES,PREFIX,terminalName,uid,blank,component,terminalPosition,endpoints,validateDocument,History,wire,removeComponent,removeJunction,reading,format,lampBrightness,ledBrightness,presentResult});
     if(typeof module!=='undefined')module.exports=D;
 })(typeof window!=='undefined'?window:globalThis);

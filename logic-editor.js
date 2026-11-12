@@ -309,6 +309,7 @@
                                         x: pt.x,
                                         y: pt.y,
                                         nodeId: group[i].from.nodeId,
+                                        pin: group[i].from.pin || 'out',
                                         sourceKey
                                     });
                                 }

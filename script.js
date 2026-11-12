@@ -547,10 +547,12 @@ canvas.addEventListener('touchstart', (e) => {
         const sx = touch.clientX - rect.left;
         const sy = touch.clientY - rect.top;
         const { x: wx, y: wy } = screenToWorld(sx, sy);
+        mouseWorldX = wx;
+        mouseWorldY = wy;
         let hit = false;
 
         for (let i = objects.length - 1; i >= 0; i--) {
-            if (objects[i].contains(wx, wy)) {
+            if (objects[i].contains(wx, wy, true)) {
                 draggingObject = objects[i];
                 dragOffsetX = wx - objects[i].cx;
                 dragOffsetY = wy - objects[i].cy;
@@ -561,6 +563,7 @@ canvas.addEventListener('touchstart', (e) => {
         }
 
         if (!hit) {
+            selectObject(null);
             isPanning = true;
             panStartX = sx;
             panStartY = sy;
@@ -568,7 +571,9 @@ canvas.addEventListener('touchstart', (e) => {
             panStartViewportY = viewport.y;
         }
     } else if (e.touches.length === 2) {
-        // Pinch-to-zoom start
+        // Pinch-to-zoom start: cancel any single-finger drag or pan
+        draggingObject = null;
+        isPanning = false;
         const dx = e.touches[0].clientX - e.touches[1].clientX;
         const dy = e.touches[0].clientY - e.touches[1].clientY;
         lastTouchDist = Math.sqrt(dx * dx + dy * dy);
@@ -589,12 +594,27 @@ canvas.addEventListener('touchmove', (e) => {
         if (draggingObject) {
             draggingObject.moveTo(wx - dragOffsetX, wy - dragOffsetY);
             fieldLinesDirty = true;
+            if (selectedObject === draggingObject) {
+                selPos.textContent = formatCoord(draggingObject.cx, draggingObject.cy);
+            }
         } else if (isPanning) {
             const dx = sx - panStartX;
             const dy = sy - panStartY;
             viewport.x = panStartViewportX - dx / viewport.zoom;
             viewport.y = panStartViewportY - dy / viewport.zoom;
             fieldLinesDirty = true;
+        }
+
+        if (primitiveCharges.length > 0) {
+            const { Ex, Ey, V } = calculateFieldAndPotential(wx, wy);
+            const emag = Math.sqrt(Ex * Ex + Ey * Ey);
+            hudPos.textContent = formatCoord(wx, wy).replace(` ${getUnitLabel()}`, '');
+            hudE.textContent = formatSI(emag * getEFieldScale(), 'N/C');
+            hudV.textContent = formatSI(V * getVoltageScale(), 'V');
+        } else {
+            hudPos.textContent = formatCoord(wx, wy).replace(` ${getUnitLabel()}`, '');
+            hudE.textContent = '—';
+            hudV.textContent = '—';
         }
     } else if (e.touches.length === 2) {
         const dx = e.touches[0].clientX - e.touches[1].clientX;
@@ -769,11 +789,11 @@ class RigidBody {
         this.updatePrimitives(x, y);
     }
 
-    contains(mx, my) {
+    contains(mx, my, isTouch = false) {
         const dx = mx - this.cx;
         const dy = my - this.cy;
         const distSq = dx * dx + dy * dy;
-        const hitPad = 20 / viewport.zoom;
+        const hitPad = (isTouch ? 28 : 20) / viewport.zoom;
         const broadDist = this.dimension + hitPad;
         if (distSq > broadDist * broadDist) return false;
 
@@ -1891,21 +1911,37 @@ function updateSelectedPhysics() {
     if (selPotential) selPotential.textContent = formatSI(realV, 'V');
 }
 
+// --- Delete Selected Button (Mobile & Desktop) ---
+const deleteSelectedBtn = document.getElementById('deleteSelectedBtn');
+if (deleteSelectedBtn) {
+    deleteSelectedBtn.addEventListener('click', () => {
+        if (!selectedObject) return;
+        pushUndo();
+        const obj = selectedObject;
+        primitiveCharges = primitiveCharges.filter(c => !obj.charges.includes(c));
+        objects = objects.filter(o => o !== obj);
+        selectObject(null);
+        updateStats();
+        updateWelcomeOverlay();
+        fieldLinesDirty = true;
+    });
+}
+
 // --- Interactive Editable Position ---
-selPos.addEventListener('dblclick', () => {
+function openPositionEditor() {
     if (!selectedObject) return;
 
-    // Prevent multiple double-clicks from nesting inputs
+    // Prevent multiple triggers from nesting inputs
     if (selPos.querySelector('input')) return;
 
-    const currentText = selPos.textContent.replace(' m', '').replace('(', '').replace(')', '');
+    const currentText = selPos.textContent.replace(/ [a-zA-Zμ]+$/, '').replace('(', '').replace(')', '');
     const parts = currentText.split(',');
     if (parts.length !== 2) return;
 
     const xStr = parts[0].trim();
     const yStr = parts[1].trim();
 
-    selPos.innerHTML = `<input type="number" id="editPosX" value="${xStr}" step="0.1" style="width: 55px; background: rgba(0,0,0,0.5); color: #fff; border: 1px solid rgba(255,255,255,0.3); border-radius: 4px; padding: 2px;"> , <input type="number" id="editPosY" value="${yStr}" step="0.1" style="width: 55px; background: rgba(0,0,0,0.5); color: #fff; border: 1px solid rgba(255,255,255,0.3); border-radius: 4px; padding: 2px;"> m`;
+    selPos.innerHTML = `<input type="number" id="editPosX" value="${xStr}" step="0.1" style="width: 55px; background: rgba(0,0,0,0.5); color: #fff; border: 1px solid rgba(255,255,255,0.3); border-radius: 4px; padding: 2px;"> , <input type="number" id="editPosY" value="${yStr}" step="0.1" style="width: 55px; background: rgba(0,0,0,0.5); color: #fff; border: 1px solid rgba(255,255,255,0.3); border-radius: 4px; padding: 2px;"> ${getUnitLabel()}`;
 
     const inputX = document.getElementById('editPosX');
     const inputY = document.getElementById('editPosY');
@@ -1913,20 +1949,24 @@ selPos.addEventListener('dblclick', () => {
 
     inputX.focus();
 
+    let finished = false;
     const finishEdit = () => {
-        if (!selectedObject) return;
+        if (finished || !selectedObject) return;
+        finished = true;
         const newX = parseFloat(inputX.value);
         const newY = parseFloat(inputY.value);
+        const scale = getUnitScale();
         if (!isNaN(newX) && !isNaN(newY)) {
             pushUndo();
-            selectedObject.moveTo(newX * PIXELS_PER_UNIT, -newY * PIXELS_PER_UNIT);
+            selectedObject.moveTo((newX / scale) * PIXELS_PER_UNIT, -(newY / scale) * PIXELS_PER_UNIT);
             fieldLinesDirty = true;
         }
         selPos.textContent = formatCoord(selectedObject.cx, selectedObject.cy);
     };
 
     const cancelEdit = () => {
-        if (!selectedObject) return;
+        if (finished || !selectedObject) return;
+        finished = true;
         selPos.textContent = formatCoord(selectedObject.cx, selectedObject.cy);
     };
 
@@ -1935,8 +1975,25 @@ selPos.addEventListener('dblclick', () => {
         else if (e.key === 'Escape') cancelEdit();
     };
 
+    const handleBlur = () => {
+        setTimeout(() => {
+            if (document.activeElement !== inputX && document.activeElement !== inputY) {
+                finishEdit();
+            }
+        }, 120);
+    };
+
     inputX.addEventListener('keydown', handleKey);
     inputY.addEventListener('keydown', handleKey);
+    inputX.addEventListener('blur', handleBlur);
+    inputY.addEventListener('blur', handleBlur);
+}
+
+selPos.addEventListener('dblclick', openPositionEditor);
+selPos.addEventListener('click', () => {
+    if (window.matchMedia && window.matchMedia('(pointer: coarse), (max-width: 768px)').matches) {
+        openPositionEditor();
+    }
 });
 
 // --- Scale Selector Logic ---

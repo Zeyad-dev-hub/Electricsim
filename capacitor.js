@@ -7,9 +7,11 @@ let mode = 'physics'; // 'physics' or 'network'
 let simTime = 0;
 let animationFrameId;
 
-// Camera System - Fixed position, no panning (capacitor is unmovable)
+// Camera System
 let camera = {
-    zoom: 1.0
+    zoom: 1.0,
+    panX: 0,
+    panY: 0
 };
 
 // Physics Explorer State
@@ -67,10 +69,19 @@ function init() {
 
 function resizeCanvas() {
     const dpr = window.devicePixelRatio || 1;
-    canvas.width = window.innerWidth * dpr;
-    canvas.height = window.innerHeight * dpr;
-    canvas.style.width = window.innerWidth + 'px';
-    canvas.style.height = window.innerHeight + 'px';
+    if (window.innerWidth <= 768) {
+        canvas.style.width = '';
+        canvas.style.height = '';
+        const cw = canvas.clientWidth || window.innerWidth;
+        const ch = canvas.clientHeight || Math.round(window.innerHeight * 0.5);
+        canvas.width = cw * dpr;
+        canvas.height = ch * dpr;
+    } else {
+        canvas.width = window.innerWidth * dpr;
+        canvas.height = window.innerHeight * dpr;
+        canvas.style.width = window.innerWidth + 'px';
+        canvas.style.height = window.innerHeight + 'px';
+    }
 }
 
 // ==========================================
@@ -107,15 +118,22 @@ function setupZoomControls() {
         updateZoomLabel();
     }, {passive: false});
 
-    // Touch support: pinch-to-zoom
+    // Touch support: 1-finger pan & 2-finger pinch-to-zoom
     let lastTouchDist = 0;
+    let touchPanStart = null;
     
     canvas.addEventListener('touchstart', (e) => {
         e.preventDefault();
         if (e.touches.length === 2) {
+            touchPanStart = null;
             const dx = e.touches[0].clientX - e.touches[1].clientX;
             const dy = e.touches[0].clientY - e.touches[1].clientY;
             lastTouchDist = Math.sqrt(dx * dx + dy * dy);
+        } else if (e.touches.length === 1) {
+            touchPanStart = {
+                x: e.touches[0].clientX - (camera.panX || 0),
+                y: e.touches[0].clientY - (camera.panY || 0)
+            };
         }
     }, {passive: false});
     
@@ -129,11 +147,15 @@ function setupZoomControls() {
             camera.zoom = Math.max(0.3, Math.min(4.0, camera.zoom * scale));
             lastTouchDist = dist;
             updateZoomLabel();
+        } else if (e.touches.length === 1 && touchPanStart) {
+            camera.panX = e.touches[0].clientX - touchPanStart.x;
+            camera.panY = e.touches[0].clientY - touchPanStart.y;
         }
     }, {passive: false});
     
     canvas.addEventListener('touchend', (e) => {
         if (e.touches.length < 2) lastTouchDist = 0;
+        if (e.touches.length === 0) touchPanStart = null;
     });
 
     document.getElementById('btnZoomIn').addEventListener('click', () => {
@@ -146,6 +168,8 @@ function setupZoomControls() {
     });
     document.getElementById('btnZoomReset').addEventListener('click', () => {
         camera.zoom = 1.0;
+        camera.panX = 0;
+        camera.panY = 0;
         updateZoomLabel();
     });
 }
@@ -280,6 +304,8 @@ function switchMode(newMode) {
 
     // Reset zoom when changing modes
     camera.zoom = 1.0;
+    camera.panX = 0;
+    camera.panY = 0;
     updateZoomLabel();
 }
 
@@ -702,6 +728,8 @@ function renderNodeHTML(node, depth) {
 function autoFitNetworkZoom() {
     if (!nState.network) {
         camera.zoom = 1.0;
+        camera.panX = 0;
+        camera.panY = 0;
         updateZoomLabel();
         return;
     }
@@ -712,10 +740,12 @@ function autoFitNetworkZoom() {
     const totalWidth = batteryWidth + Math.max(1, nodeCount) * spacing + 120;
     
     const isMobile = window.innerWidth <= 768;
-    const availableWidth = isMobile ? window.innerWidth - 40 : window.innerWidth - 380;
+    const availableWidth = isMobile ? (canvas.clientWidth || window.innerWidth) - 24 : window.innerWidth - 380;
     
     const fitZoom = availableWidth / totalWidth;
     camera.zoom = Math.min(1.5, Math.max(0.3, fitZoom));
+    camera.panX = 0;
+    camera.panY = 0;
     updateZoomLabel();
 }
 
@@ -803,18 +833,21 @@ function renderLoop() {
     // Scale for DPR
     ctx.scale(dpr, dpr);
     
-    const vw = window.innerWidth;
-    const vh = window.innerHeight;
+    const isMobile = window.innerWidth <= 768;
+    const vw = isMobile ? (canvas.clientWidth || window.innerWidth) : window.innerWidth;
+    const vh = isMobile ? (canvas.clientHeight || Math.round(window.innerHeight * 0.5)) : window.innerHeight;
     
     // Center of visible area - offset right on desktop to account for sidebar
-    // On mobile (sidebar at bottom), center normally
-    const isMobile = vw <= 768;
-    const centerX = isMobile ? vw / 2 : vw / 2 + 80;
-    const centerY = isMobile ? vh / 2 - 60 : vh / 2;  // Shift up slightly on mobile for bottom sidebar
+    const centerX = (isMobile ? vw / 2 : vw / 2 + 80) + (camera.panX || 0);
+    const centerY = (isMobile ? vh / 2 + 6 : vh / 2) + (camera.panY || 0);
     
-    // Apply zoom centered
+    // Apply zoom centered (with auto-fit on mobile for physics view so full circuit fits)
+    const mobileFit = (isMobile && mode === 'physics')
+        ? Math.min(1, Math.min((vw - 16) / 330, (vh - 16) / 480))
+        : 1;
+    const effectiveZoom = camera.zoom * mobileFit;
     ctx.translate(centerX, centerY);
-    ctx.scale(camera.zoom, camera.zoom);
+    ctx.scale(effectiveZoom, effectiveZoom);
 
     if (mode === 'physics') renderPhysics3D();
     else renderNetwork3D();
@@ -1859,11 +1892,11 @@ function drawEngineeringGrid(xMin, xMax, yMin, yMax, zoom) {
 }
 
 function renderNetwork3D() {
-    const vw = window.innerWidth;
-    const vh = window.innerHeight;
-    const isMobile = vw <= 768;
-    const centerX = isMobile ? vw / 2 : vw / 2 + 80;
-    const centerY = isMobile ? vh / 2 - 60 : vh / 2;
+    const isMobile = window.innerWidth <= 768;
+    const vw = isMobile ? (canvas.clientWidth || window.innerWidth) : window.innerWidth;
+    const vh = isMobile ? (canvas.clientHeight || Math.round(window.innerHeight * 0.5)) : window.innerHeight;
+    const centerX = (isMobile ? vw / 2 : vw / 2 + 80) + (camera.panX || 0);
+    const centerY = (isMobile ? vh / 2 + 6 : vh / 2) + (camera.panY || 0);
     const zoom = camera.zoom;
 
     const xMin = -centerX / zoom;

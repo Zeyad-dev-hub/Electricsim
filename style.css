@@ -836,6 +836,9 @@ input[type=range]::-webkit-slider-thumb:hover {
         left: 0.5rem;
         width: auto;
         max-width: 52%;
+        max-height: 38dvh;
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
         padding: 0.5rem;
         z-index: 15;
     }
@@ -858,10 +861,16 @@ input[type=range]::-webkit-slider-thumb:hover {
     /* Toggle panel: compact, bottom-right */
     .toggle-panel {
         width: auto;
-        max-width: 42%;
+        max-width: 44%;
+        max-height: 38dvh;
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
         bottom: 0.5rem;
         right: 0.5rem;
         padding: 0.5rem;
+    }
+    #shortcutsBtn {
+        display: none !important;
     }
     .toggle-panel h3 {
         font-size: 0.72rem;

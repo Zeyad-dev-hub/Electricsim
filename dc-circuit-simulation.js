@@ -5,7 +5,7 @@
     // Geometry is deliberately absent: moving a symbol never resets stored energy.
     function electricalKey(doc){
         return JSON.stringify({
-            components:doc.components.map(({id,type,terminals,value,closed,initialVoltage,frequency,phase,turnsPrimary,turnsSecondary})=>({id,type,terminals,value,closed,initialVoltage,frequency,phase,turnsPrimary,turnsSecondary})),
+            components:doc.components.map(({id,type,terminals,value,closed,initialVoltage,initialCurrent,frequency,phase,turnsPrimary,turnsSecondary})=>({id,type,terminals,value,closed,initialVoltage,initialCurrent,frequency,phase,turnsPrimary,turnsSecondary})),
             wires:doc.wires.map(({id,fromEndpoint,toEndpoint})=>({id,fromEndpoint,toEndpoint})),
             junctions:doc.junctions.map(j=>j.id),references:doc.referenceEndpoints
         });
@@ -24,7 +24,7 @@
                 if(changed){
                     const previous=reset?null:this.state||this.retained;
                     const caps=Object.fromEntries(this.doc.components.filter(c=>c.type==='capacitor').map(c=>[c.id,previous?.capacitorVoltagesById?.[c.id]??c.initialVoltage]));
-                    const inductors=Object.fromEntries(this.doc.components.filter(c=>c.type==='transformer'&&Number.isInteger(c.turnsPrimary)&&Number.isInteger(c.turnsSecondary)).map(c=>[c.id,previous?.inductorCurrentsById?.[c.id]??0]));
+                    const inductors=Object.fromEntries(this.doc.components.filter(c=>c.type==='inductor'||(c.type==='transformer'&&Number.isInteger(c.turnsPrimary)&&Number.isInteger(c.turnsSecondary))).map(c=>[c.id,previous?.inductorCurrentsById?.[c.id]??(c.type==='inductor'?(c.initialCurrent||0):0)]));
                     const next=D.initializeTransient(compiled,caps,inductors,previous?.time||0);
                     this.state=next;this.retained=next;
                 }

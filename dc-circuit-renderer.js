@@ -85,16 +85,55 @@
                 seg([{x:-30,y:0},{x:-8,y:0}]);seg([{x:8,y:0},{x:30,y:0}]);seg([{x:-8,y:-19},{x:-8,y:19}]);seg([{x:8,y:-19},{x:8,y:19}]);
                 const v=result?.voltage||0,charge=Math.abs(result?.charge||0),marks=Math.min(5,charge/.002);for(let i=0;i<Math.ceil(marks);i++){const y=-15+i*7;c.globalAlpha=Math.min(1,marks-i);c.fillStyle=v>=0?color.amber:color.cyan;c.fillRect(-17,y,5,2);if(v>=0)c.fillRect(-15,y-2,1,6);c.fillStyle=v>=0?color.cyan:color.amber;c.fillRect(12,y,5,2);if(v<0)c.fillRect(14,y-2,1,6);}c.globalAlpha=1;
             }
+            if(comp.type==='inductor'){
+                const energy=Math.abs(result?.energy||0),magRatio=Math.min(1,Math.sqrt(energy/0.05));
+                if(magRatio>0.02){
+                    const glow=c.createRadialGradient(0,0,4,0,0,36);
+                    glow.addColorStop(0,`rgba(61,217,255,${0.12+0.42*magRatio})`);
+                    glow.addColorStop(1,'rgba(61,217,255,0)');
+                    c.fillStyle=glow;c.fillRect(-38,-32,76,64);
+                }
+                seg([{x:-30,y:0},{x:-28,y:0}]);seg([{x:28,y:0},{x:30,y:0}]);
+                c.strokeStyle=magRatio>0.05?color.cyan:stroke;c.lineWidth=2.2/this.view.zoom;
+                for(let i=0;i<4;i++){
+                    const cx=-21+i*14;
+                    c.beginPath();c.arc(cx,0,7,Math.PI,0,false);c.stroke();
+                }
+                this.stroke([{x:-26,y:-11},{x:26,y:-11}],'#8b9dff88',1.4/this.view.zoom);
+            }
             if(comp.type==='voltage'){const positive=comp.value>=0;seg([{x:-30,y:0},{x:-8,y:0}]);seg([{x:8,y:0},{x:30,y:0}]);seg([{x:-8,y:positive?-21:-11},{x:-8,y:positive?21:11}]);seg([{x:8,y:positive?-11:-21},{x:8,y:positive?11:21}]);this.text(positive?'+':'−',-21,-13,stroke,10);this.text(positive?'−':'+',21,-13,stroke,10);}
             if(comp.type==='current'){const dir=comp.value>=0?1:-1;seg([{x:-30,y:0},{x:-22,y:0}]);seg([{x:22,y:0},{x:30,y:0}]);this.dot({x:0,y:0},22,stroke,true);seg([{x:-12*dir,y:0},{x:12*dir,y:0},{x:6*dir,y:-5}]);seg([{x:12*dir,y:0},{x:6*dir,y:5}]);}
             if(comp.type==='switch'){seg([{x:-30,y:0},{x:comp.closed?30:22,y:comp.closed?0:-17}]);this.dot({x:-30,y:0},3,stroke);this.dot({x:30,y:0},3,stroke);}
-            if(comp.type==='diode'){
+            if(comp.type==='diode'||comp.type==='led'||comp.type==='zener'){
                 const on=!!result?.conducting;
+                const mode=result?.conductionMode||'Reverse OFF';
+                const overloaded=!!result?.overloaded;
+                if(comp.type==='led'){
+                    const b=D.ledBrightness?D.ledBrightness(result):(on?0.8:0);
+                    if(b>0){
+                        const glow=c.createRadialGradient(0,-2,4,0,-2,38);
+                        glow.addColorStop(0,overloaded?`rgba(255,119,110,${0.4+0.5*b})`:`rgba(52,211,153,${0.3+0.6*b})`);
+                        glow.addColorStop(1,'rgba(52,211,153,0)');
+                        c.fillStyle=glow;c.fillRect(-40,-42,80,80);
+                    }
+                }
+                const activeColor=overloaded?color.red:(comp.type==='led'?'#34d399':(mode==='Zener Breakdown'?color.amber:color.cyan));
                 seg([{x:-30,y:0},{x:-13,y:0}]);seg([{x:13,y:0},{x:30,y:0}]);
                 c.beginPath();c.moveTo(-13,-14);c.lineTo(-13,14);c.lineTo(13,0);c.closePath();
-                if(on){c.fillStyle='#3dd9ff38';c.fill();}
-                c.strokeStyle=on?color.cyan:stroke;c.lineWidth=2/this.view.zoom;c.stroke();
-                this.stroke([{x:13,y:-14},{x:13,y:14}],on?color.cyan:stroke,2.4/this.view.zoom);
+                if(on){c.fillStyle=comp.type==='led'?'#34d39940':(mode==='Zener Breakdown'?'#f6b94438':'#3dd9ff38');c.fill();}
+                c.strokeStyle=on?activeColor:stroke;c.lineWidth=2/this.view.zoom;c.stroke();
+                this.stroke([{x:13,y:-14},{x:13,y:14}],on?activeColor:stroke,2.4/this.view.zoom);
+                if(comp.type==='zener'){
+                    this.stroke([{x:13,y:-14},{x:19,y:-14}],on?activeColor:stroke,2.2/this.view.zoom);
+                    this.stroke([{x:13,y:14},{x:7,y:14}],on?activeColor:stroke,2.2/this.view.zoom);
+                }
+                if(comp.type==='led'){
+                    const arrowCol=on?activeColor:color.muted;
+                    this.stroke([{x:-2,y:-15},{x:7,y:-24}],arrowCol,1.6/this.view.zoom);
+                    this.stroke([{x:3,y:-24},{x:7,y:-24},{x:7,y:-20}],arrowCol,1.6/this.view.zoom);
+                    this.stroke([{x:6,y:-13},{x:15,y:-22}],arrowCol,1.6/this.view.zoom);
+                    this.stroke([{x:11,y:-22},{x:15,y:-22},{x:15,y:-18}],arrowCol,1.6/this.view.zoom);
+                }
             }
             if(comp.type==='ac'){
                 seg([{x:-30,y:0},{x:-22,y:0}]);seg([{x:22,y:0},{x:30,y:0}]);
@@ -126,10 +165,11 @@
             c.restore();
             let valueText;
             if(comp.type==='switch')valueText=comp.closed?'closed':'open';
-            else if(comp.type==='diode')valueText=`${D.format(comp.value,'V')} drop`;
+            else if(comp.type==='diode'||comp.type==='led')valueText=`${D.format(comp.value,'V')} Vf`;
+            else if(comp.type==='zener')valueText=`${D.format(comp.value,'V')} Vz`;
             else if(comp.type==='ac')valueText=`${D.format(comp.value,'V')}p · ${D.format(comp.frequency||1,'Hz')}`;
             else if(comp.type==='transformer')valueText=(Number.isInteger(comp.turnsPrimary)&&Number.isInteger(comp.turnsSecondary))?`${comp.turnsPrimary}:${comp.turnsSecondary}`:'set Np:Ns';
-            else valueText=D.format(comp.value,{resistor:'Ω',lamp:'Ω',capacitor:'F',voltage:'V',current:'A'}[comp.type]);
+            else valueText=D.format(comp.value,{resistor:'Ω',lamp:'Ω',capacitor:'F',inductor:'H',voltage:'V',current:'A'}[comp.type]);
             const anchors=this.labelAnchors(comp);
             this.label(`${comp.label} · ${valueText}`,anchors.name,selected?color.accent:color.text,`${comp.id}:value`,anchors.side);
         }

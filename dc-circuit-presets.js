@@ -13,9 +13,9 @@
     function junc(doc,id,x,y){const j={id,position:{x,y}};doc.junctions.push(j);return j;}
     function makeHalfWave(){
         const doc=D.blank();
-        const ac=place(doc,'AC1','ac',-240,0,90,10,{frequency:1});
+        const ac=place(doc,'AC1','ac',-240,0,90,10,{frequency:0.5});
         const d1=place(doc,'D1','diode',0,-144,0,.7);
-        const r1=place(doc,'R1','resistor',240,0,90,100);
+        const r1=place(doc,'R1','resistor',240,0,90,5000);
         D.wire(doc,ac.terminals[0],d1.terminals[0]);
         D.wire(doc,d1.terminals[1],r1.terminals[0]);
         D.wire(doc,r1.terminals[1],ac.terminals[1]);
@@ -25,22 +25,21 @@
     function makeFullWaveBridge(){
         const doc=D.blank();
         // Classic 4-diode diamond bridge (no center tap) using 45° / 135° diode orientations!
-        const ac=D.component('ac',-360,0,'AC1');ac.value=12;ac.frequency=1;ac.rotation=90;
+        const ac=place(doc,'AC1','ac',-360,0,90,12,{frequency:0.5});
         const nTop={id:'node-ac-top',position:{x:0,y:-168}};
         const nBot={id:'node-ac-bot',position:{x:0,y:168}};
         const nLeft={id:'node-dc-neg',position:{x:-168,y:0}};
         const nRight={id:'node-dc-pos',position:{x:168,y:0}};
         doc.junctions.push(nTop,nBot,nLeft,nRight);
         // D1: top AC node -> right (+) DC node (45°)
-        const d1=D.component('diode',84,-84,'D1');d1.rotation=45;
+        const d1=place(doc,'D1','diode',84,-84,45,.7);
         // D2: bottom AC node -> right (+) DC node (-45° / 315°)
-        const d2=D.component('diode',84,84,'D2');d2.rotation=315;
+        const d2=place(doc,'D2','diode',84,84,315,.7);
         // D3: left (-) DC node -> top AC node (-45° / 315°)
-        const d3=D.component('diode',-84,-84,'D3');d3.rotation=315;
+        const d3=place(doc,'D3','diode',-84,-84,315,.7);
         // D4: left (-) DC node -> bottom AC node (45°)
-        const d4=D.component('diode',-84,84,'D4');d4.rotation=45;
-        const rLoad=D.component('resistor',432,-72,'R1');rLoad.value=100;rLoad.rotation=90;
-        doc.components.push(ac,d1,d2,d3,d4,rLoad);
+        const d4=place(doc,'D4','diode',-84,84,45,.7);
+        const rLoad=place(doc,'R1','resistor',432,-72,90,5000);
         D.wire(doc,d1.terminals[0],nTop.id);D.wire(doc,d1.terminals[1],nRight.id);
         D.wire(doc,d2.terminals[0],nBot.id);D.wire(doc,d2.terminals[1],nRight.id);
         D.wire(doc,d3.terminals[0],nLeft.id);D.wire(doc,d3.terminals[1],nTop.id);
@@ -52,9 +51,26 @@
         doc.referenceEndpoints.push(nLeft.id);
         return doc;
     }
+    function makeFullWaveFiltered(){
+        const doc=makeFullWaveBridge();
+        const rLoad=doc.components.find(c=>c.id==='R1');
+        const nTopLoad={id:'node-load-top',position:{x:432,y:-168}};
+        const nBotLoad={id:'node-load-bot',position:{x:432,y:288}};
+        doc.junctions.push(nTopLoad,nBotLoad);
+        // Rewire R1 through explicit top/bottom load rail junctions so C1 sits cleanly in parallel
+        doc.wires=doc.wires.filter(w=>w.toEndpoint!==rLoad.terminals[0]&&w.fromEndpoint!==rLoad.terminals[1]);
+        D.wire(doc,'node-dc-pos',nTopLoad.id,[{x:312,y:0},{x:312,y:-168}]);
+        D.wire(doc,nTopLoad.id,rLoad.terminals[0]);
+        D.wire(doc,rLoad.terminals[1],nBotLoad.id);
+        D.wire(doc,nBotLoad.id,'node-dc-neg',[{x:-168,y:288}]);
+        const cFilter=place(doc,'C1','capacitor',576,-72,90,0.001);
+        D.wire(doc,nTopLoad.id,cFilter.terminals[0],[{x:576,y:-168}]);
+        D.wire(doc,cFilter.terminals[1],nBotLoad.id,[{x:576,y:288}]);
+        return doc;
+    }
     function makeTransformerStepUp(){
         const doc=D.blank();
-        const ac=place(doc,'AC1','ac',-240,0,90,10,{frequency:1});
+        const ac=place(doc,'AC1','ac',-240,0,90,10,{frequency:0.5});
         const tr=place(doc,'T1','transformer',0,0,0,0,{turnsPrimary:1,turnsSecondary:5});
         const rLoad=place(doc,'R1','resistor',240,0,90,250);
         D.wire(doc,ac.terminals[0],tr.terminals[0]);
@@ -266,6 +282,83 @@
         doc.referenceEndpoints=[n0.id];
         return doc;
     }
+    function makeRLTransient(){
+        const doc=D.blank();
+        const ns=junc(doc,'node-s',96,120);
+        const na=junc(doc,'node-a',312,120);
+        const nb=junc(doc,'node-b',552,120);
+        const nd=junc(doc,'node-d',792,264);
+        const n0=junc(doc,'node-0',552,408);
+        const v1=place(doc,'V1','voltage',96,264,90,12);
+        const s1=place(doc,'S1','switch',204,120,0,0,{closed:true});
+        const r1=place(doc,'R1','resistor',432,120,0,100);
+        const l1=place(doc,'L1','inductor',552,264,90,20,{initialCurrent:0});
+        const d1=place(doc,'D1','diode',792,192,270,0.7);
+        const r2=place(doc,'R2','resistor',792,336,90,100);
+        D.wire(doc,v1.terminals[0],ns.id);
+        D.wire(doc,v1.terminals[1],n0.id);
+        D.wire(doc,s1.terminals[0],ns.id);
+        D.wire(doc,s1.terminals[1],na.id);
+        D.wire(doc,r1.terminals[0],na.id);
+        D.wire(doc,r1.terminals[1],nb.id);
+        D.wire(doc,l1.terminals[0],nb.id);
+        D.wire(doc,l1.terminals[1],n0.id);
+        D.wire(doc,d1.terminals[1],nb.id);
+        D.wire(doc,d1.terminals[0],nd.id);
+        D.wire(doc,r2.terminals[0],nd.id);
+        D.wire(doc,r2.terminals[1],n0.id);
+        doc.referenceEndpoints=[n0.id];
+        return doc;
+    }
+    function makeRLCResonance(){
+        const doc=D.blank();
+        const ns=junc(doc,'node-s',96,120);
+        const na=junc(doc,'node-a',288,120);
+        const nb=junc(doc,'node-b',480,120);
+        const nc=junc(doc,'node-c',696,120);
+        const n0=junc(doc,'node-0',696,408);
+        const v1=place(doc,'V1','voltage',96,264,90,10);
+        const s1=place(doc,'S1','switch',192,120,0,0,{closed:true});
+        const r1=place(doc,'R1','resistor',384,120,0,10);
+        const l1=place(doc,'L1','inductor',588,120,0,1,{initialCurrent:0});
+        const c1=place(doc,'C1','capacitor',696,264,90,0.001,{initialVoltage:0});
+        D.wire(doc,v1.terminals[0],ns.id);
+        D.wire(doc,v1.terminals[1],n0.id);
+        D.wire(doc,s1.terminals[0],ns.id);
+        D.wire(doc,s1.terminals[1],na.id);
+        D.wire(doc,r1.terminals[0],na.id);
+        D.wire(doc,r1.terminals[1],nb.id);
+        D.wire(doc,l1.terminals[0],nb.id);
+        D.wire(doc,l1.terminals[1],nc.id);
+        D.wire(doc,c1.terminals[0],nc.id);
+        D.wire(doc,c1.terminals[1],n0.id);
+        doc.referenceEndpoints=[n0.id];
+        return doc;
+    }
+    function makeZenerRegulator(){
+        const doc=D.blank();
+        const ns=junc(doc,'node-s',120,120);
+        const nz=junc(doc,'node-z',432,120);
+        const nled=junc(doc,'node-led',696,240);
+        const n0=junc(doc,'node-0',432,408);
+        const v1=place(doc,'V1','voltage',120,264,90,12);
+        const r1=place(doc,'R1','resistor',276,120,0,100);
+        const z1=place(doc,'Z1','zener',432,264,270,5.1);
+        const r2=place(doc,'R2','resistor',696,168,90,150);
+        const led1=place(doc,'LED1','led',696,324,90,2.0);
+        D.wire(doc,v1.terminals[0],ns.id);
+        D.wire(doc,v1.terminals[1],n0.id);
+        D.wire(doc,r1.terminals[0],ns.id);
+        D.wire(doc,r1.terminals[1],nz.id);
+        D.wire(doc,z1.terminals[1],nz.id);
+        D.wire(doc,z1.terminals[0],n0.id);
+        D.wire(doc,r2.terminals[0],nz.id);
+        D.wire(doc,r2.terminals[1],nled.id);
+        D.wire(doc,led1.terminals[0],nled.id);
+        D.wire(doc,led1.terminals[1],n0.id);
+        doc.referenceEndpoints=[n0.id];
+        return doc;
+    }
     const presets={
         ohm:{name:'Ohm’s law & switch',question:'Toggle S1 or double R1 to see how resistance controls current around the loop.',make:makeOhm,customLayout:true},
         series:{name:'Series · voltage divider',question:'Both resistors carry the same 40 mA current. Notice how the 12 V divides in proportion to resistance.',make:makeSeries,customLayout:true},
@@ -276,8 +369,12 @@
         rc:{name:'RC · charge & discharge',question:'Press Run to charge C1 through S1 & R1. Then open S1 and close S2 to discharge C1 through R2.',make:makeRCChargeDischarge,customLayout:true},
         rcLamp:{name:'RC · capacitor lamp flash & fade',question:'Press Run to charge C1 to 12 V. Then open S1 and close S2 to discharge C1 through lamp L1 and watch its glow fade.',make:makeRCLamp,customLayout:true},
         ladder:{name:'Two-capacitor RC ladder',question:'Press Run to charge C1 and C2 through the two-stage ladder. Open S1 and close S2 to discharge both capacitors.',make:makeRCLadder,customLayout:true},
-        halfWave:{name:'Half-wave rectifier',question:'Press Run: D1 conducts on positive AC half-cycles (dropping 0.7 V) and blocks negative half-cycles.',make:makeHalfWave,customLayout:true},
+        rlTransient:{name:'RL · inductor ramp & flyback diode',question:'Press Run: L1 opposes sudden current changes (I ramps up with τ = L/R). Open S1 to see inductive kickback clamp safely through flyback diode D1 & R2!',make:makeRLTransient,customLayout:true},
+        rlcResonance:{name:'RLC · underdamped resonant ringing',question:'Press Run: energy sloshes back and forth between inductor magnetic field (½LI²) and capacitor electric field (½CV²), producing damped sinusoidal ringing.',make:makeRLCResonance,customLayout:true},
+        zenerRegulator:{name:'Zener 5.1V regulator & LED load',question:'Z1 operates in reverse Zener breakdown to clamp the load bus at 5.1 V, driving ~20.7 mA through R2 and illuminating LED1.',make:makeZenerRegulator,customLayout:true},
+        halfWave:{name:'Half-wave rectifier',question:'Press Run: D1 conducts on positive AC half-cycles (dropping 0.7 V) and blocks negative half-cycles. Connect a 1 mF capacitor in parallel with R1 to observe sawtooth ripple!',make:makeHalfWave,customLayout:true},
         fullWaveBridge:{name:'Full-wave bridge rectifier',question:'Press Run: D1 & D4 conduct on positive half-cycles and D2 & D3 on negative half-cycles, so R1 always receives positive current.',make:makeFullWaveBridge,customLayout:true},
+        fullWaveFiltered:{name:'Full-wave bridge + filter capacitor (ripple)',question:'C1 (1 mF) in parallel with R1 (5 kΩ) smooths the 0.5 Hz (1s forward / 1s backward) full-wave rectified pulses into DC with a clear sawtooth ripple on the oscilloscope.',make:makeFullWaveFiltered,customLayout:true},
         transformerStepUp:{name:'AC transformer · 1:5 step-up',question:'Press Run: 10 Vp AC on the primary is stepped up to 50 Vp across R1 on the isolated secondary.',make:makeTransformerStepUp,customLayout:true},
         transform:{name:'Thévenin ↔ Norton',question:'Select V1 and transform it with R1. R2 must still receive 8 V and 40 mA.',make:()=>fixture([['V1','voltage','s','0',12],['R1','resistor','s','a',100],['R2','resistor','a','0',200]],{s:{x:144,y:120},a:{x:576,y:120},'0':{x:576,y:408}}),hidden:true},
         transformRC:{name:'Source transformation · RC load',question:'Transform V1 with R1 while paused. C1 keeps its voltage and the external transient stays equivalent.',make:()=>fixture([['V1','voltage','s','0',12],['R1','resistor','s','a',100],['R2','resistor','a','b',200],['C1','capacitor','b','0',.001]],{s:{x:120,y:120},a:{x:408,y:120},b:{x:720,y:120},'0':{x:720,y:408}}),hidden:true},

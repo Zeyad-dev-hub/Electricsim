@@ -118,4 +118,117 @@ test('nodal voltage: junctions, terminals, wires and ground report the node pote
  assert.ok(html.includes('id="nodeVoltageCard"')&&html.includes('id="nodeVoltageValue"'));assert.ok(js.includes('D.nodeInfo(')&&js.includes('updateNodeCard('));
  assert.ok(ren.includes('c.arc(p.x,p.y,r,Math.PI,2*Math.PI)'));
 });
+test('inductor RL transient ramp, magnetic flux, stored energy, and flyback diode clamping',()=>{
+ const doc=D.fixture([['V','voltage','a','0',10],['R','resistor','a','b',100],['L','inductor','b','0',100]]);
+ let c=D.compileCircuit(doc),s=D.initializeTransient(c);
+ near(s.acceptedSolution.componentResults.L.current,0);
+ near(s.acceptedSolution.componentResults.L.voltage,10);
+ // Time constant tau = L/R = 100 H / 100 Ohm = 1 s
+ s=advance(c,s,1);
+ near(s.inductorCurrentsById.L,0.1*(1-Math.exp(-1)),0.002);
+ near(s.acceptedSolution.componentResults.L.flux,100*s.inductorCurrentsById.L,1e-5);
+ near(s.acceptedSolution.componentResults.L.energy,0.5*100*s.inductorCurrentsById.L**2,1e-5);
+ // Test RL flyback preset: charge L1 then open S1 and verify D1 clamps inductive kickback
+ const rlDoc=D.makePreset('rlTransient');
+ let rlC=D.compileCircuit(rlDoc),rlS=advance(rlC,D.initializeTransient(rlC),0.2);
+ const iCharged=rlS.inductorCurrentsById.L1;
+ assert.ok(iCharged>0.05);
+ assert.equal(rlS.acceptedSolution.componentResults.D1.conducting,false);
+ // Open S1 while retaining inductor current
+ rlDoc.components.find(x=>x.id==='S1').closed=false;
+ rlC=D.compileCircuit(rlDoc);
+ rlS=D.initializeTransient(rlC,{},rlS.inductorCurrentsById);
+ rlS=advance(rlC,rlS,0.01);
+ assert.equal(rlS.acceptedSolution.componentResults.D1.conducting,true);
+ assert.ok(rlS.acceptedSolution.componentResults.L1.voltage<0);
+});
+test('RLC underdamped resonance rings with overshoot and exchanges magnetic/electric energy',()=>{
+ const doc=D.makePreset('rlcResonance');
+ const c=D.compileCircuit(doc);
+ let s=D.initializeTransient(c),maxVc=0,maxIl=0;
+ for(let t=0.02;t<=0.25;t+=0.01){
+  s=advance(c,s,t);
+  maxVc=Math.max(maxVc,s.capacitorVoltagesById.C1);
+  maxIl=Math.max(maxIl,s.inductorCurrentsById.L1);
+ }
+ // Underdamped RLC step response overshoots the 10V source!
+ assert.ok(maxVc>12,`Expected underdamped overshoot > 12V, got ${maxVc}`);
+ assert.ok(maxIl>0.15,`Expected resonant current peak > 0.15A, got ${maxIl}`);
+});
+test('Zener diode reverse voltage regulation, LED optical brightness and overload warning',()=>{
+ const doc=D.makePreset('zenerRegulator');
+ const c=D.compileCircuit(doc),s=D.solveDC(c);
+ const z=s.componentResults.Z1,led=s.componentResults.LED1;
+ assert.equal(z.conducting,true);
+ assert.equal(z.conductionMode,'Zener Breakdown');
+ near(D.nodeInfo(c,s,'node-z').voltage,5.1,0.02);
+ assert.equal(led.conducting,true);
+ assert.equal(led.conductionMode,'Forward ON');
+ near(led.current,(5.1-2.0)/150,0.01);
+ assert.ok(D.ledBrightness(led)>0.9);
+ assert.equal(led.overloaded,false);
+ // Verify LED overload above 50mA
+ const overDoc=D.fixture([['V','voltage','a','0',12],['R','resistor','a','b',100],['LED1','led','b','0',2.0]]);
+ const overS=D.solveDC(D.compileCircuit(overDoc));
+ near(overS.componentResults.LED1.current,0.1,0.002);
+ assert.equal(overS.componentResults.LED1.overloaded,true);
+});
+test('large-scale 200-component ladder network solves cleanly with zero KCL residual',()=>{
+ const defs=[['V1','voltage','n0','0',100]];
+ for(let k=0;k<95;k++){
+  defs.push([`Rs${k}`,'resistor',`n${k}`,`n${k+1}`,10]);
+  defs.push([`Rp${k}`,'resistor',`n${k+1}`,'0',1000]);
+ }
+ const doc=D.fixture(defs);
+ assert.equal(doc.components.length,191);
+ assert.deepEqual(D.validateDocument(doc),[]);
+ const s=D.solveDC(D.compileCircuit(doc));
+ assert.ok(s.residuals.kcl<1e-9);
+ assert.ok(s.componentResults.Rs0.current>s.componentResults.Rs94.current);
+});
+test('rectifier + parallel filter capacitor produces steady-state ripple voltage Vr(pp) and Vdc across load',()=>{
+ // 1. Full-wave filtered preset (0.5 Hz AC = 1s forward / 1s backward, 12 Vp, 4-diode bridge, R1 = 5 kOhm || C1 = 1 mF)
+ const docFW=D.makePreset('fullWaveFiltered');
+ assert.deepEqual(D.validateDocument(docFW),[]);
+ assert.equal(docFW.components.find(c=>c.id==='AC1').frequency,0.5);
+ const compFW=D.compileCircuit(docFW);
+ let stFW=D.initializeTransient(compFW);
+ const samplesFW=[];
+ for(let step=1;step<=60;step++){
+  stFW=D.advanceTransient(compFW,stFW,step*0.1,{maxAttempts:200});
+  for(const s of stFW.samples||[]){
+   if(s.time>=1.5)samplesFW.push(Math.abs(s.solution.componentResults.R1.voltage));
+  }
+  if(stFW.time>=1.5)samplesFW.push(Math.abs(stFW.acceptedSolution.componentResults.R1.voltage));
+ }
+ const vMaxFW=Math.max(...samplesFW),vMinFW=Math.min(...samplesFW),vRippleFW=vMaxFW-vMinFW;
+ near(vMaxFW,12-2*0.7,0.03); // 10.60 V peak after 2 bridge diodes
+ assert.ok(vMinFW>8.5&&vMinFW<9.5,`Full-wave filtered Vmin should stay high (~8.95V), got ${vMinFW}`);
+ assert.ok(vRippleFW>1.2&&vRippleFW<2.1,`Full-wave Vr(pp) should be ~1.65V, got ${vRippleFW}`);
+ // 2. Half-wave preset (0.5 Hz AC) + user adding a 1 mF capacitor in parallel with R1
+ const docHW=D.makePreset('halfWave');
+ assert.equal(docHW.components.find(c=>c.id==='AC1').frequency,0.5);
+ const r1=docHW.components.find(c=>c.id==='R1');
+ const cap=D.component('capacitor',680,220,'C1');
+ cap.value=0.001;
+ docHW.components.push(cap);
+ D.wire(docHW,cap.terminals[0],r1.terminals[0]);
+ D.wire(docHW,cap.terminals[1],r1.terminals[1]);
+ const compHW=D.compileCircuit(docHW);
+ let stHW=D.initializeTransient(compHW);
+ const samplesHW=[];
+ for(let step=1;step<=60;step++){
+  stHW=D.advanceTransient(compHW,stHW,step*0.1,{maxAttempts:200});
+  if(stHW.time>=1.5)samplesHW.push(Math.abs(stHW.acceptedSolution.componentResults.R1.voltage));
+ }
+ const vMaxHW=Math.max(...samplesHW),vMinHW=Math.min(...samplesHW),vRippleHW=vMaxHW-vMinHW;
+ near(vMaxHW,10-0.7,0.03); // 9.30 V peak after 1 diode from 10 Vp AC1
+ assert.ok(vMinHW>6.0&&vMinHW<7.2,`Half-wave filtered Vmin should be ~6.5V, got ${vMinHW}`);
+ assert.ok(vRippleHW>vRippleFW,`Half-wave ripple (${vRippleHW}) must exceed full-wave ripple (${vRippleFW})`);
+ // 3. Verify oscilloscope UI elements for ripple & probe target selection
+ const fs=require('node:fs');
+ const html=fs.readFileSync('dc-circuit.html','utf8'),js=fs.readFileSync('dc-circuit.js','utf8');
+ assert.ok(html.includes('id="scopeTargetSelect"')&&html.includes('id="scopeRipple"')&&html.includes('id="scopeVdc"')&&html.includes('id="scopeZoomRippleBtn"'));
+ assert.ok(js.includes('computeScopeStats')&&js.includes('prewarmScopeIfNeeded')&&js.includes('findParallelLoadBranch'));
+});
 console.log(`\n${count} DC circuit checks passed.`);

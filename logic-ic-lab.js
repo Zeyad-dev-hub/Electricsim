@@ -12,26 +12,32 @@
     // Pin X offsets for the 7 columns: -108, -72, -36, 0, +36, +72, +108 (pitch = 36px = 2 * GRID)
     // Pin Y offsets: Top row = -72, Bottom row = +72
 
-    function getDip14PinLocal(pinNumber) {
-        if (pinNumber >= 1 && pinNumber <= 7) {
+    function getDipPinLocal(pinNumber, pinCount = 14) {
+        const half = pinCount / 2;
+        const startX = pinCount === 16 ? -126 : -108;
+        if (pinNumber >= 1 && pinNumber <= half) {
             return {
                 pin: pinNumber,
-                x: -108 + (pinNumber - 1) * 36,
+                x: startX + (pinNumber - 1) * 36,
                 y: 72,
                 innerY: 56,
                 row: 'bottom'
             };
         }
-        if (pinNumber >= 8 && pinNumber <= 14) {
+        if (pinNumber >= half + 1 && pinNumber <= pinCount) {
             return {
                 pin: pinNumber,
-                x: -108 + (14 - pinNumber) * 36,
+                x: startX + (pinCount - pinNumber) * 36,
                 y: -72,
                 innerY: -56,
                 row: 'top'
             };
         }
         return { pin: pinNumber, x: 0, y: 0, innerY: 0, row: 'bottom' };
+    }
+
+    function getDip14PinLocal(pinNumber) {
+        return getDipPinLocal(pinNumber, 14);
     }
 
     const QUAD_STD_GATES = type => [
@@ -70,8 +76,11 @@
             description: 'Hex Inverter (6× 1-Input NOT Gates)',
             gateType: 'NOT',
             fanIn: 1,
+            pinCount: 14,
             vccPin: 14,
             gndPin: 7,
+            iccMa: 6.6,
+            tpdNs: 9,
             gates: HEX_7404_GATES
         },
         '7400': {
@@ -80,8 +89,11 @@
             description: 'Quad 2-Input NAND Gate',
             gateType: 'NAND',
             fanIn: 2,
+            pinCount: 14,
             vccPin: 14,
             gndPin: 7,
+            iccMa: 4.4,
+            tpdNs: 9,
             gates: QUAD_STD_GATES('NAND')
         },
         '7402': {
@@ -90,8 +102,11 @@
             description: 'Quad 2-Input NOR Gate (Reversed Pinout)',
             gateType: 'NOR',
             fanIn: 2,
+            pinCount: 14,
             vccPin: 14,
             gndPin: 7,
+            iccMa: 5.4,
+            tpdNs: 10,
             gates: QUAD_7402_GATES
         },
         '7408': {
@@ -100,8 +115,11 @@
             description: 'Quad 2-Input AND Gate',
             gateType: 'AND',
             fanIn: 2,
+            pinCount: 14,
             vccPin: 14,
             gndPin: 7,
+            iccMa: 8.8,
+            tpdNs: 12,
             gates: QUAD_STD_GATES('AND')
         },
         '7432': {
@@ -110,8 +128,11 @@
             description: 'Quad 2-Input OR Gate',
             gateType: 'OR',
             fanIn: 2,
+            pinCount: 14,
             vccPin: 14,
             gndPin: 7,
+            iccMa: 9.8,
+            tpdNs: 14,
             gates: QUAD_STD_GATES('OR')
         },
         '7486': {
@@ -120,8 +141,11 @@
             description: 'Quad 2-Input Exclusive-OR (XOR) Gate',
             gateType: 'XOR',
             fanIn: 2,
+            pinCount: 14,
             vccPin: 14,
             gndPin: 7,
+            iccMa: 10.0,
+            tpdNs: 15,
             gates: QUAD_STD_GATES('XOR')
         },
         '74266': {
@@ -130,8 +154,11 @@
             description: 'Quad 2-Input Exclusive-NOR (XNOR) Gate',
             gateType: 'XNOR',
             fanIn: 2,
+            pinCount: 14,
             vccPin: 14,
             gndPin: 7,
+            iccMa: 10.0,
+            tpdNs: 16,
             gates: QUAD_STD_GATES('XNOR')
         },
         '7410': {
@@ -140,8 +167,11 @@
             description: 'Triple 3-Input NAND Gate',
             gateType: 'NAND',
             fanIn: 3,
+            pinCount: 14,
             vccPin: 14,
             gndPin: 7,
+            iccMa: 3.3,
+            tpdNs: 9,
             gates: TRIPLE_3IN_GATES('NAND')
         },
         '7411': {
@@ -150,8 +180,11 @@
             description: 'Triple 3-Input AND Gate',
             gateType: 'AND',
             fanIn: 3,
+            pinCount: 14,
             vccPin: 14,
             gndPin: 7,
+            iccMa: 6.6,
+            tpdNs: 12,
             gates: TRIPLE_3IN_GATES('AND')
         },
         '7427': {
@@ -160,9 +193,145 @@
             description: 'Triple 3-Input NOR Gate',
             gateType: 'NOR',
             fanIn: 3,
+            pinCount: 14,
             vccPin: 14,
             gndPin: 7,
+            iccMa: 6.8,
+            tpdNs: 10,
             gates: TRIPLE_3IN_GATES('NOR')
+        },
+        '7474': {
+            model: '7474',
+            partNumber: 'SN74LS74AN',
+            description: 'Dual Positive-Edge D Flip-Flop w/ Preset & Clear',
+            gateType: 'D-FF',
+            fanIn: 4,
+            pinCount: 14,
+            vccPin: 14,
+            gndPin: 7,
+            iccMa: 8.5,
+            tpdNs: 14,
+            msi: true,
+            pinLabels: {
+                1: '1CLR\'', 2: '1D', 3: '1CLK', 4: '1PRE\'', 5: '1Q', 6: '1Q\'', 7: 'GND',
+                8: '2Q\'', 9: '2Q', 10: '2PRE\'', 11: '2CLK', 12: '2D', 13: '2CLR\'', 14: 'VCC'
+            },
+            outputs: [5, 6, 8, 9],
+            gates: []
+        },
+        '7475': {
+            model: '7475',
+            partNumber: 'SN74LS75N',
+            description: '4-Bit Bistable Transparent D-Latch',
+            gateType: 'D-LATCH',
+            fanIn: 2,
+            pinCount: 16,
+            vccPin: 16,
+            gndPin: 8,
+            iccMa: 24.0,
+            tpdNs: 15,
+            msi: true,
+            pinLabels: {
+                1: '1Q\'', 2: '1D', 3: '2D', 4: 'EN12', 5: '4Q\'', 6: '3D', 7: '4D', 8: 'GND',
+                9: '4Q', 10: '3Q\'', 11: '3Q', 12: 'EN34', 13: '2Q\'', 14: '2Q', 15: '1Q', 16: 'VCC'
+            },
+            outputs: [1, 5, 9, 10, 11, 13, 14, 15],
+            gates: []
+        },
+        '74279': {
+            model: '74279',
+            partNumber: 'SN74LS279AN',
+            description: 'Quad S-R Bistable Latch',
+            gateType: 'SR-LATCH',
+            fanIn: 2,
+            pinCount: 16,
+            vccPin: 16,
+            gndPin: 8,
+            iccMa: 12.0,
+            tpdNs: 12,
+            msi: true,
+            pinLabels: {
+                1: '1S', 2: '1R', 3: '1Q\'', 4: '1Q', 5: '2S', 6: '2R', 7: '2Q', 8: 'GND',
+                9: '3S', 10: '3R', 11: '3Q', 12: '3Q\'', 13: '4S', 14: '4R', 15: '4Q', 16: 'VCC'
+            },
+            outputs: [3, 4, 7, 11, 12, 15],
+            gates: []
+        },
+        '74283': {
+            model: '74283',
+            partNumber: 'SN74LS283N',
+            description: '4-Bit Binary Full Adder with Fast Carry',
+            gateType: '4B-ADD',
+            fanIn: 9,
+            pinCount: 16,
+            vccPin: 16,
+            gndPin: 8,
+            iccMa: 34.0,
+            tpdNs: 15,
+            msi: true,
+            pinLabels: {
+                1: 'Σ2', 2: 'B2', 3: 'A2', 4: 'Σ1', 5: 'A1', 6: 'B1', 7: 'C0', 8: 'GND',
+                9: 'C4', 10: 'Σ4', 11: 'B4', 12: 'A4', 13: 'Σ3', 14: 'A3', 15: 'B3', 16: 'VCC'
+            },
+            outputs: [1, 4, 9, 10, 13],
+            gates: []
+        },
+        '74157': {
+            model: '74157',
+            partNumber: 'SN74LS157N',
+            description: 'Quad 2-to-1 Data Selector / Multiplexer',
+            gateType: 'MUX',
+            fanIn: 3,
+            pinCount: 16,
+            vccPin: 16,
+            gndPin: 8,
+            iccMa: 19.5,
+            tpdNs: 9,
+            msi: true,
+            pinLabels: {
+                1: 'SEL', 2: '1A', 3: '1B', 4: '1Y', 5: '2A', 6: '2B', 7: '2Y', 8: 'GND',
+                9: '3Y', 10: '3B', 11: '3A', 12: '4Y', 13: '4B', 14: '4A', 15: 'EN\'', 16: 'VCC'
+            },
+            outputs: [4, 7, 9, 12],
+            gates: []
+        },
+        '74148': {
+            model: '74148',
+            partNumber: 'SN74LS148N',
+            description: '8-to-3 Priority Encoder',
+            gateType: 'ENC',
+            fanIn: 8,
+            pinCount: 16,
+            vccPin: 16,
+            gndPin: 8,
+            iccMa: 25.0,
+            tpdNs: 14,
+            msi: true,
+            pinLabels: {
+                1: 'D4', 2: 'D5', 3: 'D6', 4: 'D7', 5: 'EI', 6: 'A2', 7: 'A1', 8: 'GND',
+                9: 'A0', 10: 'D0', 11: 'D1', 12: 'D2', 13: 'D3', 14: 'GS', 15: 'EO', 16: 'VCC'
+            },
+            outputs: [6, 7, 9, 14, 15],
+            gates: []
+        },
+        '7493': {
+            model: '7493',
+            partNumber: 'SN74LS93N',
+            description: '4-Bit Binary Ripple Counter',
+            gateType: 'COUNTER',
+            fanIn: 3,
+            pinCount: 14,
+            vccPin: 14,
+            gndPin: 7,
+            iccMa: 28.0,
+            tpdNs: 18,
+            msi: true,
+            pinLabels: {
+                1: 'CLK', 2: 'R0(1)', 3: 'R0(2)', 4: 'NC', 5: 'NC', 6: 'NC', 7: 'GND',
+                8: 'QC', 9: 'QB', 10: 'NC', 11: 'QD', 12: 'QA', 13: 'NC', 14: 'VCC'
+            },
+            outputs: [8, 9, 11, 12],
+            gates: []
         }
     };
 
@@ -208,7 +377,7 @@
         const pos = { x: Math.round(x), y: Math.round(y) };
         const rotation = ((extra.rotation || 0) % 360 + 360) % 360;
         if (IC_CATALOG[kind]) {
-            return {
+            const comp = {
                 id: extra.id || uid('ic'),
                 kind: 'ic',
                 model: kind,
@@ -216,6 +385,16 @@
                 rotation,
                 label: extra.label || kind
             };
+            if (IC_CATALOG[kind].msi) {
+                comp.state = extra.state ? JSON.parse(JSON.stringify(extra.state)) : {
+                    q: [0, 0, 0, 0],
+                    qBar: [1, 1, 1, 1],
+                    count: 0,
+                    prevClk1: 0,
+                    prevClk2: 0
+                };
+            }
+            return comp;
         }
         if (kind === 'battery') {
             return {
@@ -235,6 +414,25 @@
                 rotation,
                 closed: Boolean(extra.closed),
                 label: extra.label || 'SW'
+            };
+        }
+        if (kind === 'dip4') {
+            return {
+                id: extra.id || uid('dip'),
+                kind: 'dip4',
+                position: pos,
+                rotation,
+                bits: Array.isArray(extra.bits) ? [...extra.bits] : [0, 0, 0, 0],
+                label: extra.label || 'DIP-4'
+            };
+        }
+        if (kind === 'probe') {
+            return {
+                id: extra.id || uid('prb'),
+                kind: 'probe',
+                position: pos,
+                rotation,
+                label: extra.label || 'PROBE'
             };
         }
         if (kind === 'resistor') {
@@ -274,7 +472,8 @@
                 rotation,
                 value: extra.value ? 1 : 0,
                 running: extra.running !== false,
-                label: extra.label || '1Hz CLK'
+                freqHz: extra.freqHz || 1,
+                label: extra.label || 'CLK'
             };
         }
         if (kind === 'seg7') {
@@ -309,17 +508,25 @@
     function getComponentPins(comp) {
         if (comp.kind === 'ic') {
             const spec = IC_CATALOG[comp.model];
+            const pinCount = spec?.pinCount || 14;
+            const vccPin = spec?.vccPin || 14;
+            const gndPin = spec?.gndPin || 7;
             const pins = [];
-            for (let p = 1; p <= 14; p++) {
-                const loc = getDip14PinLocal(p);
+            for (let p = 1; p <= pinCount; p++) {
+                const loc = getDipPinLocal(p, pinCount);
                 let role = 'io';
                 let title = `Pin ${p}`;
-                if (p === 14) {
+                if (p === vccPin) {
                     role = 'vcc';
-                    title = 'Pin 14 (VCC +5V)';
-                } else if (p === 7) {
+                    title = `Pin ${p} (VCC +5V)`;
+                } else if (p === gndPin) {
                     role = 'gnd';
-                    title = 'Pin 7 (GND 0V)';
+                    title = `Pin ${p} (GND 0V)`;
+                } else if (spec?.msi) {
+                    const lbl = spec.pinLabels?.[p] || '';
+                    const isOut = Array.isArray(spec.outputs) && spec.outputs.includes(p);
+                    role = isOut ? 'out' : 'in';
+                    title = `Pin ${p} (${lbl || spec.gateType} ${isOut ? 'Out' : 'In'})`;
                 } else if (spec) {
                     for (let gi = 0; gi < spec.gates.length; gi++) {
                         const g = spec.gates[gi];
@@ -351,6 +558,19 @@
             return [
                 buildPin(comp, 'in', -36, 0, -1, 0, 'in', 'Switch Supply Input (+5V)'),
                 buildPin(comp, 'out', 36, 0, 1, 0, 'out', 'Switch Output Terminal')
+            ];
+        }
+        if (comp.kind === 'dip4') {
+            return [
+                buildPin(comp, 'B0', 36, -54, 1, 0, 'out', 'DIP Switch 1 Output (Bit 0)'),
+                buildPin(comp, 'B1', 36, -18, 1, 0, 'out', 'DIP Switch 2 Output (Bit 1)'),
+                buildPin(comp, 'B2', 36, 18, 1, 0, 'out', 'DIP Switch 3 Output (Bit 2)'),
+                buildPin(comp, 'B3', 36, 54, 1, 0, 'out', 'DIP Switch 4 Output (Bit 3)')
+            ];
+        }
+        if (comp.kind === 'probe') {
+            return [
+                buildPin(comp, 'tip', -36, 0, -1, 0, 'in', 'Logic Probe Test Tip')
             ];
         }
         if (comp.kind === 'resistor') {
@@ -402,11 +622,12 @@
         const swapped = rot === 90 || rot === 270;
         let w = 84, h = 52;
         if (comp.kind === 'ic') {
-            w = 264;
+            const spec = IC_CATALOG[comp.model];
+            w = (spec?.pinCount === 16) ? 300 : 264;
             h = 148;
-        } else if (comp.kind === 'seg7') {
-            w = 84;
-            h = 136;
+        } else if (comp.kind === 'seg7' || comp.kind === 'dip4') {
+            w = 88;
+            h = 152;
         } else if (comp.kind === 'gnd') {
             w = 48;
             h = 46;
@@ -546,6 +767,13 @@
                 baseStrongDrivers.set(`${comp.id}:pin`, 0);
             } else if (comp.kind === 'clock') {
                 baseStrongDrivers.set(`${comp.id}:out`, comp.value ? 1 : 0);
+            } else if (comp.kind === 'dip4') {
+                const bits = Array.isArray(comp.bits) ? comp.bits : [0, 0, 0, 0];
+                for (let b = 0; b < 4; b++) {
+                    const key = `${comp.id}:B${b}`;
+                    if (bits[b]) baseStrongDrivers.set(key, 1);
+                    else baseWeakDrivers.set(key, 0);
+                }
             } else if (comp.kind === 'switch') {
                 const inKey = `${comp.id}:in`;
                 const outKey = `${comp.id}:out`;
@@ -565,13 +793,194 @@
                     }
                 }
             } else if (comp.kind === 'ic' && doc.autoPower) {
-                baseStrongDrivers.set(`${comp.id}:14`, 1);
-                baseStrongDrivers.set(`${comp.id}:7`, 0);
+                const spec = IC_CATALOG[comp.model];
+                const vccPin = spec?.vccPin || 14;
+                const gndPin = spec?.gndPin || 7;
+                baseStrongDrivers.set(`${comp.id}:${vccPin}`, 1);
+                baseStrongDrivers.set(`${comp.id}:${gndPin}`, 0);
             }
         }
 
         const icOutputDrivers = new Map(); // pinKey -> 0 | 1
-        const icStates = new Map();        // compId -> { powered, fault, gates: Map(gateId -> { outVal, inVals }) }
+        const icStates = new Map();        // compId -> { powered, fault, gates: Map(gateId -> { outVal, inVals }), msiSummary }
+
+        function evalMsiIC(comp, spec, getPin, phase = 'settle') {
+            if (!comp.state) {
+                comp.state = {
+                    q: [0, 0, 0, 0],
+                    qBar: [1, 1, 1, 1],
+                    count: 0,
+                    prevClk1: 0,
+                    prevClk2: 0
+                };
+            }
+            const st = comp.state;
+            const isCommit = phase === 'commit';
+            const P = (pin, def = 0) => {
+                const v = getPin(`${comp.id}:${pin}`);
+                return (v === 0 || v === 1) ? v : def;
+            };
+            const outPins = new Map();
+            let summary = '';
+
+            if (comp.model === '7474') {
+                // Dual Positive-Edge-Triggered D Flip-Flop w/ Preset & Clear (active-low PRE'/CLR' float HIGH)
+                const clr1 = P(1, 1), d1 = P(2, 0), clk1 = P(3, 0), pre1 = P(4, 1);
+                const clr2 = P(13, 1), d2 = P(12, 0), clk2 = P(11, 0), pre2 = P(10, 1);
+
+                let q1 = st.q[0] ? 1 : 0;
+                let qb1 = st.qBar[0] ? 1 : 0;
+                if (pre1 === 0 && clr1 === 0) {
+                    q1 = 1; qb1 = 1;
+                } else if (pre1 === 0) {
+                    q1 = 1; qb1 = 0;
+                } else if (clr1 === 0) {
+                    q1 = 0; qb1 = 1;
+                } else if (isCommit && st.prevClk1 === 0 && clk1 === 1) {
+                    q1 = d1; qb1 = d1 ? 0 : 1;
+                }
+
+                let q2 = st.q[1] ? 1 : 0;
+                let qb2 = st.qBar[1] ? 1 : 0;
+                if (pre2 === 0 && clr2 === 0) {
+                    q2 = 1; qb2 = 1;
+                } else if (pre2 === 0) {
+                    q2 = 1; qb2 = 0;
+                } else if (clr2 === 0) {
+                    q2 = 0; qb2 = 1;
+                } else if (isCommit && st.prevClk2 === 0 && clk2 === 1) {
+                    q2 = d2; qb2 = d2 ? 0 : 1;
+                }
+
+                if (isCommit) {
+                    st.q[0] = q1; st.qBar[0] = qb1; st.prevClk1 = clk1;
+                    st.q[1] = q2; st.qBar[1] = qb2; st.prevClk2 = clk2;
+                }
+                outPins.set(5, q1); outPins.set(6, qb1);
+                outPins.set(9, q2); outPins.set(8, qb2);
+                summary = `Q1=${q1} Q2=${q2}`;
+            } else if (comp.model === '7475') {
+                // 4-Bit Bistable Transparent D-Latch
+                const d1 = P(2, 0), d2 = P(3, 0), en12 = P(4, 0);
+                const d3 = P(6, 0), d4 = P(7, 0), en34 = P(12, 0);
+                const q = [...(st.q || [0, 0, 0, 0])];
+                if (en12 === 1) { q[0] = d1; q[1] = d2; }
+                if (en34 === 1) { q[2] = d3; q[3] = d4; }
+                if (isCommit) {
+                    st.q = q;
+                    st.qBar = q.map(b => (b ? 0 : 1));
+                }
+                outPins.set(15, q[0]); outPins.set(1, q[0] ? 0 : 1);
+                outPins.set(14, q[1]); outPins.set(13, q[1] ? 0 : 1);
+                outPins.set(11, q[2]); outPins.set(10, q[2] ? 0 : 1);
+                outPins.set(9, q[3]); outPins.set(5, q[3] ? 0 : 1);
+                summary = `Q=${q[3]}${q[2]}${q[1]}${q[0]}`;
+            } else if (comp.model === '74279') {
+                // Quad S-R Bistable Latch (Active-HIGH S/R for intuitive bench operation)
+                const pairs = [
+                    { s: P(1, 0), r: P(2, 0), qPin: 4, qbPin: 3, idx: 0 },
+                    { s: P(5, 0), r: P(6, 0), qPin: 7, qbPin: null, idx: 1 },
+                    { s: P(9, 0), r: P(10, 0), qPin: 11, qbPin: 12, idx: 2 },
+                    { s: P(13, 0), r: P(14, 0), qPin: 15, qbPin: null, idx: 3 }
+                ];
+                const q = [...(st.q || [0, 0, 0, 0])];
+                const qb = [...(st.qBar || [1, 1, 1, 1])];
+                for (const p of pairs) {
+                    if (p.s === 1 && p.r === 0) { q[p.idx] = 1; qb[p.idx] = 0; }
+                    else if (p.s === 0 && p.r === 1) { q[p.idx] = 0; qb[p.idx] = 1; }
+                    else if (p.s === 1 && p.r === 1) { q[p.idx] = 0; qb[p.idx] = 0; }
+                    outPins.set(p.qPin, q[p.idx]);
+                    if (p.qbPin) outPins.set(p.qbPin, qb[p.idx]);
+                }
+                if (isCommit) { st.q = q; st.qBar = qb; }
+                summary = `SR=${q[3]}${q[2]}${q[1]}${q[0]}`;
+            } else if (comp.model === '74283') {
+                // 4-Bit Binary Full Adder with Fast Carry
+                const a = (P(12, 0) << 3) | (P(14, 0) << 2) | (P(3, 0) << 1) | P(5, 0);
+                const b = (P(11, 0) << 3) | (P(15, 0) << 2) | (P(2, 0) << 1) | P(6, 0);
+                const c0 = P(7, 0);
+                const sum = a + b + c0;
+                outPins.set(4, (sum >> 0) & 1);
+                outPins.set(1, (sum >> 1) & 1);
+                outPins.set(13, (sum >> 2) & 1);
+                outPins.set(10, (sum >> 3) & 1);
+                outPins.set(9, (sum >> 4) & 1);
+                summary = `${a}+${b}+${c0}=${sum}`;
+            } else if (comp.model === '74157') {
+                // Quad 2-to-1 Data Multiplexer (Pin 1 = SEL, Pin 15 = EN' active-low)
+                const sel = P(1, 0);
+                const enBar = P(15, 0);
+                if (enBar === 1) {
+                    outPins.set(4, 0); outPins.set(7, 0); outPins.set(9, 0); outPins.set(12, 0);
+                    summary = 'DISABLED';
+                } else {
+                    const y1 = sel ? P(3, 0) : P(2, 0);
+                    const y2 = sel ? P(6, 0) : P(5, 0);
+                    const y3 = sel ? P(10, 0) : P(11, 0);
+                    const y4 = sel ? P(13, 0) : P(14, 0);
+                    outPins.set(4, y1); outPins.set(7, y2); outPins.set(9, y3); outPins.set(12, y4);
+                    summary = `SEL=${sel ? 'B' : 'A'} Y=${y4}${y3}${y2}${y1}`;
+                }
+            } else if (comp.model === '74148') {
+                // 8-to-3 Priority Encoder (inputs 0..7 on pins 10,11,12,13,1,2,3,4; Pin 5 = EI'; outputs A0=9, A1=7, A2=6, GS=14, EO=15)
+                const rawPins = [10, 11, 12, 13, 1, 2, 3, 4].map(p => getPin(`${comp.id}:${p}`));
+                const eiRaw = getPin(`${comp.id}:5`);
+                const activeLowMode = (eiRaw === 0) && rawPins.some(v => v === 0) && !rawPins.some(v => v === 1);
+                if (activeLowMode) {
+                    let pri = -1;
+                    for (let i = 7; i >= 0; i--) {
+                        if (rawPins[i] === 0) { pri = i; break; }
+                    }
+                    const valid = pri >= 0;
+                    const code = valid ? pri : 0;
+                    outPins.set(9, valid ? (((code >> 0) & 1) ^ 1) : 1);
+                    outPins.set(7, valid ? (((code >> 1) & 1) ^ 1) : 1);
+                    outPins.set(6, valid ? (((code >> 2) & 1) ^ 1) : 1);
+                    outPins.set(14, valid ? 0 : 1);
+                    outPins.set(15, valid ? 1 : 0);
+                    summary = valid ? `PRI=I${pri}' (${code})` : 'IDLE';
+                } else {
+                    const d = [P(10, 0), P(11, 0), P(12, 0), P(13, 0), P(1, 0), P(2, 0), P(3, 0), P(4, 0)];
+                    let pri = -1;
+                    for (let i = 7; i >= 0; i--) {
+                        if (d[i] === 1) { pri = i; break; }
+                    }
+                    const valid = pri >= 0 ? 1 : 0;
+                    const code = pri >= 0 ? pri : 0;
+                    outPins.set(9, (code >> 0) & 1);
+                    outPins.set(7, (code >> 1) & 1);
+                    outPins.set(6, (code >> 2) & 1);
+                    outPins.set(14, valid);
+                    outPins.set(15, valid ? 0 : 1);
+                    summary = valid ? `PRI=D${pri} (${code})` : 'IDLE';
+                }
+            } else if (comp.model === '7493') {
+                // 4-Bit Binary Ripple Counter (Pin 1 = CLK, Pins 2 & 3 = Reset R0(1)&R0(2); QA=12, QB=9, QC=8, QD=11)
+                const clk = P(1, 0);
+                const r1 = P(2, 0), r2 = P(3, 0);
+                let cnt = st.count || 0;
+                if (r1 === 1 && r2 === 1) {
+                    cnt = 0;
+                } else if (isCommit) {
+                    if (st.prevClk93 === undefined) {
+                        st.prevClk93 = clk;
+                    } else if (st.prevClk93 === 1 && clk === 0) {
+                        cnt = (cnt + 1) & 0x0F;
+                    }
+                }
+                if (isCommit) {
+                    st.count = cnt;
+                    st.prevClk93 = clk;
+                }
+                outPins.set(12, (cnt >> 0) & 1);
+                outPins.set(9, (cnt >> 1) & 1);
+                outPins.set(8, (cnt >> 2) & 1);
+                outPins.set(11, (cnt >> 3) & 1);
+                summary = `CNT=${cnt} (0x${cnt.toString(16).toUpperCase()})`;
+            }
+
+            return { outPins, summary };
+        }
 
         function resolveNets() {
             const netState = nets.map(net => {
@@ -645,69 +1054,158 @@
 
         resolveNets();
 
-        // Iterative evaluation for multi-IC cascades & latches
-        for (let iter = 0; iter < 16; iter++) {
-            let changed = false;
+        function runCombinationalSettle(maxIter = 32) {
+            for (let iter = 0; iter < maxIter; iter++) {
+                let changed = false;
 
-            for (const comp of doc.components) {
-                if (comp.kind !== 'ic') continue;
-                const spec = IC_CATALOG[comp.model];
-                if (!spec) continue;
+                for (const comp of doc.components) {
+                    if (comp.kind !== 'ic') continue;
+                    const spec = IC_CATALOG[comp.model];
+                    if (!spec) continue;
 
-                const vccPinKey = `${comp.id}:${spec.vccPin}`;
-                const gndPinKey = `${comp.id}:${spec.gndPin}`;
-                const vccVal = doc.autoPower ? 1 : getPinValue(vccPinKey);
-                const gndVal = doc.autoPower ? 0 : getPinValue(gndPinKey);
-                const gndNet = nets[pinToNet.get(gndPinKey)];
-                const hasTrueGnd = doc.autoPower ? true : Boolean(gndNet && gndNet.hasTrueGround);
+                    const vccPinKey = `${comp.id}:${spec.vccPin}`;
+                    const gndPinKey = `${comp.id}:${spec.gndPin}`;
+                    const vccVal = doc.autoPower ? 1 : getPinValue(vccPinKey);
+                    const gndVal = doc.autoPower ? 0 : getPinValue(gndPinKey);
+                    const gndNet = nets[pinToNet.get(gndPinKey)];
+                    const hasTrueGnd = doc.autoPower ? true : Boolean(gndNet && gndNet.hasTrueGround);
 
-                const reversePower = (vccVal === 0 && gndVal === 1);
-                const powered = (vccVal === 1 && gndVal === 0 && hasTrueGnd);
+                    const reversePower = (vccVal === 0 && gndVal === 1);
+                    const powered = (vccVal === 1 && gndVal === 0 && hasTrueGnd);
 
-                const gateResults = new Map();
-                for (const g of spec.gates) {
-                    const outKey = `${comp.id}:${g.output}`;
-                    if (!powered) {
-                        if (icOutputDrivers.has(outKey)) {
-                            icOutputDrivers.delete(outKey);
-                            changed = true;
+                    if (spec.msi) {
+                        const outList = spec.outputs || [];
+                        if (!powered) {
+                            for (const p of outList) {
+                                const outKey = `${comp.id}:${p}`;
+                                if (icOutputDrivers.has(outKey)) {
+                                    icOutputDrivers.delete(outKey);
+                                    changed = true;
+                                }
+                            }
+                            icStates.set(comp.id, {
+                                powered,
+                                reversePower,
+                                vccVal,
+                                gndVal,
+                                gates: new Map(),
+                                msiSummary: 'OFF'
+                            });
+                            continue;
                         }
-                        gateResults.set(g.id, { outVal: null, inVals: g.inputs.map(p => getPinValue(`${comp.id}:${p}`)) });
+
+                        const { outPins, summary } = evalMsiIC(comp, spec, getPinValue, 'settle');
+                        for (const [p, outVal] of outPins.entries()) {
+                            const outKey = `${comp.id}:${p}`;
+                            const prev = icOutputDrivers.get(outKey) ?? null;
+                            if (outVal === 0 || outVal === 1) {
+                                if (prev !== outVal) {
+                                    icOutputDrivers.set(outKey, outVal);
+                                    changed = true;
+                                }
+                            } else if (icOutputDrivers.has(outKey)) {
+                                icOutputDrivers.delete(outKey);
+                                changed = true;
+                            }
+                        }
+                        icStates.set(comp.id, {
+                            powered,
+                            reversePower,
+                            vccVal,
+                            gndVal,
+                            gates: new Map(),
+                            msiSummary: summary
+                        });
                         continue;
                     }
 
-                    const inVals = g.inputs.map(p => getPinValue(`${comp.id}:${p}`));
-                    const outVal = evalSingleGate(g.type, inVals);
-                    gateResults.set(g.id, { outVal, inVals });
+                    const gateResults = new Map();
+                    for (const g of spec.gates) {
+                        const outKey = `${comp.id}:${g.output}`;
+                        if (!powered) {
+                            if (icOutputDrivers.has(outKey)) {
+                                icOutputDrivers.delete(outKey);
+                                changed = true;
+                            }
+                            gateResults.set(g.id, { outVal: null, inVals: g.inputs.map(p => getPinValue(`${comp.id}:${p}`)) });
+                            continue;
+                        }
 
-                    const prev = icOutputDrivers.get(outKey) ?? null;
-                    if (outVal === 0 || outVal === 1) {
-                        if (prev !== outVal) {
-                            icOutputDrivers.set(outKey, outVal);
+                        const inVals = g.inputs.map(p => getPinValue(`${comp.id}:${p}`));
+                        const outVal = evalSingleGate(g.type, inVals);
+                        gateResults.set(g.id, { outVal, inVals });
+
+                        const prev = icOutputDrivers.get(outKey) ?? null;
+                        if (outVal === 0 || outVal === 1) {
+                            if (prev !== outVal) {
+                                icOutputDrivers.set(outKey, outVal);
+                                changed = true;
+                            }
+                        } else if (icOutputDrivers.has(outKey)) {
+                            icOutputDrivers.delete(outKey);
                             changed = true;
                         }
-                    } else if (icOutputDrivers.has(outKey)) {
-                        icOutputDrivers.delete(outKey);
-                        changed = true;
                     }
+
+                    icStates.set(comp.id, {
+                        powered,
+                        reversePower,
+                        vccVal,
+                        gndVal,
+                        gates: gateResults
+                    });
                 }
 
-                icStates.set(comp.id, {
-                    powered,
-                    reversePower,
-                    vccVal,
-                    gndVal,
-                    gates: gateResults
-                });
+                resolveNets();
+                if (!changed) break;
             }
-
-            resolveNets();
-            if (!changed) break;
         }
 
-        // Evaluate lamps & 7-seg displays
+        // Phase A: Pre-edge combinational & latch settle
+        runCombinationalSettle(32);
+
+        // Phase B: Synchronous master-slave edge sample & commit using settled pre-edge net values
+        const preEdgeNetValues = nets.map(n => n.value);
+        const getPreEdgePinValue = pinKey => {
+            const netIdx = pinToNet.get(pinKey);
+            if (netIdx === undefined) return null;
+            return preEdgeNetValues[netIdx];
+        };
+
+        let edgeChanged = false;
+        for (const comp of doc.components) {
+            if (comp.kind !== 'ic') continue;
+            const spec = IC_CATALOG[comp.model];
+            if (!spec || !spec.msi) continue;
+            const st = icStates.get(comp.id);
+            if (!st || !st.powered) continue;
+
+            const { outPins, summary } = evalMsiIC(comp, spec, getPreEdgePinValue, 'commit');
+            st.msiSummary = summary;
+            for (const [p, outVal] of outPins.entries()) {
+                const outKey = `${comp.id}:${p}`;
+                const prev = icOutputDrivers.get(outKey) ?? null;
+                if (outVal === 0 || outVal === 1) {
+                    if (prev !== outVal) {
+                        icOutputDrivers.set(outKey, outVal);
+                        edgeChanged = true;
+                    }
+                } else if (icOutputDrivers.has(outKey)) {
+                    icOutputDrivers.delete(outKey);
+                    edgeChanged = true;
+                }
+            }
+        }
+
+        if (edgeChanged) {
+            resolveNets();
+            runCombinationalSettle(16);
+        }
+
+        // Evaluate lamps, 7-seg displays, and logic probes
         const lampStates = new Map();
         const segStates = new Map();
+        const probeStates = new Map();
 
         for (const comp of doc.components) {
             if (comp.kind === 'lamp') {
@@ -762,6 +1260,12 @@
                     ? ((d === 1 ? 8 : 0) | (c === 1 ? 4 : 0) | (b === 1 ? 2 : 0) | (a === 1 ? 1 : 0))
                     : null;
                 segStates.set(comp.id, { value: val, bits: [a, b, c, d] });
+            } else if (comp.kind === 'probe') {
+                const tipKey = `${comp.id}:tip`;
+                const val = getPinValue(tipKey);
+                const netIdx = pinToNet.get(tipKey);
+                const conflict = Boolean(netIdx !== undefined && nets[netIdx]?.conflict);
+                probeStates.set(comp.id, { value: val, val, conflict });
             }
         }
 
@@ -777,6 +1281,31 @@
         const anyShort = nets.some(n => n.conflict);
         const anyReverse = [...icStates.values()].some(s => s.reversePower);
 
+        // Compute realistic electrical & timing telemetry
+        let iccMa = 0;
+        let maxDelayNs = 0;
+        for (const comp of doc.components) {
+            if (comp.kind === 'ic') {
+                const st = icStates.get(comp.id);
+                const spec = IC_CATALOG[comp.model];
+                if (st?.powered && spec) {
+                    iccMa += spec.iccMa || 8.0;
+                    maxDelayNs += spec.tpdNs || 10;
+                }
+            } else if (comp.kind === 'lamp') {
+                if (lampStates.get(comp.id)?.lit) {
+                    iccMa += 14.0;
+                }
+            } else if (comp.kind === 'seg7') {
+                if (segStates.get(comp.id)?.value !== null) {
+                    iccMa += 28.0;
+                }
+            }
+        }
+        if (anyShort) iccMa += 250.0;
+        const powerMw = Math.round(iccMa * 5.0 * 10) / 10;
+        iccMa = Math.round(iccMa * 10) / 10;
+
         return {
             pins,
             pinToNet,
@@ -785,8 +1314,14 @@
             icStates,
             lampStates,
             segStates,
+            probeStates,
             anyShort,
-            anyReverse
+            anyReverse,
+            telemetry: {
+                iccMa,
+                powerMw,
+                propagationDelayNs: maxDelayNs
+            }
         };
     }
 
@@ -1292,6 +1827,120 @@
 
                 return doc;
             }
+        },
+        ic_74283_adder4: {
+            title: '74283 + DIP-4 + 7-Seg — 4-Bit Binary Full Adder ALU Bench',
+            description: 'Uses a 16-pin 74283 4-Bit Binary Full Adder IC driven by two 4-Channel DIP Switch Banks (A[3:0] and B[3:0]). Sum Σ[3:0] drives a Hex 7-Segment Display and Carry-Out (Pin 9) drives an Overflow Lamp.',
+            build() {
+                const doc = blankICDoc();
+                doc.autoPower = true;
+                const dipA = createICComponent('dip4', -324, -72, { id: 'dipA', bits: [1, 1, 0, 1], label: 'BUS A (11)' });
+                const dipB = createICComponent('dip4', -324, 90, { id: 'dipB', bits: [1, 0, 1, 0], label: 'BUS B (5)' });
+                const ic283 = createICComponent('74283', 0, 0, { id: 'ic74283' });
+                const seg = createICComponent('seg7', 288, -36, { id: 'segSum' });
+                const lampCout = createICComponent('lamp', 288, 126, { id: 'lampCout', color: 'amber', label: 'CARRY C4' });
+                const gndCout = createICComponent('gnd', 342, 198, { id: 'gndCout' });
+                const gndCin = createICComponent('gnd', 72, 144, { id: 'gndCin' });
+
+                doc.components.push(dipA, dipB, ic283, seg, lampCout, gndCout, gndCin);
+
+                // Tie C0 (Pin 7) to GND (0)
+                connectICWire(doc, 'ic74283:7', 'gndCin:pin');
+
+                // Bus A -> 74283 A1(5), A2(3), A3(14), A4(12)
+                connectICWire(doc, 'dipA:B0', 'ic74283:5');
+                connectICWire(doc, 'dipA:B1', 'ic74283:3');
+                connectICWire(doc, 'dipA:B2', 'ic74283:14');
+                connectICWire(doc, 'dipA:B3', 'ic74283:12');
+
+                // Bus B -> 74283 B1(6), B2(2), B3(15), B4(11)
+                connectICWire(doc, 'dipB:B0', 'ic74283:6');
+                connectICWire(doc, 'dipB:B1', 'ic74283:2');
+                connectICWire(doc, 'dipB:B2', 'ic74283:15');
+                connectICWire(doc, 'dipB:B3', 'ic74283:11');
+
+                // Sum outputs Σ1(4), Σ2(1), Σ3(13), Σ4(10) -> 7-Seg A, B, C, D
+                connectICWire(doc, 'ic74283:4', 'segSum:A');
+                connectICWire(doc, 'ic74283:1', 'segSum:B');
+                connectICWire(doc, 'ic74283:13', 'segSum:C');
+                connectICWire(doc, 'ic74283:10', 'segSum:D');
+
+                // Carry Out C4 (Pin 9) -> Lamp -> GND
+                connectICWire(doc, 'ic74283:9', 'lampCout:anode');
+                connectICWire(doc, 'lampCout:cathode', 'gndCout:pin');
+
+                return doc;
+            }
+        },
+        ic_7493_counter: {
+            title: '7493 + Clock + 7-Seg — 4-Bit Binary Ripple Counter Bench (0–F)',
+            description: 'A 1 Hz Clock drives a 7493 4-Bit Binary Ripple Counter IC (CLK on Pin 1, Master Reset on Pins 2 & 3) connected to a 7-Segment Display and MSB Lamp.',
+            build() {
+                const doc = blankICDoc();
+                doc.autoPower = true;
+                const clk = createICComponent('clock', -306, -36, { id: 'clk1', value: 1, label: '1Hz CLK' });
+                const swClr = createICComponent('switch', -306, 72, { id: 'swClr', closed: false, label: 'MASTER RESET' });
+                const ic93 = createICComponent('7493', -18, 0, { id: 'ic7493' });
+                const seg = createICComponent('seg7', 270, -18, { id: 'segCnt' });
+                const lampMsb = createICComponent('lamp', 252, 126, { id: 'lampMsb', color: 'cyan', label: 'QD (MSB)' });
+                const gndMsb = createICComponent('gnd', 306, 198, { id: 'gndMsb' });
+
+                doc.components.push(clk, swClr, ic93, seg, lampMsb, gndMsb);
+
+                // Clock -> CLK (Pin 1)
+                connectICWire(doc, 'clk1:out', 'ic7493:1');
+                // Master Reset switch -> R0(1) Pin 2 and R0(2) Pin 3
+                connectICWire(doc, 'swClr:out', 'ic7493:2');
+                connectICWire(doc, 'swClr:out', 'ic7493:3');
+
+                // Outputs QA(12), QB(9), QC(8), QD(11) -> 7-Seg A, B, C, D
+                connectICWire(doc, 'ic7493:12', 'segCnt:A');
+                connectICWire(doc, 'ic7493:9', 'segCnt:B');
+                connectICWire(doc, 'ic7493:8', 'segCnt:C');
+                connectICWire(doc, 'ic7493:11', 'segCnt:D');
+
+                // QD (Pin 11) -> MSB Lamp -> GND
+                connectICWire(doc, 'ic7493:11', 'lampMsb:anode');
+                connectICWire(doc, 'lampMsb:cathode', 'gndMsb:pin');
+
+                return doc;
+            }
+        },
+        ic_7474_register: {
+            title: '7474 — Dual D Flip-Flop Shift Register & Toggle Divider Bench',
+            description: 'Demonstrates the 7474 Dual Positive-Edge-Triggered D Flip-Flop IC with active-low Preset/Clear, clocked by a 1 Hz Clock and driving Q1 & Q2 state lamps.',
+            build() {
+                const doc = blankICDoc();
+                doc.autoPower = true;
+                const swD = createICComponent('switch', -324, -54, { id: 'swD', closed: true, label: 'DATA D1' });
+                const clk = createICComponent('clock', -324, 36, { id: 'clk1', value: 1, label: '1Hz CLK' });
+                const ic74 = createICComponent('7474', -18, 0, { id: 'ic7474' });
+                const lampQ1 = createICComponent('lamp', 252, 108, { id: 'lampQ1', color: 'emerald', label: 'FF1 Q' });
+                const lampQ2 = createICComponent('lamp', 252, -108, { id: 'lampQ2', color: 'cyan', label: 'FF2 Q' });
+                const gnd1 = createICComponent('gnd', 306, 180, { id: 'gnd1' });
+                const gnd2 = createICComponent('gnd', 306, -36, { id: 'gnd2' });
+                const probe1 = createICComponent('probe', -216, 126, { id: 'prb1', label: 'Q1 PROBE' });
+
+                doc.components.push(swD, clk, ic74, lampQ1, lampQ2, gnd1, gnd2, probe1);
+
+                // FF1 Data (Pin 2) & Clock (Pin 3)
+                connectICWire(doc, 'swD:out', 'ic7474:2');
+                connectICWire(doc, 'clk1:out', 'ic7474:3');
+                // Cascade FF1 Q (Pin 5) -> FF2 D (Pin 12), shared Clock -> FF2 CLK (Pin 11)
+                connectICWire(doc, 'ic7474:5', 'ic7474:12');
+                connectICWire(doc, 'clk1:out', 'ic7474:11');
+
+                // FF1 Q (Pin 5) -> Lamp Q1 & Logic Probe
+                connectICWire(doc, 'ic7474:5', 'lampQ1:anode');
+                connectICWire(doc, 'lampQ1:cathode', 'gnd1:pin');
+                connectICWire(doc, 'ic7474:5', 'prb1:tip');
+
+                // FF2 Q (Pin 9) -> Lamp Q2
+                connectICWire(doc, 'ic7474:9', 'lampQ2:anode');
+                connectICWire(doc, 'lampQ2:cathode', 'gnd2:pin');
+
+                return doc;
+            }
         }
     };
 
@@ -1628,6 +2277,9 @@
             const icState = evalData.icStates.get(comp.id);
             const powered = Boolean(icState && icState.powered);
             const reversePower = Boolean(icState && icState.reversePower);
+            const pinCount = spec.pinCount || 14;
+            const vccPin = spec.vccPin || 14;
+            const gndPin = spec.gndPin || 7;
 
             ctx.save();
             ctx.translate(comp.position.x, comp.position.y);
@@ -1635,14 +2287,14 @@
                 ctx.rotate((comp.rotation * Math.PI) / 180);
             }
 
-            const bodyW = 260;
+            const bodyW = pinCount === 16 ? 296 : 260;
             const bodyH = 114;
             const halfW = bodyW / 2;
             const halfH = bodyH / 2;
 
-            // 1. Metallic DIP-14 legs & pin numbers
-            for (let p = 1; p <= 14; p++) {
-                const loc = getDip14PinLocal(p);
+            // 1. Metallic DIP legs & pin numbers
+            for (let p = 1; p <= pinCount; p++) {
+                const loc = getDipPinLocal(p, pinCount);
                 const pinKey = `${comp.id}:${p}`;
                 const val = evalData.pinValues.get(pinKey);
                 const isTop = loc.row === 'top';
@@ -1650,27 +2302,27 @@
                 const legY1 = loc.y;
 
                 // Metallic shoulder & leg
-                ctx.strokeStyle = val === 1 ? COLORS.cyan : (p === 14 && powered) ? COLORS.vcc : '#8c9bb3';
+                ctx.strokeStyle = val === 1 ? COLORS.cyan : (p === vccPin && powered) ? COLORS.vcc : '#8c9bb3';
                 ctx.lineWidth = 5;
                 ctx.beginPath();
                 ctx.moveTo(loc.x, legY0);
                 ctx.lineTo(loc.x, legY1);
                 ctx.stroke();
 
-                // Auto-power mini rail badge on pins 14 & 7
-                if (autoPower && (p === 14 || p === 7)) {
-                    ctx.fillStyle = p === 14 ? 'rgba(255, 107, 107, 0.22)' : 'rgba(125, 146, 176, 0.22)';
+                // Auto-power mini rail badge on VCC & GND pins
+                if (autoPower && (p === vccPin || p === gndPin)) {
+                    ctx.fillStyle = p === vccPin ? 'rgba(255, 107, 107, 0.22)' : 'rgba(125, 146, 176, 0.22)';
                     roundedRect(ctx, loc.x - 13, isTop ? legY1 - 18 : legY1 + 5, 26, 13, 3);
                     ctx.fill();
-                    ctx.fillStyle = p === 14 ? '#ff8b8b' : '#b8c6db';
+                    ctx.fillStyle = p === vccPin ? '#ff8b8b' : '#b8c6db';
                     ctx.font = '700 8.5px "JetBrains Mono", monospace';
                     ctx.textAlign = 'center';
                     ctx.textBaseline = 'middle';
-                    ctx.fillText(p === 14 ? '+5V' : 'GND', loc.x, isTop ? legY1 - 11.5 : legY1 + 11.5);
+                    ctx.fillText(p === vccPin ? '+5V' : 'GND', loc.x, isTop ? legY1 - 11.5 : legY1 + 11.5);
                 }
             }
 
-            // 2. DIP-14 Package Body (Semi-Transparent X-Ray vs Opaque Ceramic)
+            // 2. DIP Package Body (Semi-Transparent X-Ray vs Opaque Ceramic)
             roundedRect(ctx, -halfW, -halfH, bodyW, bodyH, 8);
             ctx.fillStyle = this.xrayMode ? COLORS.icBodyXray : COLORS.icBodyOpaque;
             ctx.fill();
@@ -1698,126 +2350,178 @@
             ctx.fillStyle = 'rgba(255, 255, 255, 0.45)';
             ctx.fill();
 
-            // 3. Pin Labels inside package rim (1..14, VCC, GND)
-            ctx.font = '700 9.5px "JetBrains Mono", Consolas, monospace';
+            // 3. Pin Labels inside package rim (1..pinCount, VCC, GND, or MSI functional pin labels)
+            ctx.font = '700 8.8px "JetBrains Mono", Consolas, monospace';
             ctx.textAlign = 'center';
-            for (let p = 1; p <= 14; p++) {
-                const loc = getDip14PinLocal(p);
+            for (let p = 1; p <= pinCount; p++) {
+                const loc = getDipPinLocal(p, pinCount);
                 const isTop = loc.row === 'top';
                 const labelY = isTop ? -halfH + 10 : halfH - 10;
-                if (p === 14) {
+                const customLbl = spec.pinLabels && spec.pinLabels[p];
+                if (p === vccPin) {
                     ctx.fillStyle = '#ff8080';
-                    ctx.fillText('14·VCC', loc.x + 2, labelY);
-                } else if (p === 7) {
+                    ctx.fillText(`${p}·VCC`, loc.x, labelY);
+                } else if (p === gndPin) {
                     ctx.fillStyle = '#9db2ce';
-                    ctx.fillText('7·GND', loc.x - 2, labelY);
+                    ctx.fillText(`${p}·GND`, loc.x, labelY);
+                } else if (customLbl && this.xrayMode) {
+                    ctx.fillStyle = 'rgba(230, 238, 248, 0.86)';
+                    ctx.fillText(`${p}·${customLbl}`, loc.x, labelY);
                 } else {
                     ctx.fillStyle = 'rgba(230, 238, 248, 0.78)';
                     ctx.fillText(String(p), loc.x, labelY);
                 }
             }
 
-            // 4. Semi-Transparent Datasheet Internal Gate Diagram (when X-Ray is ON)
+            // 4. Semi-Transparent Datasheet Internal Diagram (when X-Ray is ON)
             if (this.xrayMode) {
-                // Subtle center watermark of IC model
-                ctx.save();
-                ctx.font = '800 22px "JetBrains Mono", Consolas, monospace';
-                ctx.fillStyle = powered ? 'rgba(61, 217, 255, 0.11)' : 'rgba(255, 255, 255, 0.06)';
-                ctx.textAlign = 'center';
-                ctx.textBaseline = 'middle';
-                ctx.fillText(comp.model, 0, 0);
-                ctx.restore();
-
-                for (const g of spec.gates) {
-                    const gState = icState?.gates?.get(g.id);
-                    const outVal = gState ? gState.outVal : null;
-                    const activeHigh = powered && outVal === 1;
-                    const activeLow = powered && outVal === 0;
-
-                    const dir = g.dir || 1;
-                    const gx = g.gx;
-                    const gy = g.gy;
-                    const scale = spec.fanIn === 1 ? 0.78 : 0.88;
-
-                    // Draw micro-traces from each input pin to the miniature gate input side
-                    const numIn = g.inputs.length;
-                    g.inputs.forEach((inPin, idx) => {
-                        const pLoc = getDip14PinLocal(inPin);
-                        const pinVal = evalData.pinValues.get(`${comp.id}:${inPin}`);
-                        const offsetSpan = numIn === 1 ? 0 : numIn === 2 ? 4.5 : 6.5;
-                        const targetY = gy + (numIn === 1 ? 0 : -offsetSpan + (idx / (numIn - 1)) * (offsetSpan * 2));
-                        const targetX = gx - dir * 11 * scale;
-                        const startY = pLoc.row === 'top' ? -halfH + 17 : halfH - 17;
-
-                        ctx.beginPath();
-                        ctx.moveTo(pLoc.x, startY);
-                        const midY = (startY + targetY) / 2;
-                        ctx.lineTo(pLoc.x, midY);
-                        ctx.lineTo(targetX, midY);
-                        ctx.lineTo(targetX, targetY);
-                        ctx.strokeStyle = pinVal === 1
-                            ? 'rgba(61, 217, 255, 0.85)'
-                            : pinVal === 0
-                            ? 'rgba(130, 150, 180, 0.52)'
-                            : 'rgba(255, 255, 255, 0.22)';
-                        ctx.lineWidth = pinVal === 1 ? 1.5 : 1.15;
-                        ctx.stroke();
-                    });
-
-                    // Draw micro-trace from miniature gate output to the output pin
-                    const outLoc = getDip14PinLocal(g.output);
-                    const hasBubble = g.type === 'NAND' || g.type === 'NOR' || g.type === 'XNOR' || g.type === 'NOT';
-                    const outTipX = gx + dir * ((hasBubble ? 14.5 : 11.5) * scale);
-                    const outEndY = outLoc.row === 'top' ? -halfH + 17 : halfH - 17;
-
-                    ctx.beginPath();
-                    ctx.moveTo(outTipX, gy);
-                    ctx.lineTo(outLoc.x, gy);
-                    ctx.lineTo(outLoc.x, outEndY);
-                    ctx.strokeStyle = activeHigh
-                        ? '#3dd9ff'
-                        : activeLow
-                        ? 'rgba(143, 160, 181, 0.65)'
-                        : 'rgba(255, 255, 255, 0.25)';
-                    ctx.lineWidth = activeHigh ? 1.8 : 1.25;
-                    ctx.stroke();
-
-                    // Draw the miniature gate symbol itself
-                    ctx.save();
-                    ctx.translate(gx, gy);
-                    if (dir < 0) ctx.scale(-1, 1);
-
-                    drawMiniGateShape(ctx, g.type, scale);
-                    ctx.fillStyle = activeHigh ? 'rgba(61, 217, 255, 0.20)' : 'rgba(17, 24, 39, 0.92)';
+                if (spec.msi) {
+                    // MSI / Sequential Functional Core Block Diagram inside X-Ray package
+                    const coreW = bodyW - 68;
+                    const coreH = 52;
+                    roundedRect(ctx, -coreW / 2, -coreH / 2, coreW, coreH, 6);
+                    ctx.fillStyle = powered ? 'rgba(19, 31, 51, 0.90)' : 'rgba(15, 20, 32, 0.85)';
                     ctx.fill();
                     ctx.lineWidth = 1.4;
-                    ctx.strokeStyle = activeHigh ? '#3dd9ff' : powered ? '#c5d3e8' : '#6e7d94';
+                    ctx.strokeStyle = powered ? 'rgba(61, 217, 255, 0.7)' : 'rgba(159, 176, 199, 0.45)';
                     ctx.stroke();
 
-                    if (g.type === 'XOR' || g.type === 'XNOR') {
+                    // Micro-traces from each signal pin to the MSI core
+                    for (let p = 1; p <= pinCount; p++) {
+                        if (p === vccPin || p === gndPin) continue;
+                        const loc = getDipPinLocal(p, pinCount);
+                        const isTop = loc.row === 'top';
+                        const startY = isTop ? -halfH + 16 : halfH - 16;
+                        const endY = isTop ? -coreH / 2 : coreH / 2;
+                        const pinVal = evalData.pinValues.get(`${comp.id}:${p}`);
+                        const isOut = (spec.outputs || []).includes(p);
+
                         ctx.beginPath();
-                        ctx.moveTo(-14.5 * scale, -10 * scale);
-                        ctx.quadraticCurveTo(-9.5 * scale, 0, -14.5 * scale, 10 * scale);
+                        ctx.moveTo(loc.x, startY);
+                        ctx.lineTo(loc.x, endY);
+                        ctx.strokeStyle = pinVal === 1
+                            ? '#3dd9ff'
+                            : pinVal === 0
+                            ? 'rgba(143, 160, 181, 0.58)'
+                            : 'rgba(255, 255, 255, 0.22)';
+                        ctx.lineWidth = isOut && pinVal === 1 ? 2.0 : 1.3;
                         ctx.stroke();
                     }
 
-                    if (hasBubble) {
-                        const bx = (g.type === 'NOT' ? 11.8 : 13.8) * scale;
-                        ctx.beginPath();
-                        ctx.arc(bx, 0, 2.3 * scale, 0, Math.PI * 2);
-                        ctx.fillStyle = activeHigh ? '#3dd9ff' : '#10141f';
-                        ctx.fill();
-                        ctx.stroke();
-                    }
+                    // MSI Header & Live State Telemetry inside core
+                    ctx.fillStyle = powered ? '#3dd9ff' : '#c5d3e8';
+                    ctx.font = '800 11px "JetBrains Mono", Consolas, monospace';
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText(`${spec.partNumber} · ${spec.gateType}`, 0, -11);
+
+                    ctx.fillStyle = powered ? '#37e0a1' : '#8fa0b5';
+                    ctx.font = '700 10.5px "JetBrains Mono", Consolas, monospace';
+                    const summaryText = powered
+                        ? (icState?.msiSummary || spec.gateType || spec.description)
+                        : `UNPOWERED (Wire Pin ${vccPin} & ${gndPin})`;
+                    ctx.fillText(summaryText, 0, 9);
+                } else {
+                    // Subtle center watermark of IC model
+                    ctx.save();
+                    ctx.font = '800 22px "JetBrains Mono", Consolas, monospace';
+                    ctx.fillStyle = powered ? 'rgba(61, 217, 255, 0.11)' : 'rgba(255, 255, 255, 0.06)';
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText(comp.model, 0, 0);
                     ctx.restore();
-                }
 
-                // Model badge on left side near notch
-                ctx.fillStyle = powered ? '#3dd9ff' : '#d5dfed';
-                ctx.font = '700 11px "JetBrains Mono", Consolas, monospace';
-                ctx.textAlign = 'left';
-                ctx.textBaseline = 'middle';
-                ctx.fillText(comp.model, -halfW + 16, 0);
+                    for (const g of spec.gates) {
+                        const gState = icState?.gates?.get(g.id);
+                        const outVal = gState ? gState.outVal : null;
+                        const activeHigh = powered && outVal === 1;
+                        const activeLow = powered && outVal === 0;
+
+                        const dir = g.dir || 1;
+                        const gx = g.gx;
+                        const gy = g.gy;
+                        const scale = spec.fanIn === 1 ? 0.78 : 0.88;
+
+                        // Draw micro-traces from each input pin to the miniature gate input side
+                        const numIn = g.inputs.length;
+                        g.inputs.forEach((inPin, idx) => {
+                            const pLoc = getDipPinLocal(inPin, pinCount);
+                            const pinVal = evalData.pinValues.get(`${comp.id}:${inPin}`);
+                            const offsetSpan = numIn === 1 ? 0 : numIn === 2 ? 4.5 : 6.5;
+                            const targetY = gy + (numIn === 1 ? 0 : -offsetSpan + (idx / (numIn - 1)) * (offsetSpan * 2));
+                            const targetX = gx - dir * 11 * scale;
+                            const startY = pLoc.row === 'top' ? -halfH + 17 : halfH - 17;
+
+                            ctx.beginPath();
+                            ctx.moveTo(pLoc.x, startY);
+                            const midY = (startY + targetY) / 2;
+                            ctx.lineTo(pLoc.x, midY);
+                            ctx.lineTo(targetX, midY);
+                            ctx.lineTo(targetX, targetY);
+                            ctx.strokeStyle = pinVal === 1
+                                ? 'rgba(61, 217, 255, 0.85)'
+                                : pinVal === 0
+                                ? 'rgba(130, 150, 180, 0.52)'
+                                : 'rgba(255, 255, 255, 0.22)';
+                            ctx.lineWidth = pinVal === 1 ? 1.5 : 1.15;
+                            ctx.stroke();
+                        });
+
+                        // Draw micro-trace from miniature gate output to the output pin
+                        const outLoc = getDipPinLocal(g.output, pinCount);
+                        const hasBubble = g.type === 'NAND' || g.type === 'NOR' || g.type === 'XNOR' || g.type === 'NOT';
+                        const outTipX = gx + dir * ((hasBubble ? 14.5 : 11.5) * scale);
+                        const outEndY = outLoc.row === 'top' ? -halfH + 17 : halfH - 17;
+
+                        ctx.beginPath();
+                        ctx.moveTo(outTipX, gy);
+                        ctx.lineTo(outLoc.x, gy);
+                        ctx.lineTo(outLoc.x, outEndY);
+                        ctx.strokeStyle = activeHigh
+                            ? '#3dd9ff'
+                            : activeLow
+                            ? 'rgba(143, 160, 181, 0.65)'
+                            : 'rgba(255, 255, 255, 0.25)';
+                        ctx.lineWidth = activeHigh ? 1.8 : 1.25;
+                        ctx.stroke();
+
+                        // Draw the miniature gate symbol itself
+                        ctx.save();
+                        ctx.translate(gx, gy);
+                        if (dir < 0) ctx.scale(-1, 1);
+
+                        drawMiniGateShape(ctx, g.type, scale);
+                        ctx.fillStyle = activeHigh ? 'rgba(61, 217, 255, 0.20)' : 'rgba(17, 24, 39, 0.92)';
+                        ctx.fill();
+                        ctx.lineWidth = 1.4;
+                        ctx.strokeStyle = activeHigh ? '#3dd9ff' : powered ? '#c5d3e8' : '#6e7d94';
+                        ctx.stroke();
+
+                        if (g.type === 'XOR' || g.type === 'XNOR') {
+                            ctx.beginPath();
+                            ctx.moveTo(-14.5 * scale, -10 * scale);
+                            ctx.quadraticCurveTo(-9.5 * scale, 0, -14.5 * scale, 10 * scale);
+                            ctx.stroke();
+                        }
+
+                        if (hasBubble) {
+                            const bx = (g.type === 'NOT' ? 11.8 : 13.8) * scale;
+                            ctx.beginPath();
+                            ctx.arc(bx, 0, 2.3 * scale, 0, Math.PI * 2);
+                            ctx.fillStyle = activeHigh ? '#3dd9ff' : '#10141f';
+                            ctx.fill();
+                            ctx.stroke();
+                        }
+                        ctx.restore();
+                    }
+
+                    // Model badge on left side near notch
+                    ctx.fillStyle = powered ? '#3dd9ff' : '#d5dfed';
+                    ctx.font = '700 11px "JetBrains Mono", Consolas, monospace';
+                    ctx.textAlign = 'left';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText(comp.model, -halfW + 16, 0);
+                }
             } else {
                 // Opaque Black-Box Mode (for testing datasheet knowledge!)
                 ctx.fillStyle = '#e8eef7';
@@ -1827,7 +2531,7 @@
                 ctx.fillText(spec.partNumber, 0, -6);
                 ctx.fillStyle = '#8fa0b5';
                 ctx.font = '600 11px "Inter", sans-serif';
-                ctx.fillText(`Model ${comp.model} · 14-Pin DIP`, 0, 14);
+                ctx.fillText(`Model ${comp.model} · ${pinCount}-Pin DIP`, 0, 14);
             }
 
             // Status / Fault pill on top border of IC
@@ -2181,6 +2885,87 @@
                     ctx.lineWidth = on ? 4.2 : 3;
                     ctx.stroke();
                 }
+            } else if (comp.kind === 'dip4') {
+                const bits = Array.isArray(comp.bits) && comp.bits.length === 4 ? comp.bits : [0, 0, 0, 0];
+                const hexVal = (bits[0] ? 1 : 0) | (bits[1] ? 2 : 0) | (bits[2] ? 4 : 0) | (bits[3] ? 8 : 0);
+
+                roundedRect(ctx, -32, -64, 60, 128, 7);
+                ctx.fillStyle = '#151c2c';
+                ctx.fill();
+                ctx.lineWidth = isSelected ? 2.4 : 1.7;
+                ctx.strokeStyle = isSelected ? COLORS.selected : '#9fb0c7';
+                ctx.stroke();
+
+                const ys = [-54, -18, 18, 54];
+                for (let i = 0; i < 4; i++) {
+                    const on = Boolean(bits[i]);
+                    const y = ys[i];
+                    // Output lead to +36
+                    ctx.beginPath();
+                    ctx.moveTo(28, y);
+                    ctx.lineTo(36, y);
+                    ctx.strokeStyle = on ? '#3dd9ff' : '#7d92b0';
+                    ctx.lineWidth = 2.4;
+                    ctx.stroke();
+
+                    // Slide rocker track
+                    roundedRect(ctx, -22, y - 9, 36, 18, 4);
+                    ctx.fillStyle = on ? 'rgba(61, 217, 255, 0.20)' : '#0b0e17';
+                    ctx.fill();
+                    ctx.strokeStyle = on ? '#3dd9ff' : '#59677f';
+                    ctx.lineWidth = 1.2;
+                    ctx.stroke();
+
+                    // Rocker thumb
+                    roundedRect(ctx, on ? -2 : -20, y - 7, 14, 14, 3);
+                    ctx.fillStyle = on ? '#3dd9ff' : '#8fa0b5';
+                    ctx.fill();
+
+                    // Bit label
+                    ctx.fillStyle = on ? '#e8eef7' : '#8fa0b5';
+                    ctx.font = '700 8.5px "JetBrains Mono", monospace';
+                    ctx.textAlign = 'left';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText(`B${i}`, 17, y);
+                }
+
+                ctx.fillStyle = '#3dd9ff';
+                ctx.font = '700 9.5px "JetBrains Mono", monospace';
+                ctx.textAlign = 'center';
+                ctx.fillText(`${comp.label || 'DIP-4'} (${hexVal})`, -2, 76);
+            } else if (comp.kind === 'probe') {
+                const pst = evalData.probeStates ? evalData.probeStates.get(comp.id) : null;
+                const val = pst ? pst.val : null;
+                const conflict = pst ? pst.conflict : false;
+
+                // Probe needle lead from -36 to -18
+                ctx.beginPath();
+                ctx.moveTo(-36, 0);
+                ctx.lineTo(-18, 0);
+                ctx.strokeStyle = conflict ? '#ff5a52' : val === 1 ? '#3dd9ff' : val === 0 ? '#37e0a1' : '#f6b944';
+                ctx.lineWidth = 2.8;
+                ctx.stroke();
+
+                roundedRect(ctx, -18, -16, 52, 32, 7);
+                ctx.fillStyle = '#0e1422';
+                ctx.fill();
+                ctx.lineWidth = isSelected ? 2.4 : 1.7;
+                ctx.strokeStyle = isSelected
+                    ? COLORS.selected
+                    : conflict
+                    ? '#ff5a52'
+                    : val === 1
+                    ? '#3dd9ff'
+                    : val === 0
+                    ? '#37e0a1'
+                    : '#f6b944';
+                ctx.stroke();
+
+                ctx.font = '800 10px "JetBrains Mono", monospace';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillStyle = conflict ? '#ff5a52' : val === 1 ? '#3dd9ff' : val === 0 ? '#37e0a1' : '#f6b944';
+                ctx.fillText(conflict ? 'SHORT' : val === 1 ? 'HI 5V' : val === 0 ? 'LO 0V' : 'Hi-Z', 8, 0);
             }
 
             ctx.restore();
@@ -2426,11 +3211,16 @@
             const rotBtn = $('icRotatePlacementBtn');
             if (rotBtn) rotBtn.hidden = !isPlacementTool(tool);
             if (IC_CATALOG[tool]) {
-                setHint(`Click on the bench to place IC ${tool} (Press R to rotate · Pin 14 = VCC, Pin 7 = GND).`);
+                const sp = IC_CATALOG[tool];
+                setHint(`Click on the bench to place IC ${tool} (${sp.partNumber} · ${sp.pinCount || 14}-Pin DIP · Pin ${sp.vccPin || 14} = VCC, Pin ${sp.gndPin || 7} = GND).`);
             } else if (tool === 'battery') {
                 setHint('Click on the bench to place a 5V DC Battery (+5V and GND terminals · Press R to rotate).');
             } else if (tool === 'switch') {
                 setHint('Click on the bench to place a Toggle Switch (Press R to rotate). Click any placed switch to flip it ON/OFF.');
+            } else if (tool === 'dip4') {
+                setHint('Click on the bench to place a 4-Channel DIP Switch Bank (B0–B3). Click individual rockers on the bank to toggle bits.');
+            } else if (tool === 'probe') {
+                setHint('Click on the bench to place a Digital Logic Probe (HI 5V / LO 0V / Hi-Z / SHORT).');
             } else if (tool === 'resistor') {
                 setHint('Click on the bench to place a 220 Ω series resistor (Press R to rotate).');
             } else if (tool === 'lamp') {
@@ -2438,7 +3228,7 @@
             } else if (tool === 'wire') {
                 setHint('Drag from any pin pad to another pin pad (or existing wire) to connect. Drag wire segments to adjust routing.');
             } else {
-                setHint('Click any Switch to toggle, drag from any pin to wire, drag wire segments to reroute, or press R to rotate.');
+                setHint('Click any Switch or DIP rocker to toggle, drag from any pin to wire, drag wire segments to reroute, or press R to rotate.');
             }
             scheduleRender();
         }
@@ -2635,6 +3425,10 @@
             } else if (comp.kind === 'clock') {
                 comp.value = comp.value ? 0 : 1;
                 recompute();
+            } else if (comp.kind === 'dip4') {
+                const cur = ((comp.bits?.[0] ? 1 : 0) | (comp.bits?.[1] ? 2 : 0) | (comp.bits?.[2] ? 4 : 0) | (comp.bits?.[3] ? 8 : 0) + 1) & 0x0f;
+                comp.bits = [cur & 1, (cur >> 1) & 1, (cur >> 2) & 1, (cur >> 3) & 1];
+                recompute();
             }
         });
 
@@ -2716,14 +3510,17 @@
             $('icDuplicateBtn').hidden = false;
             if ($('icRotateBtn')) $('icRotateBtn').hidden = false;
             $('icLampColorWrap').hidden = comp.kind !== 'lamp';
-            $('icToggleSelectedBtn').hidden = comp.kind !== 'switch' && comp.kind !== 'clock';
+            $('icToggleSelectedBtn').hidden = comp.kind !== 'switch' && comp.kind !== 'clock' && comp.kind !== 'dip4';
             $('icPinTableWrap').hidden = comp.kind !== 'ic';
 
             if (comp.kind === 'ic') {
                 const spec = IC_CATALOG[comp.model];
                 const st = evalData.icStates.get(comp.id);
-                $('icInspectorTitle').textContent = `IC ${spec.model} (${spec.partNumber})`;
-                $('icInspectorMeta').textContent = `${spec.description} · Pin 14 = VCC (+5V), Pin 7 = GND (0V).`;
+                const vccPin = spec.vccPin || 14;
+                const gndPin = spec.gndPin || 7;
+                const pinCount = spec.pinCount || 14;
+                $('icInspectorTitle').textContent = `IC ${spec.model} (${spec.partNumber} · ${pinCount}-Pin DIP)`;
+                $('icInspectorMeta').textContent = `${spec.description} · Pin ${vccPin} = VCC (+5V), Pin ${gndPin} = GND (0V) · Icc ≈ ${spec.iccMa || 8} mA, tpd ≈ ${spec.tpdNs || 10} ns.`;
 
                 const badge = $('icPowerBadge');
                 if (st?.reversePower) {
@@ -2733,7 +3530,7 @@
                     badge.textContent = '✓ POWERED (5V)';
                     badge.style.color = '#37e0a1';
                 } else {
-                    badge.textContent = 'UNPOWERED (Wire 14 & 7)';
+                    badge.textContent = `UNPOWERED (Wire ${vccPin} & ${gndPin})`;
                     badge.style.color = '#f6b944';
                 }
 
@@ -2745,14 +3542,15 @@
                     const pill = document.createElement('div');
                     pill.className = 'ic-pin-pill'
                         + (v === 1 ? ' is-high' : v === 0 ? ' is-low' : ' is-open')
-                        + (p.pinNumber === 14 ? ' is-vcc' : '')
-                        + (p.pinNumber === 7 ? ' is-gnd' : '');
+                        + (p.pinNumber === vccPin ? ' is-vcc' : '')
+                        + (p.pinNumber === gndPin ? ' is-gnd' : '');
                     const left = document.createElement('span');
-                    left.textContent = `Pin ${p.pinNumber}`;
+                    const pinLbl = spec.pinLabels && spec.pinLabels[p.pinNumber];
+                    left.textContent = pinLbl ? `Pin ${p.pinNumber} (${pinLbl})` : `Pin ${p.pinNumber}`;
                     const right = document.createElement('strong');
-                    right.textContent = p.pinNumber === 14
+                    right.textContent = p.pinNumber === vccPin
                         ? `VCC (${v === 1 ? '5V' : v === 0 ? '0V' : 'OPEN'})`
-                        : p.pinNumber === 7
+                        : p.pinNumber === gndPin
                         ? `GND (${v === 0 ? '0V' : v === 1 ? '5V' : 'OPEN'})`
                         : v === 1
                         ? '1 (5V)'
@@ -2764,11 +3562,22 @@
                 }
             } else if (comp.kind === 'battery') {
                 $('icInspectorTitle').textContent = '5V DC Bench Battery';
-                $('icInspectorMeta').textContent = 'Supplies +5V (Logic 1) on the right red (+) terminal and 0V GND (Logic 0) on the left (−) terminal. Connect (+) to IC Pin 14 and (−) to IC Pin 7.';
+                $('icInspectorMeta').textContent = 'Supplies +5V (Logic 1) on the right red (+) terminal and 0V GND (Logic 0) on the left (−) terminal. Connect (+) to IC Pin 14/16 and (−) to IC Pin 7/8.';
             } else if (comp.kind === 'switch') {
                 $('icInspectorTitle').textContent = `Toggle Switch (${comp.closed ? 'CLOSED / ON' : 'OPEN / OFF'})`;
                 $('icInspectorMeta').textContent = 'Click directly on the switch on the bench (or press Space) to flip between HIGH (1) and LOW (0).';
                 $('icToggleSelectedBtn').textContent = comp.closed ? 'Flip Switch → OFF (0)' : 'Flip Switch → ON (1)';
+            } else if (comp.kind === 'dip4') {
+                const b = comp.bits || [0, 0, 0, 0];
+                const val = (b[0] ? 1 : 0) | (b[1] ? 2 : 0) | (b[2] ? 4 : 0) | (b[3] ? 8 : 0);
+                $('icInspectorTitle').textContent = `4-Channel DIP Switch Bank (Value: ${val} / 0x${val.toString(16).toUpperCase()})`;
+                $('icInspectorMeta').textContent = `Click individual rockers B0–B3 on the bench to toggle bits [${b[3]},${b[2]},${b[1]},${b[0]}], or press Space to increment the 4-bit binary word.`;
+                $('icToggleSelectedBtn').textContent = `Increment 4-Bit Word (${val} → ${(val + 1) & 15})`;
+            } else if (comp.kind === 'probe') {
+                const pst = evalData.probeStates?.get(comp.id);
+                const status = pst?.conflict ? 'SHORT CONFLICT' : pst?.val === 1 ? 'HIGH (+5V)' : pst?.val === 0 ? 'LOW (0V GND)' : 'Hi-Z (Floating)';
+                $('icInspectorTitle').textContent = `Digital Logic Probe (${status})`;
+                $('icInspectorMeta').textContent = 'High-impedance logic test probe that measures live TTL voltage levels without loading the circuit.';
             } else if (comp.kind === 'resistor') {
                 $('icInspectorTitle').textContent = '220 Ω Series Resistor';
                 $('icInspectorMeta').textContent = 'Current-limiting series resistor (Red-Red-Brown-Gold) used between IC output pins and LED / Lamp indicators.';
@@ -2854,9 +3663,10 @@
                 const statusText = st?.reversePower
                     ? '<strong style="color:#ff5a52;">⚠ Reverse VCC/GND</strong>'
                     : st?.powered
-                    ? '<strong style="color:#37e0a1;">✓ Powered (5V)</strong>'
-                    : '<strong style="color:#f6b944;">Unpowered (Pin 14/7)</strong>';
-                row.innerHTML = `<span><strong>${ic.model}</strong> · <small style="color:#96a5ba;">${spec.gateType} (${spec.fanIn}-in)</small></span>${statusText}`;
+                    ? `<strong style="color:#37e0a1;">✓ ${st.msiSummary || 'Powered (5V)'}</strong>`
+                    : `<strong style="color:#f6b944;">Unpowered (Pin ${spec.vccPin || 14}/${spec.gndPin || 7})</strong>`;
+                const metaTag = spec.msi ? spec.gateType : `${spec.gateType} (${spec.fanIn}-in)`;
+                row.innerHTML = `<span><strong>${ic.model}</strong> · <small style="color:#96a5ba;">${metaTag}</small></span>${statusText}`;
                 row.style.cursor = 'pointer';
                 row.addEventListener('click', () => {
                     selected = { kind: 'comp', id: ic.id };
@@ -2891,7 +3701,7 @@
         function syncFooter() {
             const ics = currentDoc.components.filter(c => c.kind === 'ic');
             const poweredCount = ics.filter(c => evalData.icStates.get(c.id)?.powered).length;
-            const switches = currentDoc.components.filter(c => c.kind === 'switch');
+            const switches = currentDoc.components.filter(c => c.kind === 'switch' || c.kind === 'dip4');
             const lampsLit = currentDoc.components.filter(c => c.kind === 'lamp' && evalData.lampStates.get(c.id)?.lit).length;
 
             $('icStatChips').textContent = String(ics.length);
@@ -2899,17 +3709,26 @@
             $('icStatSwitches').textContent = String(switches.length);
             $('icStatLamps').textContent = String(lampsLit);
             $('icStatWires').textContent = String(currentDoc.wires.length);
+            if ($('icStatCurrent') && evalData.telemetry) {
+                $('icStatCurrent').textContent = `${evalData.telemetry.iccMa.toFixed(1)} mA`;
+            }
+            if ($('icStatPower') && evalData.telemetry) {
+                $('icStatPower').textContent = `${evalData.telemetry.powerMw.toFixed(0)} mW`;
+            }
+            if ($('icStatDelay') && evalData.telemetry) {
+                $('icStatDelay').textContent = `${evalData.telemetry.propagationDelayNs} ns`;
+            }
 
             const statusEl = $('icStatStatus');
             if (evalData.anyReverse) {
                 statusEl.className = 'logic-status-err';
-                statusEl.textContent = '⚠ Fault: Pin 14/7 Reverse Polarity';
+                statusEl.textContent = '⚠ Fault: VCC/GND Reverse Polarity';
             } else if (evalData.anyShort) {
                 statusEl.className = 'logic-status-err';
                 statusEl.textContent = '⚠ Fault: +5V shorted to GND';
             } else if (ics.length > 0 && poweredCount < ics.length) {
                 statusEl.className = 'logic-status-warn';
-                statusEl.textContent = '⚡ Connect Pin 14 → +5V & Pin 7 → GND (or enable Auto-Power)';
+                statusEl.textContent = '⚡ Connect VCC → +5V & GND → 0V (or enable Auto-Power)';
             } else {
                 statusEl.className = 'logic-status-ok';
                 statusEl.textContent = '✓ Bench Ready';
@@ -2950,9 +3769,8 @@
             return Math.hypot(pt.x - (a.x + t * dx), pt.y - (a.y + t * dy));
         }
 
-        function findHitWire(worldPt) {
+        function findHitWire(worldPt, tol = 8 / renderer.view.zoom) {
             const wireGeom = computeICWireGeometry(currentDoc, evalData.pins, evalData.pinToNet);
-            const tol = 8 / renderer.view.zoom;
             for (const w of currentDoc.wires) {
                 const pts = wireGeom.routes.get(w.id) || [];
                 for (let i = 1; i < pts.length; i++) {
@@ -2972,7 +3790,7 @@
             return null;
         }
 
-        const isPlacementTool = t => Boolean(IC_CATALOG[t] || ['battery', 'switch', 'resistor', 'lamp', 'gnd', 'clock', 'seg7'].includes(t));
+        const isPlacementTool = t => Boolean(IC_CATALOG[t] || ['battery', 'switch', 'dip4', 'probe', 'resistor', 'lamp', 'gnd', 'clock', 'seg7'].includes(t));
 
         // Canvas Pointer Interactions
         canvas.addEventListener('pointerdown', e => {
@@ -3035,7 +3853,11 @@
             }
 
             // Check pin hit first (for wiring in both 'select' and 'wire' tools)
-            const hitPin = findNearestPin(worldPt);
+            const pinRadius = ((tool === 'wire' || wireStartPin)
+                ? (e.pointerType === 'touch' ? 24 : 16)
+                : (e.pointerType === 'touch' ? 16 : 11)) / renderer.view.zoom;
+            const wireRadius = (e.pointerType === 'touch' ? 14 : 8) / renderer.view.zoom;
+            const hitPin = findNearestPin(worldPt, pinRadius);
             if (hitPin) {
                 if (wireStartPin && wireStartPin.key !== hitPin.key) {
                     const next = cloneICDoc(currentDoc);
@@ -3058,7 +3880,7 @@
             }
 
             // If we already have a wireStartPin and clicked on an existing wire, branch from that wire (T-junction)!
-            const hitW = findHitWire(worldPt);
+            const hitW = findHitWire(worldPt, wireRadius);
             if (wireStartPin && hitW) {
                 const targetKey = hitW.wire.from !== wireStartPin.key ? hitW.wire.from : hitW.wire.to;
                 if (targetKey && targetKey !== wireStartPin.key) {
@@ -3234,7 +4056,9 @@
             const worldPt = renderer.world(e.clientX, e.clientY);
 
             if (action.type === 'wireDrag') {
-                const endPin = findNearestPin(worldPt);
+                const pinRadius = (e.pointerType === 'touch' ? 24 : 16) / renderer.view.zoom;
+                const wireRadius = (e.pointerType === 'touch' ? 14 : 8) / renderer.view.zoom;
+                const endPin = findNearestPin(worldPt, pinRadius);
                 if (endPin && endPin.key !== action.startPin.key) {
                     const next = cloneICDoc(currentDoc);
                     if (connectICWire(next, action.startPin.key, endPin.key)) {
@@ -3245,7 +4069,7 @@
                     }
                 }
                 // Check if user dropped the wire onto an existing wire to create a T-junction branch!
-                const hitW = findHitWire(worldPt);
+                const hitW = findHitWire(worldPt, wireRadius);
                 if (hitW) {
                     const targetKey = hitW.wire.from !== action.startPin.key ? hitW.wire.from : hitW.wire.to;
                     if (targetKey && targetKey !== action.startPin.key) {
@@ -3282,6 +4106,16 @@
                         recompute();
                     } else if (comp && comp.kind === 'clock') {
                         comp.value = comp.value ? 0 : 1;
+                        recompute();
+                    } else if (comp && comp.kind === 'dip4') {
+                        if (!Array.isArray(comp.bits) || comp.bits.length !== 4) comp.bits = [0, 0, 0, 0];
+                        const dx = worldPt.x - comp.position.x;
+                        const dy = worldPt.y - comp.position.y;
+                        const rot = ((comp.rotation || 0) % 360 + 360) % 360;
+                        const rad = (-rot * Math.PI) / 180;
+                        const localY = dx * Math.sin(rad) + dy * Math.cos(rad);
+                        const idx = localY < -36 ? 0 : localY < 0 ? 1 : localY < 36 ? 2 : 3;
+                        comp.bits[idx] = comp.bits[idx] ? 0 : 1;
                         recompute();
                     }
                 }

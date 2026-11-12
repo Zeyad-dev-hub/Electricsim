@@ -408,10 +408,18 @@
     }
     canvas.addEventListener('click', event => {
         const rect = canvas.getBoundingClientRect(), x = event.clientX - rect.left, y = event.clientY - rect.top;
-        const atom = crystal.atoms.find(a => Math.hypot(point(a).x - x, point(a).y - y) < 17);
+        const nearest = (items, maxR) => {
+            let best = null, bestD = maxR;
+            for (const item of items) {
+                const d = Math.hypot(point(item).x - x, point(item).y - y);
+                if (d < bestD) { bestD = d; best = item; }
+            }
+            return best;
+        };
+        const atom = nearest(crystal.atoms, 22);
         if (atom && atom.kind === 'si' && $('dopingSelect').value !== 'intrinsic') { addDopantAt(atom.id); return; }
-        const free = crystal.free.find(e => Math.hypot(point(e).x - x, point(e).y - y) < 12);
-        const slot = crystal.slots.find(s => Math.hypot(point(s).x - x, point(s).y - y) < 9);
+        const free = nearest(crystal.free, 18);
+        const slot = nearest(crystal.slots, 16);
         if (free || slot?.electron) {
             paused = true; follow = 'electron'; trackedElectron = free?.id || slot.electron;
             crystal.message = free ? 'Selected electron: free in the conduction band. Play to follow its motion, or Step to inspect the next event.'

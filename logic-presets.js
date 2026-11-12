@@ -272,6 +272,144 @@
         return doc;
     }
 
+    // 9. 2-Bit Ripple-Carry Adder using Half Adder (HA) + Full Adder (FA) blocks
+    //    Inputs: A (A0), B (B0), C (A1), D (B1) -> Outputs: F (S0), G (S1), H (Cout)
+    function makeRippleAdder2Bit() {
+        const doc = L.blank();
+        const inA0 = L.createInput(doc, -264, -120, 'A', 1);
+        doc.inputs.push(inA0);
+        const inB0 = L.createInput(doc, -264, -48, 'B', 1);
+        doc.inputs.push(inB0);
+        const inA1 = L.createInput(doc, -264, 48, 'C', 1);
+        doc.inputs.push(inA1);
+        const inB1 = L.createInput(doc, -264, 120, 'D', 0);
+        doc.inputs.push(inB1);
+
+        const ha = L.createGate('HA', -48, -84);
+        const fa = L.createGate('FA', 96, 72);
+        doc.gates.push(ha, fa);
+
+        const outS0 = L.createOutput(doc, 264, -96, 'F');
+        doc.outputs.push(outS0);
+        const outS1 = L.createOutput(doc, 264, 48, 'G');
+        doc.outputs.push(outS1);
+        const outCout = L.createOutput(doc, 264, 120, 'H');
+        doc.outputs.push(outCout);
+
+        L.connectWire(doc, { nodeId: inA0.id, pin: 'out' }, { nodeId: ha.id, pin: 'in0' });
+        L.connectWire(doc, { nodeId: inB0.id, pin: 'out' }, { nodeId: ha.id, pin: 'in1' });
+        L.connectWire(doc, { nodeId: ha.id, pin: 'out' }, { nodeId: outS0.id, pin: 'in0' });
+
+        L.connectWire(doc, { nodeId: inA1.id, pin: 'out' }, { nodeId: fa.id, pin: 'in0' });
+        L.connectWire(doc, { nodeId: inB1.id, pin: 'out' }, { nodeId: fa.id, pin: 'in1' });
+        L.connectWire(doc, { nodeId: ha.id, pin: 'out1' }, { nodeId: fa.id, pin: 'in2' });
+
+        L.connectWire(doc, { nodeId: fa.id, pin: 'out' }, { nodeId: outS1.id, pin: 'in0' });
+        L.connectWire(doc, { nodeId: fa.id, pin: 'out1' }, { nodeId: outCout.id, pin: 'in0' });
+        return doc;
+    }
+
+    // 10. 4-to-2 Priority Encoder Interrupt Controller (ENC42 Block)
+    function makePriorityEncoder() {
+        const doc = L.blank();
+        const d0 = L.createInput(doc, -240, -108, 'A', 1);
+        doc.inputs.push(d0);
+        const d1 = L.createInput(doc, -240, -36, 'B', 0);
+        doc.inputs.push(d1);
+        const d2 = L.createInput(doc, -240, 36, 'C', 1);
+        doc.inputs.push(d2);
+        const d3 = L.createInput(doc, -240, 108, 'D', 0);
+        doc.inputs.push(d3);
+
+        const enc = L.createGate('ENC42', 0, 0);
+        doc.gates.push(enc);
+
+        const y1 = L.createOutput(doc, 240, -72, 'F');
+        doc.outputs.push(y1);
+        const y0 = L.createOutput(doc, 240, 0, 'G');
+        doc.outputs.push(y0);
+        const valid = L.createOutput(doc, 240, 72, 'H');
+        doc.outputs.push(valid);
+
+        L.connectWire(doc, { nodeId: d0.id, pin: 'out' }, { nodeId: enc.id, pin: 'in0' });
+        L.connectWire(doc, { nodeId: d1.id, pin: 'out' }, { nodeId: enc.id, pin: 'in1' });
+        L.connectWire(doc, { nodeId: d2.id, pin: 'out' }, { nodeId: enc.id, pin: 'in2' });
+        L.connectWire(doc, { nodeId: d3.id, pin: 'out' }, { nodeId: enc.id, pin: 'in3' });
+
+        L.connectWire(doc, { nodeId: enc.id, pin: 'out' }, { nodeId: y1.id, pin: 'in0' });
+        L.connectWire(doc, { nodeId: enc.id, pin: 'out1' }, { nodeId: y0.id, pin: 'in0' });
+        L.connectWire(doc, { nodeId: enc.id, pin: 'out2' }, { nodeId: valid.id, pin: 'in0' });
+        return doc;
+    }
+
+    // 11. 4:1 Multiplexer Data Router (MUX4 Block)
+    function makeMux4Router() {
+        const doc = L.blank();
+        const d0 = L.createInput(doc, -264, -144, 'A', 0);
+        doc.inputs.push(d0);
+        const d1 = L.createInput(doc, -264, -96, 'B', 1);
+        doc.inputs.push(d1);
+        const d2 = L.createInput(doc, -264, -48, 'C', 0);
+        doc.inputs.push(d2);
+        const d3 = L.createInput(doc, -264, 0, 'D', 1);
+        doc.inputs.push(d3);
+        const s1 = L.createInput(doc, -264, 72, 'E', 0);
+        doc.inputs.push(s1);
+        const s0 = L.createInput(doc, -264, 120, 'I', 1);
+        doc.inputs.push(s0);
+
+        const mux = L.createGate('MUX4', 0, 0);
+        doc.gates.push(mux);
+        const outY = L.createOutput(doc, 240, 0, 'F');
+        doc.outputs.push(outY);
+
+        L.connectWire(doc, { nodeId: d0.id, pin: 'out' }, { nodeId: mux.id, pin: 'in0' });
+        L.connectWire(doc, { nodeId: d1.id, pin: 'out' }, { nodeId: mux.id, pin: 'in1' });
+        L.connectWire(doc, { nodeId: d2.id, pin: 'out' }, { nodeId: mux.id, pin: 'in2' });
+        L.connectWire(doc, { nodeId: d3.id, pin: 'out' }, { nodeId: mux.id, pin: 'in3' });
+        L.connectWire(doc, { nodeId: s1.id, pin: 'out' }, { nodeId: mux.id, pin: 'in4' });
+        L.connectWire(doc, { nodeId: s0.id, pin: 'out' }, { nodeId: mux.id, pin: 'in5' });
+        L.connectWire(doc, { nodeId: mux.id, pin: 'out' }, { nodeId: outY.id, pin: 'in0' });
+        return doc;
+    }
+
+    // 12. SR-Latch & D-Latch Sequential Memory Bench
+    function makeLatchesDemo() {
+        const doc = L.blank();
+        const inS = L.createInput(doc, -240, -108, 'A', 1);
+        doc.inputs.push(inS);
+        const inR = L.createInput(doc, -240, -48, 'B', 0);
+        doc.inputs.push(inR);
+        const inD = L.createInput(doc, -240, 48, 'C', 1);
+        doc.inputs.push(inD);
+        const inEN = L.createInput(doc, -240, 108, 'D', 1);
+        doc.inputs.push(inEN);
+
+        const sr = L.createGate('SR_LATCH', 0, -78);
+        const dl = L.createGate('D_LATCH', 0, 78);
+        doc.gates.push(sr, dl);
+
+        const outQ1 = L.createOutput(doc, 240, -108, 'F');
+        doc.outputs.push(outQ1);
+        const outQB1 = L.createOutput(doc, 240, -48, 'G');
+        doc.outputs.push(outQB1);
+        const outQ2 = L.createOutput(doc, 240, 48, 'H');
+        doc.outputs.push(outQ2);
+        const outQB2 = L.createOutput(doc, 240, 108, 'Y');
+        doc.outputs.push(outQB2);
+
+        L.connectWire(doc, { nodeId: inS.id, pin: 'out' }, { nodeId: sr.id, pin: 'in0' });
+        L.connectWire(doc, { nodeId: inR.id, pin: 'out' }, { nodeId: sr.id, pin: 'in1' });
+        L.connectWire(doc, { nodeId: sr.id, pin: 'out' }, { nodeId: outQ1.id, pin: 'in0' });
+        L.connectWire(doc, { nodeId: sr.id, pin: 'out1' }, { nodeId: outQB1.id, pin: 'in0' });
+
+        L.connectWire(doc, { nodeId: inD.id, pin: 'out' }, { nodeId: dl.id, pin: 'in0' });
+        L.connectWire(doc, { nodeId: inEN.id, pin: 'out' }, { nodeId: dl.id, pin: 'in1' });
+        L.connectWire(doc, { nodeId: dl.id, pin: 'out' }, { nodeId: outQ2.id, pin: 'in0' });
+        L.connectWire(doc, { nodeId: dl.id, pin: 'out1' }, { nodeId: outQB2.id, pin: 'in0' });
+        return doc;
+    }
+
     const PRESETS = {
         basicAndOr: {
             name: 'Basic AND / OR circuit · F = A·B + C',
@@ -288,10 +426,30 @@
             description: 'Adds A, B, and Carry-In (C) using two XOR gates, two AND gates, and an OR gate.',
             make: makeFullAdder
         },
+        rippleAdder2Bit: {
+            name: '2-Bit Ripple Adder · HA + FA Blocks',
+            description: 'Cascades a Half Adder block (HA) into a Full Adder block (FA) to add two 2-bit numbers.',
+            make: makeRippleAdder2Bit
+        },
         mux2to1: {
             name: '2-to-1 Multiplexer · F = A·C\' + B·C',
             description: 'Select input C routes either data input A (when C=0) or data input B (when C=1) to output F.',
             make: makeMux2to1
+        },
+        mux4Router: {
+            name: '4:1 Multiplexer Router · MUX4 Block',
+            description: 'Routes 4 data inputs (A..D) to output F using 2-bit select lines E (S1) and I (S0).',
+            make: makeMux4Router
+        },
+        priorityEncoder: {
+            name: '4-to-2 Priority Encoder · ENC42 Block',
+            description: 'Encodes highest-priority active input D3..D0 into 2-bit binary index (F, G) plus Valid flag (H).',
+            make: makePriorityEncoder
+        },
+        latchesDemo: {
+            name: 'SR-Latch & D-Latch Memory Bench',
+            description: 'Interactive SR Bistable Latch (top) and Gated D Transparent Latch (bottom) with live memory retention.',
+            make: makeLatchesDemo
         },
         deMorgan: {
             name: 'De Morgan\'s Law · (A·B)\' = A\' + B\'',

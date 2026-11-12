@@ -35,6 +35,17 @@
         ctx.closePath();
     }
 
+    function roundedTrapezoid(ctx, xLeft, xRight, halfHLeft, halfHRight, r) {
+        const radius = Math.min(r, (xRight - xLeft) / 3, halfHRight * 0.7);
+        ctx.beginPath();
+        ctx.moveTo(xLeft, 0);
+        ctx.arcTo(xLeft, -halfHLeft, xRight, -halfHRight, radius);
+        ctx.arcTo(xRight, -halfHRight, xRight, halfHRight, radius);
+        ctx.arcTo(xRight, halfHRight, xLeft, halfHLeft, radius);
+        ctx.arcTo(xLeft, halfHLeft, xLeft, -halfHLeft, radius);
+        ctx.closePath();
+    }
+
     function traceGateBody(ctx, type) {
         ctx.beginPath();
         if (type === 'AND' || type === 'NAND') {
@@ -426,7 +437,10 @@
             const ctx = this.ctx;
             for (const j of junctions) {
                 const nodeEval = evaluation?.nodes.get(j.nodeId);
-                const isOne = Boolean(nodeEval?.valid && nodeEval.live === 1);
+                const pinLive = nodeEval?.valid
+                    ? (L.getSourcePinLive ? L.getSourcePinLive(nodeEval, j.pin || 'out') : nodeEval.live)
+                    : null;
+                const isOne = pinLive === 1;
                 const isLoop = Boolean(nodeEval?.loop);
                 const isHover = Boolean(hoverNodeId && hoverNodeId === j.nodeId);
 
@@ -589,7 +603,194 @@
             ctx.restore();
         }
 
+        drawBlockNode(gate, spec, evalNode, isSelected, isHovered, alpha = 1) {
+            const ctx = this.ctx;
+            const { x, y } = gate.position;
+            const halfW = spec.w / 2;
+            const halfH = spec.h / 2;
+            const bodyW = halfW - 10;
+            const bodyH = halfH - 4;
+            const valid = Boolean(evalNode && evalNode.valid);
+            const loop = Boolean(evalNode && evalNode.loop);
+            const pinLives = evalNode?.pinLives || {};
+            const anyOutHigh = valid && Object.values(pinLives).some(v => v === 1);
+
+            ctx.save();
+            ctx.globalAlpha = alpha;
+            ctx.translate(x, y);
+            ctx.rotate(((gate.rotation || 0) * Math.PI) / 180);
+
+            const isMux = gate.type === 'MUX2' || gate.type === 'MUX4';
+            const rightH = isMux ? Math.round(bodyH * 0.56) : bodyH;
+            const traceBody = (pad = 0, r = 8) => {
+                if (isMux) {
+                    roundedTrapezoid(ctx, -bodyW - pad, bodyW + pad, bodyH + pad, rightH + pad, r);
+                } else {
+                    roundedRect(ctx, -bodyW - pad, -bodyH - pad, (bodyW + pad) * 2, (bodyH + pad) * 2, r);
+                }
+            };
+
+            if (isHovered || isSelected) {
+                ctx.fillStyle = isHovered ? COLORS.hoverHalo : 'rgba(139, 157, 255, 0.16)';
+                traceBody(6, 12);
+                ctx.fill();
+            }
+
+            // Input & Output pin lead stubs
+            ctx.lineWidth = 1.8;
+            for (const inp of spec.inputs) {
+                ctx.strokeStyle = COLORS.gateStroke;
+                ctx.beginPath();
+                ctx.moveTo(-halfW, inp.y);
+                ctx.lineTo(-bodyW, inp.y);
+                ctx.stroke();
+            }
+            for (const outp of spec.outputs) {
+                const outHigh = valid && pinLives[outp.pin] === 1;
+                ctx.strokeStyle = outHigh ? COLORS.wire1 : COLORS.gateStroke;
+                ctx.beginPath();
+                ctx.moveTo(bodyW, outp.y);
+                ctx.lineTo(halfW, outp.y);
+                ctx.stroke();
+            }
+
+            // Outer active glow
+            if (anyOutHigh && !loop) {
+                ctx.save();
+                ctx.shadowColor = 'rgba(61, 217, 255, 0.25)';
+                ctx.shadowBlur = 12;
+                traceBody(0, 8);
+                ctx.strokeStyle = 'rgba(61, 217, 255, 0.35)';
+                ctx.lineWidth = 2.8;
+                ctx.stroke();
+                ctx.restore();
+            }
+
+            // Main block body
+            const bodyGrad = ctx.createLinearGradient(0, -bodyH, 0, bodyH);
+            if (anyOutHigh) {
+                bodyGrad.addColorStop(0, '#16253b');
+                bodyGrad.addColorStop(1, '#0b1220');
+            } else {
+                bodyGrad.addColorStop(0, '#141926');
+                bodyGrad.addColorStop(1, '#0a0d15');
+            }
+            ctx.fillStyle = bodyGrad;
+            ctx.strokeStyle = isSelected
+                ? COLORS.selected
+                : loop
+                ? COLORS.wireLoop
+                : anyOutHigh
+                ? COLORS.gateStroke1
+                : COLORS.gateStroke;
+            ctx.lineWidth = isSelected ? 2.4 : 1.8;
+            traceBody(0, 8);
+            ctx.fill();
+            ctx.stroke();
+
+            // Accent header / subtle tint clipped to body shape
+            ctx.save();
+            traceBody(-1, 7);
+            ctx.clip();
+            ctx.fillStyle = spec.accent || '#38bdf8';
+            ctx.globalAlpha = alpha * (isMux ? 0.16 : 0.22);
+            ctx.fillRect(-bodyW, -bodyH, bodyW * 2, isMux ? 24 : 18);
+            ctx.restore();
+
+            // Block Title
+            ctx.fillStyle = '#f8fafc';
+            ctx.font = '700 10px Inter, system-ui, sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(spec.label, isMux ? -2 : 0, isMux ? -rightH + 2 : -bodyH + 10);
+
+            // Pin internal labels
+            ctx.font = '600 8.5px "JetBrains Mono", monospace, sans-serif';
+            ctx.textAlign = 'left';
+            for (const inp of spec.inputs) {
+                ctx.fillStyle = COLORS.muted;
+                ctx.fillText(inp.label, -bodyW + 5, inp.y + 0.5);
+            }
+            ctx.textAlign = 'right';
+            for (const outp of spec.outputs) {
+                const outHigh = valid && pinLives[outp.pin] === 1;
+                ctx.fillStyle = outHigh ? COLORS.wire1 : COLORS.text;
+                ctx.fillText(outp.label, bodyW - 5, outp.y + 0.5);
+            }
+
+            // Center live telemetry badge for stateful latches or arithmetic blocks
+            const st = evalNode?.state || gate.state;
+            if (spec.stateful && st) {
+                const isInvalid = Boolean(st.invalid);
+                const qVal = st.q ? 1 : 0;
+                const badgeText = isInvalid ? 'INV!' : `Q=${qVal}`;
+                ctx.fillStyle = isInvalid
+                    ? 'rgba(239, 68, 68, 0.25)'
+                    : qVal === 1
+                    ? 'rgba(16, 185, 129, 0.22)'
+                    : 'rgba(255, 255, 255, 0.06)';
+                ctx.strokeStyle = isInvalid
+                    ? '#ef4444'
+                    : qVal === 1
+                    ? '#10b981'
+                    : 'rgba(255, 255, 255, 0.16)';
+                ctx.lineWidth = 1;
+                roundedRect(ctx, -18, 2, 36, 16, 4);
+                ctx.fill();
+                ctx.stroke();
+
+                ctx.fillStyle = isInvalid ? '#fca5a5' : (qVal === 1 ? '#34d399' : COLORS.muted);
+                ctx.font = '700 8.5px "JetBrains Mono", monospace, sans-serif';
+                ctx.textAlign = 'center';
+                ctx.fillText(badgeText, 0, 10.5);
+            } else if ((gate.type === 'HA' || gate.type === 'FA') && valid) {
+                const sumVal = (pinLives.out ? 1 : 0) + ((pinLives.out1 ? 1 : 0) * 2);
+                ctx.fillStyle = 'rgba(56, 189, 248, 0.14)';
+                roundedRect(ctx, -16, 2, 32, 15, 4);
+                ctx.fill();
+                ctx.fillStyle = '#38bdf8';
+                ctx.font = '700 8.5px "JetBrains Mono", monospace, sans-serif';
+                ctx.textAlign = 'center';
+                ctx.fillText(`Σ=${sumVal}`, 0, 10);
+            } else if (isMux && valid && evalNode?.inputValues) {
+                const iv = evalNode.inputValues;
+                const selIdx = gate.type === 'MUX2'
+                    ? (iv[2] === 1 ? 1 : 0)
+                    : ((iv[4] === 1 ? 2 : 0) + (iv[5] === 1 ? 1 : 0));
+                const selPin = spec.inputs[selIdx];
+                if (selPin) {
+                    const outHigh = pinLives.out === 1;
+                    ctx.save();
+                    ctx.strokeStyle = outHigh ? 'rgba(61, 217, 255, 0.72)' : 'rgba(168, 85, 247, 0.55)';
+                    ctx.lineWidth = 1.6;
+                    ctx.setLineDash([4, 3]);
+                    ctx.beginPath();
+                    ctx.moveTo(-bodyW + 22, selPin.y);
+                    ctx.bezierCurveTo(-4, selPin.y, 4, 0, bodyW - 16, 0);
+                    ctx.stroke();
+                    ctx.restore();
+                }
+                ctx.fillStyle = 'rgba(168, 85, 247, 0.18)';
+                ctx.strokeStyle = 'rgba(168, 85, 247, 0.45)';
+                ctx.lineWidth = 1;
+                roundedRect(ctx, -19, 8, 38, 15, 4);
+                ctx.fill();
+                ctx.stroke();
+                ctx.fillStyle = '#d8b4fe';
+                ctx.font = '700 8px "JetBrains Mono", monospace, sans-serif';
+                ctx.textAlign = 'center';
+                ctx.fillText(`D${selIdx}→Y`, 0, 16);
+            }
+
+            ctx.restore();
+        }
+
         drawGateNode(gate, evalNode, isSelected, isHovered, alpha = 1) {
+            const spec = L.BLOCK_SPECS && L.BLOCK_SPECS[gate.type];
+            if (spec) {
+                this.drawBlockNode(gate, spec, evalNode, isSelected, isHovered, alpha);
+                return;
+            }
             const ctx = this.ctx;
             const { x, y } = gate.position;
             const type = gate.type;
@@ -731,7 +932,10 @@
                     ctx.fill();
                     ctx.stroke();
                 } else {
-                    ctx.fillStyle = (pin.role === 'out' && nodeEval?.valid && nodeEval.live === 1)
+                    const outLive = (pin.role === 'out' && nodeEval?.valid)
+                        ? (L.getSourcePinLive ? L.getSourcePinLive(nodeEval, pin.pin) : nodeEval.live)
+                        : null;
+                    ctx.fillStyle = outLive === 1
                         ? COLORS.wire1
                         : COLORS.pinFill;
                     ctx.strokeStyle = COLORS.gateStroke;

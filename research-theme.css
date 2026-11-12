@@ -66,12 +66,16 @@ canvas#simCanvas,
     filter: saturate(0.95) contrast(1.04);
 }
 
-/* Prevent browser scroll/bounce while dragging on touch devices */
+/* Prevent browser scroll/bounce while dragging on interactive touch canvases */
 #simulationCanvas,
-#capacitorCanvas,
+#capacitorCanvas {
+    touch-action: none;
+}
+
+/* Allow vertical page scrolling when swiping over non-drag canvases on mobile */
 canvas#simCanvas,
 #gaussCanvas {
-    touch-action: none;
+    touch-action: pan-y;
 }
 
 h1,
@@ -705,16 +709,23 @@ body:has(#gaussCanvas) {
 }
 
 @media (max-width: 768px) {
-    .concept-guide,
-    .concept-guide.electro-guide {
-        top: 56px;
-        left: 8px;
-        right: 8px;
-        width: auto;
+    .concept-guide {
+        position: relative;
+        top: auto;
+        left: auto;
+        right: auto;
+        width: calc(100% - 16px);
         min-width: 0;
+        margin: 8px 8px 0;
         transform: none;
         grid-template-columns: auto 1fr;
         padding: 7px 9px;
+        flex-shrink: 0;
+    }
+
+    .concept-guide.electro-guide,
+    body:has(#capacitorCanvas) .concept-guide {
+        display: none !important;
     }
 
     .concept-kicker {
@@ -885,4 +896,15 @@ select:focus,
 input[type="number"]:focus,
 input[type="text"]:focus {
     border-color: var(--accent, var(--research-cyan)) !important;
+}
+
+@media (pointer: coarse), (max-width: 768px) {
+    select,
+    .modern-select,
+    .scale-select,
+    input[type="number"],
+    input[type="text"],
+    input[type="search"] {
+        font-size: 16px !important;
+    }
 }
