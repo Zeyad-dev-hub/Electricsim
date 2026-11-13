@@ -6,12 +6,14 @@ A plain-language reference for every lab, button, checkbox, slider, dropdown, an
 
 ## 1. Electricsim Hub (`index.html`)
 
-The starting page that connects all 7 simulations.
+The starting page that connects all 9 simulations and virtual labs, organized into two titled sections with divider lines:
 
-- **Find a lab (Search box):** Type any lab name or physics topic to filter the lab cards in real time.
-- **Clear button:** Appears when you type in the search box; clears your search and shows all 7 labs again.
-- **Lab count (`7 labs`):** Shows how many labs match your current search.
-- **Lab cards:** Click any card to open that simulation.
+- **Simulations (5 physics simulations):** Electrostatics Simulator, Conductivity Explorer, Gauss's Law Explorer, Capacitor Physics Explorer, and Semiconductor Physics Simulation.
+- **Virtual Labs (4 interactive labs):** Capacitor Networks, Logic Lab, Electronics Lab, and Circuits Lab.
+- **Find a simulation or lab (Search box):** Type any simulation/lab name or physics topic to filter cards in real time; empty sections hide automatically while filtering.
+- **Clear button:** Appears when you type in the search box; clears your search and restores both sections and all 9 modules.
+- **Module count (`9 modules`):** Shows how many cards match your current search.
+- **Compact Color-Accented Cards:** Each card shows its colored gradient title and accent underline bar—click or tap any card to open that module.
 
 ---
 
@@ -95,17 +97,15 @@ See how electric flux through a closed Gaussian surface depends only on the char
 
 ---
 
-## 4. Capacitor Lab (`capacitor.html`)
+## 4. Capacitor Physics Explorer (`capacitor.html`)
 
-Explore how capacitor geometry and dielectrics store energy, or build series-parallel capacitor networks.
+Explore how capacitor geometry and dielectrics determine capacitance, electric field, stored charge, and energy.
 
 ### Top Bar
 - **⌂ Hub:** Returns to the main Electricsim Hub page.
-- **🔭 Physics Explorer:** Switches to the single-capacitor physics simulation mode.
-- **🔗 Network Builder:** Switches to the multi-capacitor series/parallel circuit builder mode.
-- **? (Formulas):** Opens a popup showing the capacitance, electric field, energy, and series/parallel formulas.
+- **? (Formulas):** Opens a popup showing the capacitance, electric field, and energy formulas.
 
-### Mode 1: Physics Explorer
+### Geometry & Circuit Controls (Left Sidebar)
 - **Geometry Model — Type (dropdown):** Choose *Parallel Plate*, *Cylindrical*, or *Spherical* capacitor.
 - **Dielectric Material (dropdown):** Pick an insulating material between the plates (*Vacuum/Air*, *Teflon*, *Nylon*, *Paper*, *Glass*, or *Custom*).
 - **Dielectric Constant (k) slider:** Appears when *Custom* is selected, letting you set any `k` from `1.0` to `100.0`.
@@ -122,7 +122,23 @@ Explore how capacitor geometry and dielectrics store energy, or build series-par
   - **Time Multiplier slider:** Speeds up or slows down the charging and discharging animation (`0.1×` to `5.0×`).
 - **Live Measurements HUD (Bottom Left):** Shows **Capacitance (C)**, **Stored Charge (Q)**, **Plate Voltage (Vc)**, **Energy (U)**, **Electric Field (E)**, and current **State**.
 
-### Mode 2: Network Builder
+### View Controls (Bottom Right)
+- **Show Field Lines:** Shows or hides electric field lines inside the capacitor.
+- **Show Charges:** Shows or hides `+` and `−` charge markers on the plates.
+- **`-` / `+`:** Zooms out or zooms in on the canvas.
+- **⤢ (Reset View):** Resets zoom and camera position back to `100%`.
+
+---
+
+## 5. Capacitor Networks (`capacitor-networks.html`)
+
+Build nested series and parallel capacitor networks, analyze equivalent capacitance ($C_{eq}$), and inspect voltage, charge, and energy across each component.
+
+### Top Bar
+- **⌂ Hub:** Returns to the main Electricsim Hub page.
+- **? (Formulas):** Opens a popup showing the series/parallel capacitance, charge, and energy formulas.
+
+### Network Builder Controls (Left Sidebar)
 - **Master Source (V) slider:** Sets the total voltage applied across the whole capacitor network (`1 V` to `100 V`).
 - **Capacitance (μF) slider:** Sets the capacitance value (`1 μF` to `100 μF`) for the next capacitor you add.
 - **⊕ Series:** Adds a new capacitor in series with the currently selected node in the tree.
@@ -132,15 +148,13 @@ Explore how capacitor geometry and dielectrics store energy, or build series-par
 - **🗑 Clear All:** Removes all capacitors from the network.
 - **Equivalent Circuit HUD (Bottom Left):** Shows **Total C ($C_{eq}$)**, **Total Charge (Q)**, **Total Energy (U)**, and when an item is selected, **Selected Element** Capacitance, Voltage, Charge, and Energy.
 
-### View Controls (Bottom Right, Both Modes)
-- **Show Field Lines:** Shows or hides electric field lines inside the capacitor(s).
-- **Show Charges:** Shows or hides `+` and `−` charge markers on the plates.
-- **`-` / `+`:** Zooms out or zooms in on the canvas.
+### View Controls (Bottom Right)
+- **`-` / `+`:** Zooms out or zooms in on the circuit schematic.
 - **⤢ (Reset View):** Resets zoom and camera position back to `100%`.
 
 ---
 
-## 5. Conductivity & Resistivity Explorer (`conductivity.html`)
+## 6. Conductivity & Resistivity Explorer (`conductivity.html`)
 
 Watch free electrons drift and collide with lattice atoms inside a wire as you change material, dimensions, temperature, and voltage.
 
@@ -161,7 +175,7 @@ Watch free electrons drift and collide with lattice atoms inside a wire as you c
 
 ---
 
-## 6. Semiconductor Physics Simulation (`semiconductor.html`)
+## 7. Semiconductor Physics Simulation (`semiconductor.html`)
 
 Explore a silicon crystal lattice, see how heat and doping create free electrons and holes, and watch current flow when voltage is applied.
 
@@ -205,7 +219,7 @@ Explore a silicon crystal lattice, see how heat and doping create free electrons
 
 ---
 
-## 7. Circuits Lab (`dc-circuit.html`)
+## 8. Circuits Lab (`dc-circuit.html`)
 
 Build custom DC and AC circuits on a blank canvas, wire components together, run live simulations, and inspect voltage, current, and power.
 
@@ -254,32 +268,28 @@ Build custom DC and AC circuits on a blank canvas, wire components together, run
 - **Reset time:** Resets the simulation clock back to `0 s`.
 - **Time (dropdown):** Changes simulation playback speed (`0.01×` up to `100×`).
 - **Flow markers (checkbox):** Shows or hides moving dots representing conventional current flow.
-- **Current scale (dropdown):** Sets the visual speed reference for flow markers (*Auto* or fixed scales from `1 µA` to `10 A`).
-- **Waveform Oscilloscope (expandable):** Displays live **CH1 V(t)** voltage and **CH2 I(t)** current waveforms:
-  - **Probe target (dropdown):** Automatically probes the filtered load branch or selected part, or lets you pick a specific component.
-  - **Ripple Vr(pp) & Vdc:** Measures peak-to-peak ripple voltage (`Vmin ↔ Vmax`), average DC voltage, and ripple percentage (especially useful when connecting a filter capacitor in parallel with a rectifier load).
-  - **Reactive Energy:** Displays total stored energy across capacitors and inductors.
-  - **Zoom Ripple (button):** Zooms the vertical axis onto the ripple envelope so small voltage fluctuations are easy to inspect.
-  - **Clear Trace (button):** Clears the oscilloscope trace history.
+- **Current scale (dropdown):** Sets the visual speed reference for flow markers. Starts automatically at **`1 µA`**, with options for **Auto · fixed at Run** and fixed scales from `1 µA` to `10 A`.
+- **Virtual Dual-Channel Oscilloscope & Live Measurements (expandable):** Displays real-time **CH1 V(t)** voltage and **CH2 I(t)** current waveforms on a responsive dual-channel grid (including hover cursor crosshair readout):
+  - **Probe target (dropdown):** Automatically probes the parallel load / selected component, or lets you pick a specific component.
+  - **Time/div (dropdown):** Chooses *Auto* or fixed horizontal timebases from `1 ms/div` to `1 s/div`.
+  - **AC / ΔV Zoom (button):** Zooms CH1 vertically onto the peak-to-peak AC or ripple swing so small voltage fluctuations are easy to inspect.
+  - **Invert (button):** Swaps probe polarity (`A+ / B−` ↔ `B+ / A−`).
+  - **Clear (button):** Clears the oscilloscope trace history.
+  - **Fixed-Size Telemetry Boxes (`CH1 V(t)`, `Vrms`, `Vdc`, `Vpp`, `Freq`, `CH2 I(t)`, `Energy`):** Aligned in a fixed-column grid (`tabular-nums`) so reading boxes stay steady in size and position during live simulation (7 tracks on desktop, 4-column tablet grid, 2-column mobile grid with full-width bottom Energy box).
 - **Measurements and keyboard help (expandable):** Shows a full table of **Voltage**, **Current**, and **Power** for every component, plus keyboard shortcuts.
 
 ---
 
-## 8. Logic Circuits Lab (`logic.html`)
+## 9. Logic Lab (`logic.html`)
 
-This lab has two modes at the top: **Logic Gates Simulator** (digital logic + Boolean algebra) and **Logic IC Lab** (74xx hardware chip breadboard).
+Build digital logic gate circuits, test truth tables and Karnaugh maps, simplify Boolean expressions, and convert circuits to universal NAND or NOR gates. (Now a standalone lab separate from Electronics Lab; on mobile screens `≤ 980px`, the component palette becomes a compact 2-row horizontal swipe strip above the canvas.)
 
-### Top Bar (Both Modes)
+### Top Bar
 - **← Electricsim:** Returns to the main Electricsim Hub page.
-- **Logic Gates Simulator / Logic IC Lab (tabs):** Switches between the two workspace modes.
-- **Examples / IC Presets (dropdown):** Loads pre-built logic circuits or 74xx IC bench setups.
-- **Undo / Redo / Clear:** Reverses edits, restores undone edits, or clears the canvas.
+- **Examples (dropdown):** Loads pre-built combinational and sequential logic circuits (including adders, MUXes, latches, and 2-bit Ripple Adder).
+- **Undo (`Ctrl+Z`) / Redo (`Ctrl+Y`) / Clear:** Reverses edits, restores undone edits, or clears the canvas.
 
----
-
-### Mode 1: Logic Gates Simulator
-
-#### Live Boolean Algebra Bar (Top)
+### Live Boolean Algebra Bar (Top)
 - **Focused output tabs (`F`, `G`, etc.):** Switch which output's equation, K-Map, and simplification are shown.
 - **Notation (dropdown):** Changes how equations are written:
   - *Engineering* (`A·B + A'`)
@@ -290,27 +300,27 @@ This lab has two modes at the top: **Logic Gates Simulator** (digital logic + Bo
 - **⚡ Simplify & Convert:** Opens the simplification preview bar / tab for the current circuit.
 - **Quick Preview Buttons (`Apply Minimal`, `NAND-Only`, `NOR-Only`):** Appears in the preview bar to immediately rebuild the schematic into its minimal form or using only NAND / NOR gates.
 
-#### Schematic Subbar
+### Schematic Subbar
 - **Snap to grid (checkbox):** Aligns gates and wires neatly to the background grid.
 - **Keep placing (checkbox):** Lets you place multiple copies of the same gate or component in a row without re-selecting the tool each time.
 - **↻ Rotate next (R):** Rotates the next component before placing it.
 - **`−` / `+` / `Fit view`:** Zooms out, zooms in, or fits the entire schematic to the screen.
 
-#### Left Component Palette
+### Component Palette (Left Sidebar / Mobile Swipe Strip)
 - **Cursor & Wiring:** **Move / Edit** (select/drag), **Wire** (connect pins), **Pan** (move canvas).
 - **I/O & Constants:** **Input (A–P)** (up to 12 clickable `0/1` toggle inputs), **Output (F–V)** (up to 8 indicator probes), **Const 1** (always high), **Const 0** (always low).
 - **Logic Gates:** **AND**, **OR**, **NOT**, **NAND**, **NOR**, **XOR**, **XNOR**, **Buffer**.
-- **MSI Blocks & Plexers:** **Half Adder (HA)**, **Full Adder (FA)**, **2:1 Multiplexer (MUX 2:1)**, **4:1 Multiplexer (MUX 4:1)**, **4:2 Priority Encoder (ENC 4:2)**, **2:4 Decoder (DEC 2:4)**, **1-Bit Magnitude Comparator (COMP)**.
-- **Sequential Latches:** **SR Latch** (Set/Reset memory) and **D Latch** (Data/Enable gated memory).
+- **Arithmetic & MSI Blocks:** **Half Adder (HA)**, **Full Adder (FA)**, **2:1 Multiplexer (MUX 2:1)**, **4:1 Multiplexer (MUX 4:1)**, **4:2 Priority Encoder (ENC 4:2)**, **2:4 Decoder (DEC 2:4)**, **Magnitude Comparator (COMP2)**.
+- **Sequential Latches:** **SR-Latch** (Set/Reset memory) and **D-Latch** (Data/Enable gated memory).
 
-#### Right Inspector (when a gate or I/O is selected)
-- **Gate Type (dropdown):** Change a placed gate into another gate type in place.
+### Right Inspector (when a gate or I/O is selected)
+- **Component Type (dropdown):** Change a placed gate or MSI block into another type in place.
 - **Input Pins (dropdown):** Change a basic gate between `2 inputs`, `3 inputs`, or `4 inputs`.
 - **Symbol (dropdown):** Rename an Input (`A`–`P`) or Output (`F`–`V`).
 - **Toggle State (0 ↔ 1):** Flips the selected input between `0` and `1` (you can also click the input's badge directly on the canvas).
 - **↻ Rotate / Duplicate / Delete / Done:** Rotates, copies, removes the selected item, or closes the inspector.
 
-#### Right Analysis Dock (3 Tabs)
+### Right Analysis Dock (3 Tabs)
 - **Truth Table:** Shows input combinations (up to 64 rows for 6+ inputs) and resulting outputs. **Click any row** to apply those inputs directly to your schematic.
 - **K-Map:** Shows the Karnaugh map for the focused output (and shows a slice indicator when more than 4 inputs are present). Click prime implicant chips below it to highlight groups, or click any cell to test that input state.
 - **Simplify & Convert:** Compares your **Drawn Schematic**, **Minimal SOP**, and **Minimal POS**, lists **Prime Implicants**, and provides 4 one-click rebuild buttons:
@@ -319,14 +329,21 @@ This lab has two modes at the top: **Logic Gates Simulator** (digital logic + Bo
   - **Convert to Universal NAND-Only**
   - **Convert to Universal NOR-Only**
 
-#### Bottom Metrics Footer
-- Shows live counts for **Gates**, **Inputs**, **Outputs**, **Logic Depth**, **Est. CMOS transistors**, and whether the circuit is **✓ Combinational** or **Sequential Feedback**.
+### Bottom Metrics Footer
+- Shows live counts for **Gates & Blocks**, **Inputs**, **Outputs**, **Logic Depth**, **Est. CMOS transistors**, and whether the circuit is **✓ Combinational** or **Sequential Feedback**.
 
 ---
 
-### Mode 2: Logic IC Lab (74xx Series DIP Bench)
+## 10. Electronics Lab (`electronics.html`)
 
-#### Bench Options Subbar
+Wire authentic 74xx Series DIP integrated circuits on an interactive hardware bench with X-ray gate internals, live pin state monitoring, DIP switches, 7-segment display, 1 Hz clock generator, and logic probe. (Now a standalone lab separate from Logic Lab; on mobile screens `≤ 980px`, the component & IC palette becomes a compact 2-row horizontal swipe strip above the bench canvas.)
+
+### Top Bar
+- **← Electricsim:** Returns to the main Electricsim Hub page.
+- **IC Presets (dropdown):** Loads curated 74xx IC bench circuits.
+- **Undo (`Ctrl+Z`) / Redo (`Ctrl+Y`) / Clear:** Reverses edits, restores undone edits, or clears the bench.
+
+### Bench Options Subbar
 - **🔬 X-Ray IC Internals (checkbox):** Shows semi-transparent internal gate diagrams, live MSI telemetry, and pin connections inside each 74xx chip.
 - **⚡ Auto-Power (VCC/GND) (checkbox):** Automatically supplies `+5V` to VCC and `0V` to GND on all ICs so you don't have to wire power manually.
 - **Snap to grid (checkbox):** Snaps chips, bench parts, and wires to the grid.
@@ -334,19 +351,19 @@ This lab has two modes at the top: **Logic Gates Simulator** (digital logic + Bo
 - **↻ Rotate next (R):** Rotates the next part before placing it.
 - **`−` / `+` / `Fit view`:** Zooms out, zooms in, or fits the bench to the screen.
 
-#### Left Component Palette
+### Component & IC Palette (Left Sidebar / Mobile Swipe Strip)
 - **Cursor & Wiring:** **Move / Edit**, **Wire**, **Pan**.
 - **Bench Components:**
   - **🔋 5V Battery:** Provides `+5V` (VCC) and `0V` (GND) power.
   - **⏚ GND:** Ground (`0V`) reference terminal.
   - **⏻ Switch:** Clickable ON/OFF toggle switch.
-  - **🎛 DIP-4 Switch:** 4-channel DIP switch bank for driving 4-bit binary buses.
+  - **🎛 DIP-4 Bank:** 4-channel DIP switch bank (`B0..B3`) for driving 4-bit binary buses.
   - **〰 Resistor:** `220 Ω` current-limiting resistor.
   - **💡 Lamp:** Indicator LED that lights up when powered.
-  - **📍 Logic Probe:** Test probe that displays `1 (HIGH)`, `0 (LOW)`, or `Z (FLOATING)` at any pin or wire.
   - **⏱ 1Hz Clock:** Automatically pulses `1` and `0` once per second (or click to step manually).
+  - **🔎 Logic Probe:** Test probe that displays `HI (5V)`, `LO (0V)`, or `Hi-Z` at any pin or wire.
   - **🔢 7-Seg Display:** 7-segment hex display with 4 inputs (`A, B, C, D`).
-- **74xx Series ICs (14-Pin & 16-Pin DIP):**
+- **74xx Basic Logic ICs (14-Pin DIP):**
   - **7404:** Hex Inverter (6× NOT gates)
   - **7400:** Quad 2-Input NAND
   - **7402:** Quad 2-Input NOR
@@ -357,19 +374,20 @@ This lab has two modes at the top: **Logic Gates Simulator** (digital logic + Bo
   - **7410:** Triple 3-Input NAND
   - **7411:** Triple 3-Input AND
   - **7427:** Triple 3-Input NOR
+- **74xx MSI & Sequential ICs (14-Pin & 16-Pin DIP):**
   - **7474:** Dual Positive-Edge-Triggered D Flip-Flop
   - **7475:** 4-Bit Bistable D-Latch (16-pin)
-  - **7493:** 4-Bit Binary Ripple Counter
+  - **74279:** Quad S-R Latch (16-pin)
+  - **74283:** 4-Bit Binary Full Adder w/ Fast Carry (16-pin)
+  - **74157:** Quad 2-to-1 Data Multiplexer (16-pin)
   - **74148:** 8-to-3 Priority Encoder (16-pin)
-  - **74157:** Quad 2-to-1 Multiplexer (16-pin)
-  - **74279:** Quad SR-Latch (16-pin)
-  - **74283:** 4-Bit Binary Full Adder (16-pin)
+  - **7493 Counter:** 4-Bit Binary Ripple Counter (14-pin)
 
-#### Right IC Bench Inspector (when a part or IC is selected)
+### Right IC Bench Inspector (when a part or IC is selected)
 - **Lamp Color (dropdown):** *(Lamp only)* Choose *Emerald Green*, *Cyan Blue*, *Amber Gold*, or *Ruby Red*.
 - **Flip Switch (ON ↔ OFF):** *(Switch / Clock only)* Toggles the switch or clock state.
-- **Live Pin State Monitor:** *(74xx IC only)* Shows whether the chip is powered and displays the live `HIGH` / `LOW` state of all 14 or 16 pins.
+- **Live Pin State Monitor:** *(74xx IC only)* Shows whether the chip is powered and displays the live `HIGH` / `LOW` / `OPEN` state of all 14 or 16 pins.
 - **↻ Rotate (R) / Duplicate / Delete / Done:** Rotates, copies, removes the selected item, or closes the inspector.
 
-#### Bottom IC Bench Footer
+### Bottom IC Bench Footer
 - Shows live counts for **74xx ICs**, **Powered**, **Switches**, **Lamps ON**, **Wires**, **I<sub>CC</sub> (mA)** supply current, **Power (mW)**, **t<sub>pd</sub> (ns)** propagation delay, and bench status.

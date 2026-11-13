@@ -969,5 +969,5 @@
         renderer.draw(draft||doc(),solution,{selected:drag?.hit&&drag.moved?drag.hit:selected,errors:simulation.error?.ids||[],connection,pointer:target?.point||pointer,snap:target,placement:preview,motion,options:{simple:true,readings:solution,time:simulation.state?.time??0,markers:!simulation.error&&$('motionToggle').checked&&!reducedMotion.matches,nodeLabel}});
         if(!document.hidden&&(running||stepTarget!==null))requestDraw();
     }
-    readyMessage();sync();requestDraw();
+    calibrate();readyMessage();sync();requestDraw();
 })();
