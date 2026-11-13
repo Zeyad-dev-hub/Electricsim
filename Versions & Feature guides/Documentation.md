@@ -15,10 +15,10 @@ This document provides a three-dimensional view of the entire codebase and platf
 Electricsim/ (Workspace Root)
 │
 ├── Platform Shell & Shared Infrastructure
-│   ├── index.html                           # Central research hub entry point (cards, metrics, keyboard search)
-│   ├── hub-search.js                        # Accessible, instant search & keyword filtering engine for lab cards
+│   ├── index.html                           # Central research hub (Simulations [5] & Virtual Labs [4] sections, compact colored cards)
+│   ├── hub-search.js                        # Instant search & keyword filtering hiding empty sections dynamically
 │   ├── shared-bg.js                         # Shared dynamic background engine (ambient animated grid & particle glow)
-│   ├── research-theme.css                   # Unified dark research design system (colors, glass panels, HUD, typography)
+│   ├── research-theme.css                   # Unified dark research design system (colors, glass panels, colored gradient card titles)
 │   └── style.css                            # Core utility styles and shared structural base styles
 │
 ├── Lab 1: Electrostatics Simulator (2D Charge Physics)
@@ -39,20 +39,21 @@ Electricsim/ (Workspace Root)
 │       ├── Analytical Flux & Field Solvers  # Closed-form Gauss equations (Φ = ∮ E · dA = Q_enc / ε₀)
 │       └── Pseudo-3D Vector Renderer        # Orthogonal/axonometric projections, flowing chevron field lines, normal vectors
 │
-├── Lab 3: Capacitor Physics & Network Builder Suite
-│   ├── capacitor.html                       # Dual-mode container with top-bar mode switcher and interactive workspace
-│   ├── capacitor.css                        # Styling for geometry controls, dielectric selector, and network tree inspector
-│   └── capacitor.js                         # Dual-engine computational suite:
-│       ├── Sublab 3A: Capacitor Physics Explorer
+├── Capacitor Physics Explorer & Capacitor Networks (Separated Standalone Pages)
+│   ├── capacitor.html                       # Standalone Capacitor Physics Explorer (`data-cap-mode="physics"`)
+│   ├── capacitor-networks.html              # Standalone Capacitor Networks Lab (`data-cap-mode="network"`)
+│   ├── capacitor.css                        # Styling for geometry controls, dielectric selector, tree inspector, and responsive mobile header
+│   └── capacitor.js                         # Dual-mode engine reading `document.body.dataset.capMode`:
+│       ├── Physics Explorer Engine
 │       │   ├── Geometry Models              # Parallel-plate, coaxial cylindrical, and concentric spherical capacitors
 │       │   ├── Dielectric Polarization      # Relative permittivity (κ), dielectric breakdown limits, electric displacement
 │       │   ├── Electrostatic Dynamics       # Live charging/discharging transient circuit animation with battery and resistor
 │       │   └── Field & Charge Vector Engine # Dynamic E-field line density rendering and accumulated plate charge glyphs
-│       └── Sublab 3B: Capacitor Network Builder
+│       └── Capacitor Networks Engine
 │           ├── Hierarchical Network Tree    # Recursive Series-Parallel tree data structure (`createGroupNode`, `createCapNode`)
 │           ├── Equivalent Capacitance (C_eq)# Bottom-up recursive reduction solver (Series harmonic sum, Parallel direct sum)
 │           ├── Top-Down Charge/Voltage Dist # Recursive voltage divider and charge conservation solver across subnets
-│           └── PCB Schematic Auto-Layout    # Dynamic 2D schematic generator with clean trace routing and live component tags
+│           └── PCB Schematic Auto-Layout    # Dynamic 2D schematic generator with responsive empty state, trace routing, and badges
 │
 ├── Lab 4: Conductivity & Resistivity Explorer (Drude Transport)
 │   ├── conductivity.html                    # Microscopic lattice window, wire geometry sliders, live SI multimeter HUD
@@ -78,57 +79,55 @@ Electricsim/ (Workspace Root)
 │   │   ├── Canvas 2: Transfer Closeup Stage # Step-by-step valence transfer visualization (source bond A → receiving vacancy B)
 │   │   └── Canvas 3: Band Energy Diagram    # Valence band (E_v), conduction band (E_c), Fermi level (E_F), and impurity levels
 │
-├── Lab 6: Circuits Lab (DC & AC Dynamics Workspace)
-│   ├── dc-circuit.html                      # Single-screen (100dvh zero-scroll) schematic canvas, toolbar, inspector, timeline
-│   ├── dc-circuit.css                       # Single-viewport flex/grid schematic styling, component symbols, floating HUD
-│   ├── dc-circuit-model.js                  # Document schema v1, component factories, bounding boxes, and validation checks
+├── Virtual Lab: Circuits Lab (DC & AC Dynamics Workspace + Dual-Channel Oscilloscope)
+│   ├── dc-circuit.html                      # Single-screen (100dvh desktop, responsive mobile) canvas, inspector, fixed-grid scope, 1 µA default scale
+│   ├── dc-circuit.css                       # Viewport flex/grid styling, 3-column mobile tool grid, jitter-free CSS Grid scope telemetry chips
+│   ├── dc-circuit-model.js                  # Document schema v1, inductors, LEDs, Zeners, bounding boxes, and validation checks
 │   ├── dc-circuit-topology.js               # Union-Find net compiler, reference domains, and wire-current balance recovery
-│   ├── dc-circuit-solver.js                 # Modified Nodal Analysis (MNA) solver, adaptive backward Euler, diodes & transformers
+│   ├── dc-circuit-solver.js                 # Modified Nodal Analysis (MNA) solver, adaptive backward Euler, diodes, Zeners & transformers
+│   ├── dc-circuit-analysis.js               # Series-parallel resistor reduction helpers and RC time-constant analysis
 │   ├── dc-circuit-editor.js                 # Grid snapping (24px), obstacle-aware orthogonal A* routing, and route splitting
 │   ├── dc-circuit-simulation.js             # Simulation clock, state lifecycle, undo/redo history, and transient time budgeting
-│   ├── dc-circuit-renderer.js               # Path2D schematic rendering, IEEE/IEC component glyphs, current markers, glow
-│   ├── dc-circuit-presets.js                # Built-in educational circuits (rectifiers, transformers, RC ladders, bridges)
-│   └── dc-circuit.js                        # Controller, pointer/touch gesture engine, keyboard shortcuts, inspector sync
+│   ├── dc-circuit-renderer.js               # Path2D schematic rendering, IEEE/IEC glyphs, current markers, optical/thermal glow
+│   ├── dc-circuit-presets.js                # Built-in educational circuits (rectifiers, ripple filter, Zeners, RLC ringing, transformers)
+│   └── dc-circuit.js                        # Controller, dual-channel oscilloscope engine, pointer/touch gestures, 1 µA auto calibration
 │
-├── Lab 7: Logic Circuits Lab (Dual-Mode: Logic Gates Simulator & 74xx Logic IC Lab)
-│   ├── logic.html                           # Dual-mode workspace (top switcher, left component sidebars, maximized 100dvh canvas)
-│   ├── logic.css                            # Zero-scroll 100dvh flex/grid layout, left palette sidebar, floating IC inspector
-│   ├── Sublab 7A: Logic Gates Simulator
-│   │   ├── logic-model.js                   # Schema v1 (max 4 inputs A–D, max 4 outputs F–Y, 8 gate types, fan-in 1..4, History)
-│   │   ├── logic-evaluator.js               # Kahn topological sort, feedback cycle detection, 16-bit bitwise truth-mask evaluator
-│   │   ├── logic-expression.js              # Gate-to-AST builder, bidirectional gate hover spans, 4 notation printers
-│   │   ├── logic-simplify.js                # Isolated & optional 81-cube exact SOP/POS minimizer and Gray-code K-map builder
-│   │   ├── logic-synthesis.js               # Deterministic 3-column synthesizer (Minimal SOP/POS, Universal NAND-only & NOR-only)
-│   │   ├── logic-editor.js                  # 24px grid snapping, pin hit-testing, and obstacle-aware orthogonal wire router
-│   │   ├── logic-renderer.js                # Canvas 2D renderer with IEEE distinctive-shape gates, inversion bubbles & glow wires
-│   │   ├── logic-presets.js                 # 6 curated gate presets (Basic AND/OR, Half Adder, Full Adder, 2:1 Mux, De Morgan, Simplify)
-│   │   └── logic.js                         # Main controller syncing canvas gestures, formula bar, truth table, and K-map
-│   ├── Sublab 7B: Logic IC Lab (74xx Series DIP Breadboard Simulator)
-│   │   └── logic-ic-lab.js                  # Complete 74xx DIP IC bench engine:
-│   │       ├── 14-Pin 74xx IC Catalog       # 10 authentic TTL/CMOS DIP ICs by model number (7404, 7400, 7402, 7408, 7432, 7486, 74266, 7410, 7411, 7427)
-│   │       ├── Bench Circuit Components     # 5V DC Battery, Toggle Switch, 220Ω Series Resistor, Multi-Color LED Lamp, GND, 1Hz Clock, BCD 7-Seg
-│   │       ├── Closed-Circuit Net Solver    # Union-Find net solver enforcing true ground return paths (`hasTrueGround`), VCC/GND & short protection
-│   │       ├── Obstacle-Aware Wire Router   # 4-orientation component rotation (`R`), package-bypass routing, draggable segments, hops & junctions
-│   │       ├── X-Ray Datasheet Renderer     # Translucent DIP package rendering internal IEEE mini-gates and live pin-to-gate signal traces
-│   │       └── Curated 74xx Bench Presets   # 6 ready-to-run IC benches (7408 Bench, Half Adder, 3-Input 7411, 7400 Counter, 2:1 Mux, 2-Bit Comparator)
-│   └── logic-tests.html                     # Browser-native verification suite (65,536-function exact minimization, synthesis & IC ground checks)
+├── Virtual Lab: Logic Lab (`logic.html`, Standalone Gates & Boolean Algebra)
+│   ├── logic.html                           # Standalone Logic Lab workspace (no mode toggle), top Boolean bar, left component sidebar
+│   ├── logic.css                            # Shared 100dvh desktop layout & compact mobile horizontal-scroll palette bar (`<= 980px`)
+│   ├── logic-model.js                       # Schema v1 (up to 12 inputs A–P, 8 outputs F–V, gates, MSI blocks, SR/D latches, History)
+│   ├── logic-evaluator.js                   # Kahn topological sort, cycle detection, adaptive 16-bit/multi-input evaluator & latch relaxation
+│   ├── logic-expression.js                  # Gate-to-AST builder, bidirectional gate hover spans, 4 notation printers
+│   ├── logic-simplify.js                    # Isolated exact SOP/POS minimizer and Gray-code K-map builder
+│   ├── logic-synthesis.js                   # Deterministic synthesizer (Minimal SOP/POS, Universal NAND-only & NOR-only)
+│   ├── logic-editor.js                      # 24px grid snapping, pin hit-testing, and obstacle-aware orthogonal wire router
+│   ├── logic-renderer.js                    # Canvas 2D renderer with IEEE distinctive-shape gates, MSI blocks & glow wires
+│   ├── logic-presets.js                     # Curated gate & combinational presets (including 2-bit Ripple Adder)
+│   └── logic.js                             # Main controller syncing canvas gestures, formula bar, truth table, and K-map
 │
-├── Markdown Files/ (Platform Documentation & Reviews)
+├── Virtual Lab: Electronics Lab (`electronics.html`, Standalone 74xx IC Bench)
+│   ├── electronics.html                     # Standalone 74xx hardware bench workspace (no mode toggle), X-Ray internals, mobile swipe palette
+│   └── logic-ic-lab.js                      # Complete 74xx DIP IC bench engine:
+│       ├── 17-Chip 74xx DIP Catalog         # 10 DIP-14 gate ICs (7404..7427) + 7 MSI/Sequential ICs (7474, 7475, 74279, 74283, 74157, 74148, 7493)
+│       ├── 9 Bench Circuit Components       # 5V Battery, GND, Toggle Switch, DIP-4 Switch Bank, 220Ω Resistor, LED Lamp, 1Hz Clock, Probe, 7-Seg
+│       ├── Closed-Circuit Net Solver        # Union-Find net solver enforcing true ground return (`hasTrueGround`), VCC/GND & short protection
+│       ├── Obstacle-Aware Wire Router       # 4-orientation rotation (`R`), package-bypass routing, draggable segments, hops & junctions
+│       ├── X-Ray Datasheet Renderer         # Translucent DIP package rendering internal IEEE mini-gates & live pin-to-gate traces
+│       └── 9 Curated 74xx Bench Presets     # Ready-to-run IC benches covering gates, adders, multiplexers, decoders, counters & latches
+│
+├── Versions & Feature guides/ (Platform Documentation & Guides)
 │   ├── Documentation.md                     # Central architectural specification and comprehensive platform reference
-│   ├── DC_CIRCUIT_LAB_REVIEW.md             # DC Circuit Lab architectural audit, test reports, and verification review
-│   ├── DC_CIRCUIT_LAB_IMPLEMENTATION_PLAN.md# Engineering specifications for circuit editor, solver, and interactions
-│   ├── SEMICONDUCTOR_LAB_PLAN.md            # Physics requirements for single-crystal semiconductor simulation
-│   └── SEMICONDUCTOR_RESTRUCTURE_PLAN.md    # Restructuring blueprint consolidating multi-scene models into unified crystal
+│   └── FEATURES_GUIDE.md                    # Concise user-facing feature catalog covering all 9 simulations & virtual labs
 │
 └── Supplementary Verification Scripts (Optional)
-    ├── hub-search.test.js                   # Verifies lab search filtering logic, 7 lab cards, and ARIA accessibility attributes
+    ├── hub-search.test.js                   # Verifies hub search filtering, 9 simulation/lab cards, 2 sections, and ARIA attributes
     ├── semiconductor-model.test.js          # Verifies carrier equilibrium, mass-action law, and doping calculations
     ├── dc-circuit.test.js                   # Verifies KVL/KCL, series/parallel reductions, and RC curves
     ├── dc-circuit.math.test.js              # Verifies MNA matrix solver accuracy across 360 circuit meshes
     ├── dc-circuit.improvements.test.js      # Verifies undo/redo state preservation and wire current calculations
     ├── dc-circuit.interaction.test.js       # Verifies component placement previews and drag interactions
     ├── dc-circuit.browser.test.js           # Verifies interactive circuit editing and mobile responsiveness
-    └── logic-ic-lab.test.js                 # 3 full systematic verification scans (14 suites) for Logic IC Lab physics, routing & UI
+    └── logic-ic-lab.test.js                 # 5 systematic verification scans (22 checks) for Electronics Lab 74xx physics, MSI blocks, latches, routing & UI
 ```
 
 ---
@@ -143,26 +142,19 @@ This section details the inner architecture, computational algorithms, data stru
                            |   (Vanilla ES6+, Canvas 2D, Zero Deps)    |
                            +-------------------------------------------+
                                                  |
-         +-------------------+-------------------+-------------------+-------------------+
-         |                   |                   |                   |                   |
-         v                   v                   v                   v                   v
-+-----------------+ +-----------------+ +-----------------+ +-----------------+ +-----------------+
-| Electrostatics  | |   Gauss's Law   | |  Capacitor Lab  | |  Conductivity   | |  Semiconductor  |
-| - RK4 Integrator| | - Pseudo-3D Proj| | - Geometry Model| | - Drude Model   | | - Covalent Bonds|
-| - Marching Sq.  | | - Analytical E  | | - Transient RC  | | - Spatial Hash  | | - Mass Action   |
-| - BEM Induction | | - Flux Line Chev| | - Tree Reduction| | - Phonon Scatter| | - Multi-Canvas  |
-+-----------------+ +-----------------+ +-----------------+ +-----------------+ +-----------------+
-         |                                                                               |
-         +---------------------------------------+---------------------------------------+
-                                                 |
-                                                 v
-                                  +-----------------------------+
-                                  |        Circuits Lab         |
-                                  | - MNA Matrix Solver (LU)    |
-                                  | - Adaptive Backward Euler   |
-                                  | - Obstacle-Aware Routing    |
-                                  | - Union-Find Graph Topology |
-                                  +-----------------------------+
+                 +-------------------------------+-------------------------------+
+                 |                                                               |
+                 v                                                               v
+   [ SIMULATIONS (5 Interactive Explorers) ]                       [ VIRTUAL LABS (4 Workbenches) ]
+   +----------------------------------------+                      +----------------------------------------+
+   | 1. Electrostatics (- RK4 / MarchSq/BEM)|                      | 6. Capacitor Networks (- Series/Parallel|
+   | 2. Conductivity (- Drude / Phonon Hash)|                      |       Reduction & Transient RC Solver) |
+   | 3. Gauss's Law (- 3D Proj / Analyt. E) |                      | 7. Logic Lab (- Gate / MSI / Latch/Eval)|
+   | 4. Capacitor Physics (- Dielectric/Geom)|                      | 8. Electronics Lab (- 17x 74xx DIP ICs  |
+   | 5. Semiconductor (- Mass Action / Bond)|                      |       & Breadboard Pin Routing)          |
+   +----------------------------------------+                      | 9. Circuits Lab (- MNA LU / Euler /     |
+                                                                   |       Dual-Ch Oscilloscope & Analysis) |
+                                                                   +----------------------------------------+
 ```
 
 ### Lab 1: Electrostatics Simulator (`electrostatics.html`, `script.js`)
@@ -220,9 +212,11 @@ The visualization maps 3D spatial manifolds onto a 2D Canvas context:
 
 ---
 
-### Lab 3: Capacitor Physics & Network Builder Suite (`capacitor.html`, `capacitor.js`, `capacitor.css`)
+### Simulation 4 & Virtual Lab 6: Capacitor Suite (`capacitor.html`, `capacitor-networks.html`, `capacitor.js`, `capacitor.css`)
 
-#### Sublab 3A: Capacitor Physics Explorer
+Both standalone pages share the unified `capacitor.js` engine and `capacitor.css` stylesheet, booting into their dedicated workspace via `document.body.dataset.capMode` (`"physics"` on `capacitor.html`, `"network"` on `capacitor-networks.html`) with no mode switcher.
+
+#### Capacitor Physics Explorer (`capacitor.html`)
 1. **Geometry Solvers**:
    - **Parallel Plate**: $C = \frac{\kappa \varepsilon_0 A}{d}$, $E = \frac{V}{d}$, $U = \frac{1}{2} C V^2$, $u_E = \frac{1}{2} \varepsilon E^2$.
    - **Coaxial Cylinders**: $C = \frac{2\pi \kappa \varepsilon_0 L}{\ln(b / a)}$, $E(r) = \frac{V}{r \ln(b / a)}$.
@@ -234,7 +228,7 @@ The visualization maps 3D spatial manifolds onto a 2D Canvas context:
      $$V_C(t) = V_{\text{batt}} \left(1 - e^{-t / RC}\right) \quad \text{(charging)}, \qquad V_C(t) = V_0 e^{-t / RC} \quad \text{(discharging)}$$
    - Particle flow along connecting leads simulates real-time electron transport into plate boundaries.
 
-#### Sublab 3B: Capacitor Network Builder
+#### Capacitor Networks (`capacitor-networks.html`)
 1. **Hierarchical Tree Representation**:
    Complex networks are modeled as recursive N-ary trees:
    - Leaf Node: Individual capacitor entity with unique identifier and base capacitance $C$.
@@ -365,88 +359,73 @@ Dynamic components (capacitors and transformers) are discretized across time ste
 - **Junction Splitting**: Clicking an existing wire segment splits it cleanly, inserting a junction and maintaining existing waypoint geometry.
 - **Current Motion Integration**: Phase markers integrate signed distance $s(t) = \int I(t)\,dt$, guaranteeing that visual speed directly reflects current magnitude and reverses smoothly with alternating current.
 
+#### 6. Virtual Dual-Channel Oscilloscope, Flow Scale & Topology Analysis (`dc-circuit-analysis.js`, `dc-circuit.html`, `dc-circuit.css`)
+- **Oscilloscope Measurement Fidelity**: Samples true simulated node voltages (`CH1`) and component currents (`CH2`) across `scopeTargetSelect`, with `scopeTimebaseSelect`, `scopeZoomRippleBtn` (AC ripple magnification), `scopeInvertBtn`, `scopeClearBtn`, and real-time trigger stability matching physical scope measurements.
+- **Fixed-Geometry Telemetry Readout (`.dc-scope-stats`)**: Uses a locked 7-cell CSS Grid (`minmax(0, 1fr)` / 2-column grid on mobile) with constant cell dimensions and monospace alignment (`font-variant-numeric: tabular-nums`) so rapidly updating `CH1 V(t)`, `Vrms`, `Vdc`, `Vpp`, `Freq`, `CH2 I(t)`, and `Energy` chips remain rock-steady with zero vertical jumping.
+- **Default `1 µA` Flow Calibration**: `#flowScale` defaults automatically to `1 µA` (`value="0.000001"` `selected`) and calls `calibrate()` on initialization so sub-milliamp micro-currents animate smoothly on first launch without manual scaling.
+- **Series-Parallel & RC Reduction Helper (`dc-circuit-analysis.js`)**: Provides symbolic series-parallel equivalent resistance ($R_\text{eq}$) graph reduction and $RC$ time constant ($\tau = R_\text{Th} C$) validation alongside the MNA matrix engine.
+
 ---
 
-### Lab 7: Logic Circuits Lab (`logic.html`, `logic-*.js`, `logic-ic-lab.js`)
+### Virtual Lab 7: Logic Lab (`logic.html`, `logic-model.js` – `logic.js`)
 
-The **Logic Circuits Lab** is a dual-mode digital engineering suite modeled after the Capacitor Lab's top-bar mode switcher (`Logic Gates Simulator` and `Logic IC Lab`), built inside a zero-scroll (`100dvh`) single-viewport layout with dedicated Left Component Sidebars.
+**Logic Lab** is a standalone digital gate, combinational MSI, and sequential latch simulator (`data-logic-mode="gates"`) running in a zero-scroll (`100dvh`) desktop shell (and responsive mobile layout at `<= 980px` with a swipeable 2-row horizontal component strip).
 
 ```
 +---------------------------------------------------------------------------------------+
-|                        Logic Circuits Lab (Dual-Mode Stack)                           |
-+-------------------------------------------+-------------------------------------------+
-|       Sublab 7A: Logic Gates Simulator    |         Sublab 7B: 74xx Logic IC Lab      |
-+-------------------------------------------+-------------------------------------------+
-| logic.js            UI, Formula & K-Map   | logic-ic-lab.js   Complete 74xx Engine:   |
-| logic-editor.js     Grid & 90° Router     |  - 10 Authentic 14-Pin DIP ICs (7404..27) |
-| logic-renderer.js   IEEE Gates & Glow     |  - X-Ray Datasheet Internal Gate Overlay  |
-| logic-synthesis.js  SOP/POS/NAND/NOR      |  - Closed-Circuit Ground Return Solver    |
-| logic-simplify.js   81-Cube Exact Solver  |  - Obstacle-Aware Router & 4-Way Rotation |
-| logic-expression.js AST & 4 Notations     |  - Battery, Switch, 220Ω, Lamp, GND, Seg7 |
-| logic-evaluator.js  16-Bit Bitwise Engine |  - 6 Ready-to-Run 74xx Breadboard Presets |
-| logic-model.js      Schema v1 & History   |                                           |
-+-------------------------------------------+-------------------------------------------+
+|                          Logic Lab Architecture (Standalone)                          |
++---------------------------------------------------------------------------------------+
+| logic.js            UI, Formula Bar, K-Map, & Interactive Truth Table                 |
+| logic-editor.js     Grid Workspace, Undo/Redo, Selection & 90° Wire Router            |
+| logic-renderer.js   IEEE Gates, MSI Blocks, Sequential Latches & Live Wire Glow       |
+| logic-synthesis.js  Deterministic SOP / POS / Universal NAND / Universal NOR          |
+| logic-simplify.js   81-Cube Exact Boolean Minimizer (<= 4 variables)                  |
+| logic-expression.js AST Builder & 4 Notations (Eng, Overbar, Symbolic, Code)          |
+| logic-evaluator.js  16-Bit Bitwise Engine + Extended Multi-Input / MSI / Latch Eval   |
+| logic-model.js      Schema v1, History Stack, 12 Inputs (A-P) & 8 Outputs (F-V)       |
++---------------------------------------------------------------------------------------+
 ```
 
-#### Sublab 7A: Logic Gates Simulator (`logic-model.js` – `logic.js`)
+#### 1. Hybrid Truth-Mask & Extended Evaluators (`logic-evaluator.js`)
+- **16-Bit Bitwise Fast Path ($\le 4$ inputs `A, B, C, D`)**: Every signal's full 16-row truth table fits inside an unsigned 16-bit integer (`0xFF00`, `0xF0F0`, `0xCCCC`, `0xAAAA`), evaluated via Kahn topological sort and $O(1)$ bitwise instructions (`&`, `|`, `^`, `(~x) & 0xFFFF`).
+- **Expanded I/O & MSI / Latch Support**: Supports up to **12 inputs (`A–P`)** and **8 outputs (`F–V`)**, combinational MSI functional blocks (`HA`, `FA`, `MUX2`, `MUX4`, `ENC42`, `DEC24`, `COMP2`), and sequential latches (`SR_LATCH`, `D_LATCH`) with stateful hold behavior. Any non-sequential feedback loop remaining with `inDegree > 0` after topological exhaustion is safely flagged `loop: true` without hanging.
 
-##### 1. Single-Pass 16-Bit Bitwise Truth-Mask Evaluator (`logic-evaluator.js`)
-Because the workspace supports at most $n \le 4$ input variables (`A, B, C, D`), every signal's complete 16-row truth table fits inside a single 16-bit unsigned integer (`0x0000`–`0xFFFF`):
-- Input basis masks:
-  $$\text{MASK}_A = \text{0xFF00}, \quad \text{MASK}_B = \text{0xF0F0}, \quad \text{MASK}_C = \text{0xCCCC}, \quad \text{MASK}_D = \text{0xAAAA}$$
-- **Kahn Topological Sort & Cycle Detection**: Nodes with `inDegree === 0` initialize the evaluation queue. Any node remaining with `inDegree > 0` after queue exhaustion belongs to or depends on a combinational feedback loop and is flagged `loop: true` without hanging.
-- **Bitwise Gate Evaluation**: Each gate evaluates all 16 input combinations simultaneously in $O(1)$ CPU bitwise instructions (`&`, `|`, `^`, `(~x) & 0xFFFF`).
-- **Live Signal Extraction**: For active input switch states $(A, B, C, D) \in \{0, 1\}^4$, row index $r_{16} = (A \ll 3) \mid (B \ll 2) \mid (C \ll 1) \mid D$ extracts every wire's live logic state via `(mask >> r16) & 1`.
-
-##### 2. Expression AST & Bidirectional Gate Highlighting (`logic-expression.js`)
-- Walks backward from each output terminal (`F, G, H, Y`) to construct an operator-precedence AST (`NOT` > `AND`/`NAND` > `XOR`/`XNOR` > `OR`/`NOR`).
-- Renders safe DOM `<span class="logic-expr-gate" data-node-id="...">` wrappers so hovering any sub-expression in the Formula Bar illuminates the corresponding gate and its output wires on `#logicCanvas`.
+#### 2. Expression AST & Bidirectional Gate Highlighting (`logic-expression.js`)
+- Walks backward from active output terminals (`F–V`) to construct an operator-precedence AST (`NOT` > `AND`/`NAND` > `XOR`/`XNOR` > `OR`/`NOR`).
+- Renders `<span class="logic-expr-gate" data-node-id="...">` wrappers so hovering any sub-expression in the Formula Bar illuminates the corresponding gate and its output wires on `#logicCanvas`.
 - Supports 4 live notation printers: **Engineering** (`A·B + A'`), **Textbook Overbar** (`A·B + A̅`), **Symbolic** (`(A ∧ B) ∨ ¬A`), and **Code** (`(A && B) || !A`).
 
-##### 3. Isolated 81-Cube Exact Boolean Minimizer (`logic-simplify.js`)
-- **Complete Architectural Isolation**: Accepts only `{ vars, mask16 }` and returns plain data structures. Zero DOM, canvas, or schematic coupling; if `logic-simplify.js` is omitted, the schematic editor, formula bar, and truth table operate uninterrupted.
-- **Exact $3^k \le 81$ Cube Search**: Enumerates all $3^k$ product cubes over the $k \le 4$ active variables, filters valid implicants `(cMask & ~truth) === 0`, extracts Prime Implicants by subsumption, locks in Essential Prime Implicants, and solves any remaining cyclic chart via branch-and-bound minimizing `(termCount, literalCount)`.
-- **Minimal POS via De Morgan Dual**: Evaluates `solveExactSop` on `(~truth) & fullMask` and applies De Morgan inversion (`AND ↔ OR`, literal negation flip) to produce exact Minimal POS.
+#### 3. Isolated 81-Cube Exact Boolean Minimizer (`logic-simplify.js`)
+- **Complete Architectural Isolation**: Accepts only `{ vars, mask16 }` and returns plain data structures with zero DOM, canvas, or schematic coupling.
+- **Exact $3^k \le 81$ Cube Search**: Enumerates all $3^k$ product cubes over $k \le 4$ active variables, extracts Prime Implicants by subsumption, locks in Essential Prime Implicants, and solves cyclic charts via branch-and-bound minimizing `(termCount, literalCount)`. Evaluates De Morgan dual on `(~truth) & fullMask` for exact Minimal POS.
 
-##### 4. Deterministic 3-Column Universal Gate Synthesis (`logic-synthesis.js`)
-- Rewrites any valid combinational schematic into **Minimal SOP**, **Minimal POS**, **Universal NAND-Only**, or **Universal NOR-Only** aligned across fixed grid columns (`Inputs → Shared Inverters → Term Gates → Output Combining Gate → Outputs`).
-- Automatically chunks expressions with 5–8 prime implicants (such as 4-input XOR `0x6996`) into balanced 2-stage sub-trees so every gate strictly obeys `fanIn ≤ 4`, then self-verifies `newMask16 === oldMask16` before committing to `History`.
+#### 4. Deterministic 3-Column Universal Gate Synthesis (`logic-synthesis.js`)
+- Rewrites valid combinational schematics into **Minimal SOP**, **Minimal POS**, **Universal NAND-Only**, or **Universal NOR-Only** aligned across fixed grid columns (`Inputs → Shared Inverters → Term Gates → Output Combining Gate → Outputs`), balancing fan-in chunks (`fanIn <= 4`) and self-verifying `newMask16 === oldMask16` prior to `History` commit.
 
 ---
 
-#### Sublab 7B: Logic IC Lab — 74xx Series DIP Breadboard Simulator (`logic-ic-lab.js`)
+### Virtual Lab 8: Electronics Lab — 74xx DIP Breadboard (`electronics.html`, `logic-ic-lab.js`)
 
-##### 1. Authentic 14-Pin 74xx Series DIP IC Catalog (`IC_CATALOG`)
-All integrated circuits are presented in the Left Component Sidebar strictly by their **74xx model numbers** (never by gate name) and follow standard 14-pin Dual In-Line Package (DIP-14) counterclockwise pin numbering from the left half-moon notch (**Pins 1–7** along the bottom edge with **Pin 7 = GND**, and **Pins 8–14** along the top edge right-to-left with **Pin 14 = +5V VCC**):
-- **1-Input Hex Inverter**:
-  - `7404` (SN7404N): Hex Inverter (`1→2, 3→4, 5→6, 9→8, 11→10, 13→12`)
-- **2-Input Quad Gate ICs**:
-  - `7400` (SN7400N): Quad 2-Input NAND (`1,2→3 · 4,5→6 · 9,10→8 · 12,13→11`)
-  - `7402` (SN7402N): Quad 2-Input NOR (`2,3→1 · 5,6→4 · 8,9→10 · 11,12→13` — authentic reversed pinout!)
-  - `7408` (SN7408N): Quad 2-Input AND (`1,2→3 · 4,5→6 · 9,10→8 · 12,13→11`)
-  - `7432` (SN7432N): Quad 2-Input OR (`1,2→3 · 4,5→6 · 9,10→8 · 12,13→11`)
-  - `7486` (SN7486N): Quad 2-Input XOR (`1,2→3 · 4,5→6 · 9,10→8 · 12,13→11`)
-  - `74266` (SN74266N): Quad 2-Input XNOR (`1,2→3 · 4,5→6 · 9,10→8 · 12,13→11`)
-- **3-Input Triple Gate ICs**:
-  - `7410` (SN7410N): Triple 3-Input NAND (`1,2,13→12 · 3,4,5→6 · 9,10,11→8`)
-  - `7411` (SN7411N): Triple 3-Input AND (`1,2,13→12 · 3,4,5→6 · 9,10,11→8`)
-  - `7427` (SN7427N): Triple 3-Input NOR (`1,2,13→12 · 3,4,5→6 · 9,10,11→8`)
+**Electronics Lab** is a completely standalone 74xx-series breadboard workbench (`data-logic-mode="ic"`, decoupled from Logic Lab's gate palette) featuring authentic DIP ICs, closed-circuit power/ground physics, live pin telemetry, and responsive mobile swipe palettes.
 
-##### 2. Strict Closed-Circuit & Ground Return Path Solver (`evaluateICBench`)
-The bench solver enforces physical closed-circuit electricity rather than idealized single-wire logic:
-- **Passband Passive & Switch Bridging**: Closed switches (`sw:in ↔ sw:out`, when `sw:in` is wired) and `220 Ω` series resistors (`r:a ↔ r:b`) bridge connected nets via a Union-Find disjoint-set compiler.
-- **True Ground Return Tracking (`net.hasTrueGround`)**: A net only qualifies as a valid ground return (`0V`) if it is connected to a real low-impedance `0V` sink (`Battery (−)`, `GND` terminal, an active-low powered IC gate output, or a closed standalone switch in `0` state). Open switches never provide a ground return path.
-- **IC Power Rail Validation**: Unless the optional *Auto-power VCC/GND* bench helper is enabled, every 74xx IC requires **Pin 14** connected to `+5V` AND **Pin 7** connected to a true ground return (`hasTrueGround`). Reversed polarity (`Pin 14 = 0V` and `Pin 7 = +5V`) triggers an immediate `⚠ REVERSE POWER!` fault.
-- **Strict Lamp Illumination Physics**: An indicator Lamp (`anode`, `cathode`) illuminates **if and only if** `Anode === 1 (+5V)` **AND** `Cathode === 0 (GND)` with `cathodeNet.hasTrueGround === true`. If Anode is driven HIGH (`+5V`) while Cathode is left unweighted/open (or connected to an open switch), the lamp remains strictly **OFF** and displays an amber **`OPEN GND`** badge on the canvas.
+#### 1. Expanded 17-Chip 74xx DIP Catalog (`IC_CATALOG`)
+Integrated circuits are cataloged strictly by **74xx part numbers** using standard counterclockwise DIP-14 (bottom `1–7` with `7 = GND`, top `8–14` with `14 = +5V VCC`) and DIP-16 (bottom `1–8` with `8 = GND`, top `9–16` with `16 = +5V VCC`) pinouts:
+- **1-Input Hex Inverter**: `7404` (`1→2, 3→4, 5→6, 9→8, 11→10, 13→12`)
+- **2-Input Quad Gate ICs**: `7400` (NAND), `7402` (NOR, authentic reversed `2,3→1` pinout), `7408` (AND), `7432` (OR), `7486` (XOR), `74266` (XNOR)
+- **3-Input Triple Gate ICs**: `7410` (NAND), `7411` (AND), `7427` (NOR)
+- **Latches, Flip-Flops, MSI & Counters**: `7474` (Dual D Flip-Flop), `7475` (4-Bit Bistable Latch), `74279` (Quad $\overline{S}\overline{R}$ Latch), `74283` (4-Bit Binary Full Adder, DIP-16), `74157` (Quad 2-to-1 Multiplexer, DIP-16), `74148` (8-to-3 Priority Encoder, DIP-16), `7493` (4-Bit Binary Ripple Counter)
 
-##### 3. X-Ray Datasheet IC Overlay & Obstacle-Aware Wire Management
-- **Translucent X-Ray Package Rendering**: Every 74xx DIP chip is drawn with a semi-transparent housing (`rgba(13, 19, 31, 0.80)`) revealing the internal mini IEEE gate symbols and internal metallic micro-traces linking each external pin to its internal gate input/output.
-- **Visual Wire State Differentiation**:
-  - `+5V (HIGH)`: Glowing cyan (`#3dd9ff`)
-  - `0V (Grounded LOW)`: Solid slate-blue (`#59677f`) with `0V` badge
-  - `OPEN (Unconnected / Floating)`: Dashed muted gray line (`setLineDash([5, 4])`) with `OPEN` badge
-  - `SHORT / CONTENTION`: Red warning glow (`#ff5a52`)
-- **Circuits-Lab-Grade Wire & Component Ergonomics**: Supports 4-angle component rotation (`R` key: `0°, 90°, 180°, 270°`), obstacle-aware orthogonal routing around DIP packages, automatic parallel lane separation, draggable wire segments, double-click route reset, T-junction dots, crossing bridge hops, and a maximized full-bleed simulation canvas with a floating top-right component inspector.
+#### 2. Strict Closed-Circuit & Ground Return Solver (`evaluateICBench`)
+- **9 Bench Components**: `Battery (+5V / −)`, `Switch`, `DIP-4 Switch Bank`, `1Hz Clock`, `220 Ω Resistor`, `LED Lamp`, `7-Segment Display`, `Logic Probe`, and `GND Terminal`.
+- **Passband Passive & Switch Bridging**: Closed switches and `220 Ω` series resistors bridge connected nets via a Union-Find disjoint-set compiler.
+- **True Ground Return Tracking (`net.hasTrueGround`)**: A net only qualifies as a valid ground return (`0V`) if connected to a real low-impedance `0V` sink (`Battery (−)`, `GND` terminal, an active-low powered IC gate output, or a closed standalone switch in `0` state). Open switches never provide a ground return path.
+- **IC Power Rail Validation**: Unless the optional *Auto-Power VCC/GND* bench helper is enabled, every 74xx IC requires valid `VCC` and `GND` rails; reversed polarity triggers an immediate `⚠ REVERSE POWER!` fault.
+- **Strict Lamp Illumination Physics**: An indicator Lamp illuminates **if and only if** `Anode === 1 (+5V)` **AND** `Cathode === 0 (GND)` with `cathodeNet.hasTrueGround === true`; otherwise an active anode without a ground return displays an amber **`OPEN GND`** badge.
+
+#### 3. X-Ray Datasheet Overlay, Presets & Mobile Breadboard UX
+- **Translucent X-Ray Package Rendering**: Every 74xx DIP chip renders internal IEEE gate symbols or MSI function labels plus internal traces linking pins to internal logic; hovering or selecting an IC populates the **Live Pin State Monitor** (`H` / `L` / `Z`) in the floating inspector.
+- **Visual Wire State Differentiation**: `+5V (HIGH)` (glowing cyan `#3dd9ff`), `0V (Grounded LOW)` (slate-blue `#59677f` with `0V` badge), `OPEN` (dashed muted gray with `OPEN` badge), and `SHORT / CONTENTION` (red warning glow `#ff5a52`).
+- **9 Ready-to-Run Presets & Mobile Ergonomics**: Includes 9 starter circuits (basic gates, MSI arithmetic/muxing, sequential latches/counters) and mirrors Logic Lab's 4-angle `R` rotation, obstacle-aware routing, parallel lane separation, and compact `<= 980px` horizontal 2-row swipe palette.
 
 ---
 
@@ -460,25 +439,27 @@ This section is written from the user's perspective, providing a visual and expe
 |    [ Kicker: Scientific simulation suite ]                                            |
 |    Title: Electricsim Platform                                                        |
 |    Dedication: Developed by Zeyad Mahmoud · Faculty of Engineering at Shoubra         |
-|    Metrics: [ 7 interactive labs ]  [ Live SI measurements ]  [ Cause->Effect ]       |
+|    Metrics: [ 9 modules ]  [ Live SI measurements ]  [ Cause->Effect ]                |
 |                                                                                       |
 |    [ Find a lab: Search by name or topic...                           ] [Clear]       |
-|    Live Output: 7 labs                                                                |
+|    Live Output: 9 modules                                                             |
 +---------------------------------------------------------------------------------------+
-|  [Card 1] Electrostatics       |  [Card 2] Gauss's Law         |  [Card 3] Capacitors |
-|--------------------------------+-------------------------------+----------------------|
-|  [Card 4] Conductivity         |  [Card 5] Semiconductors      |  [Card 6] Circuits   |
-|--------------------------------+-------------------------------+----------------------|
-|  [Card 7] Logic Circuits Lab                                                          |
+|  SIMULATIONS  ----------------------------------------------------------------------  |
+|  [ Electrostatics Simulator ]  [ Conductivity Explorer ]   [ Gauss's Law Explorer ]     |
+|  [ Capacitor Physics Explorer ] [ Semiconductor Physics Simulation ]                    |
+|                                                                                       |
+|  VIRTUAL LABS  ---------------------------------------------------------------------  |
+|  [ Capacitor Networks ]  [ Logic Lab ]  [ Electronics Lab ]  [ Circuits Lab ]         |
 +---------------------------------------------------------------------------------------+
 ```
 
 ---
 
 ### Central Hub (`index.html`)
-- **Atmosphere & Visual Style**: Deep obsidian-black background with a subtle, ambient glowing particle grid. Typography is crisp, modern, and technical, featuring streamlined centered-title lab cards across all 7 virtual laboratories and a dedicated academic attribution to the **Faculty of Engineering at Shoubra**.
-- **Instant Search & Filtering**: A prominent search bar allows typing any topic or concept (e.g., *"charge"*, *"transient"*, *"silicon"*, *"boolean"*, *"karnaugh"*, *"resistor"*). Cards filter dynamically with zero lag. Pressing `Escape` or clicking `Clear` instantly restores all 7 cards.
-- **Responsive Navigation**: Clean cards present centered laboratory titles and direct click-to-launch navigation. Works seamlessly on desktop displays, tablets, and smartphones down to 320px width.
+- **Two Dedicated Sections with Section Rules**: Divides the platform into **Simulations** (5 standalone physics & carrier explorers: *Electrostatics Simulator*, *Conductivity Explorer*, *Gauss's Law Explorer*, *Capacitor Physics Explorer*, and *Semiconductor Physics Simulation*) and **Virtual Labs** (4 interactive circuit & digital engineering workbenches: *Capacitor Networks*, *Logic Lab*, *Electronics Lab*, and *Circuits Lab*), separated by styled `.hub-section-header` title + divider rules.
+- **Compact Color-Accented Cards**: Deep obsidian-black background paired with compact card heights (`92px` on desktop, `74px` on mobile), custom gradient accent colors (`--accent-a` / `--accent-b`) plus top edge shimmer bars per card (`data-card-accent`), and larger centered titles without secondary `.card-meta` upper labels.
+- **Instant Search & Empty-Section Hiding**: Typing any topic or keyword dynamically filters across all 9 cards via `hub-search.js` and automatically hides empty section containers (`[data-hub-section]`). Pressing `Escape` or clicking `Clear` restores all 9 modules (`9 modules`).
+- **Mobile Responsiveness**: Responsive layout (`<= 600px`, `<= 480px`) adapts seamlessly down to smartphone viewports with stacked hero headers and balanced 2-column or compact vertical cards.
 
 ---
 
@@ -549,13 +530,14 @@ This section is written from the user's perspective, providing a visual and expe
 
 ---
 
-### Lab 3: Capacitor Physics & Network Builder Suite (`capacitor.html`)
+### Simulation 4 & Virtual Lab 6: Capacitor Physics Explorer (`capacitor.html`) & Capacitor Networks (`capacitor-networks.html`)
+
+Both capabilities now launch as clean, dedicated standalone pages from the Hub without top-bar mode toggles:
 
 ```
 +---------------------------------------------------------------------------------------+
-| Capacitor Simulator  [ ?? Physics Explorer ]  [ ?? Network Builder ]     [ Hub Button ]|
-+---------------------------------------------------------------------------------------+
-| [Physics Explorer View]            | [Network Builder View]                           |
+| Capacitor Physics Explorer (capacitor.html)           | Capacitor Networks (capacitor-networks.html)
++-------------------------------------------------------+-------------------------------+
 |       + Plate (+Q)                 |     +---[ C1: 10 uF ]---+                        |
 |   =====================            | ----|                   |---- (Total C_eq = 15uF)|
 |   |  Dielectric (k)   | E-Field    |     +---[ C2: 5 uF  ]---+                        |
@@ -563,11 +545,10 @@ This section is written from the user's perspective, providing a visual and expe
 |       - Plate (-Q)                 | Hierarchy Inspector:                             |
 | Sliders: Voltage, Area, Separation |  - Root: Parallel Group (C_eq = 15 uF)           |
 | Measurements: C, Q, Stored Energy  |    |- C1: 10 uF (Q = 120 uC, V = 12 V)           |
-|                                    |    |- C2:  5 uF (Q =  60 uC, V = 12 V)           |
-+---------------------------------------------------------------------------------------+
++------------------------------------+--------------------------------------------------+
 ```
 
-#### Sublab 3A: Physics Explorer View
+#### Capacitor Physics Explorer (`capacitor.html`)
 - **What You See**: A high-resolution cross-section of a capacitor connected to a DC supply. Positive charges accumulate on one plate, negative charges on the other, while dense field lines span the dielectric gap.
 - **Interactive Controls**:
   - Switch geometry between Parallel Plate, Cylindrical, and Spherical capacitors.
@@ -575,7 +556,7 @@ This section is written from the user's perspective, providing a visual and expe
   - Insert different dielectric slabs (Vacuum, Glass, Mica, Strontium Titanate) and observe the instantaneous drop in internal electric field and boost in capacitance.
   - Click **Charge / Discharge / Disconnect** to toggle switches and watch electrons flow through connecting wires into the capacitor during charging or discharge through a load resistor.
 
-#### Sublab 3B: Network Builder View
+#### Capacitor Networks (`capacitor-networks.html`)
 - **What You See**: An interactive circuit board canvas where complex series-parallel capacitor networks can be constructed and evaluated.
 - **Interactive Controls**:
   - Add individual capacitors or group them in Series or Parallel.
@@ -667,7 +648,7 @@ This section is written from the user's perspective, providing a visual and expe
 | Circuits Lab  [ Undo ]  [ Redo ]  [ Clear ]                             [ Hub Button ]|
 | Tools: [Move] [Resistor] [Lamp] [Capacitor] [Battery] [AC Source] [Diode] [Xfmr] [Wire]
 +---------------------------------------------------------------------------------------+
-| Examples: [ Half-wave rectifier v ]    [ Snap to Grid ] [ Keep Placing ] [Fit View]   |
+| Examples: [ Half-wave rectifier v ]  Current scale: [ 1 µA v ]  [ Snap ] [Fit View]   |
 |                                                                                       |
 |         AC Source (~10V) ------[ Diode |>| ]------+-----[ Lamp (Glow 82%) ]           |
 |                |                                  |                 |                 |
@@ -676,6 +657,10 @@ This section is written from the user's perspective, providing a visual and expe
 |                                                (Ground)                               |
 |                                                                                       |
 | Inspector: Diode D1 | State: Conducting (0.7V Drop) | Current: 93.0 mA | Power: 65.1 mW|
++---------------------------------------------------------------------------------------+
+| Dual-Ch Oscilloscope: [Target v] [Timebase v] [AC Ripple] [Invert] [Clear]            |
+|  CH1 V(t) |  Vrms  |  Vdc  |  Vpp  |  Freq  |  CH2 I(t)  |  Energy   (Fixed-Size Grid)|
+|  ~~~~~~~~~~~~~~~~~~~~~ Dual-Channel Live Waveform Trace Canvas ~~~~~~~~~~~~~~~~~~~~~  |
 +---------------------------------------------------------------------------------------+
 | [ > Run ]  [ Step 0.01s ]  [ Reset ]   Time: 1.42 s   Speed: [ 1x v ]                 |
 +---------------------------------------------------------------------------------------+
@@ -691,8 +676,9 @@ This section is written from the user's perspective, providing a visual and expe
   - *Capacitors* showing accumulated charges on their plates.
   - *Diodes* displaying conduction arrows with reverse-bias cutoff.
   - *Transformers* featuring primary and secondary copper windings with iron-core isolation bars.
-- **Flowing Current Dots**: Animated markers moving along wires at speeds directly proportional to amperage. When alternating current reverses, the markers smoothly decelerate, pause at zero, and reverse direction!
-- **Interactive Inspector Drawer**: Clicking any component opens an inspector displaying live voltage ($V_A - V_B$), current ($I_{A \to B}$), power dissipation, and frequency.
+- **Virtual Dual-Channel Oscilloscope**: Expandable bottom waveform drawer displaying live dual-channel voltage (`CH1 V(t)`) and current (`CH2 I(t)`) traces alongside 7 rock-steady telemetry boxes (`CH1 V(t)`, `Vrms`, `Vdc`, `Vpp`, `Freq`, `CH2 I(t)`, `Energy`) with AC Ripple magnification, trace inversion, and timebase controls.
+- **Flowing Current Dots (`1 µA` Default Scale)**: Animated markers moving along wires at speeds proportional to amperage, defaulting to `1 µA` flow sensitivity (`#flowScale`) so even tiny micro-ampere currents remain immediately visible. When AC reverses, markers decelerate smoothly, pause at zero, and reverse direction.
+- **Interactive Inspector Drawer & Mobile Controls**: Clicking any component displays live voltage ($V_A - V_B$), current ($I_{A \to B}$), power dissipation, and frequency; on phones (`<= 600px`), component tools wrap into a compact 3-column grid and scope telemetry switches to a balanced 2-column grid.
 
 #### What You Can Do & How to Interact
 1. **Building from Scratch**: Select any component tool from the top palette and tap the canvas to place it. Select **Wire** and click between terminals; smart orthogonal routing automatically draws neat 90-degree corners around obstacles.
@@ -706,50 +692,35 @@ This section is written from the user's perspective, providing a visual and expe
 
 ---
 
-### Lab 7: Logic Circuits Lab (`logic.html`)
+### Virtual Lab 7: Logic Lab (`logic.html`)
 
 ```
 +---------------------------------------------------------------------------------------+
-| ← Electricsim  Logic Circuits Lab   [ Logic Gates Simulator | Logic IC Lab ]  [Presets]|
+| ← Electricsim   Logic Lab                                                  [Presets]  |
 +---------------------------------------------------------------------------------------+
-| [Sublab 7A: Logic Gates Simulator (100dvh Zero-Scroll Single Screen)]                 |
 | LIVE BOOLEAN ALGEBRA                     [ Notation: A·B + A' v ] [ Copy ] [Simplify] |
 |  F = (A · B) + (A · B') + (A · C)  ↳ Minimal SOP: F = A  [Apply Minimal] [NAND] [NOR] |
 +---------------------+-------------------------------------------+---------------------+
 | LEFT COMPONENT CARD | SCHEMATIC WORKSPACE                       | ANALYSIS DOCK       |
 | [↖ Move / Edit    ] |                                           | [Table][K-Map][Simp]|
 | [─●─ Wire] [✋ Pan] |   [A | 1] ●──┬──[AND]●──┐                 |  A B C │ F          |
-| [Input (A-D)]       |              │          ├──[OR]●──●[F=1]  |  0 0 0 │ 0          |
-| [Output (F-Y)]      |   [B | 0] ●──┼──[AND]●──┘                 | ▶1 0 1 │ 1◀         |
+| [Input (A-P)]       |              │          ├──[OR]●──●[F=1]  |  0 0 0 │ 0          |
+| [Output (F-V)]      |   [B | 0] ●──┼──[AND]●──┘                 | ▶1 0 1 │ 1◀         |
 | [AND][OR][NOT][NAND]|              └─[NOT]●┘                    |                     |
 | [NOR][XOR][XNOR]    |   [C | 1] ●──────────────                 |  Σm(4, 5, 6, 7)     |
+| [HA][FA][MUX][SR/D] |                                           |                     |
 +---------------------+-------------------------------------------+---------------------+
-| [Sublab 7B: Logic IC Lab (Maximized 100dvh Canvas + Left Component Sidebar)]          |
-+---------------------+-----------------------------------------------------------------+
-| LEFT COMPONENT CARD | MAXIMIZED 74xx DIP BREADBOARD SIMULATION CANVAS                 |
-| [↖ Move / Edit    ] |                                                                 |
-| [─●─ Wire] [✋ Pan] |   [5V Battery] (+) ───────► Pin 14 (VCC)                        |
-| [5V Bat] [Switch]   |                (−) ──┐   ┌───────────────────────────────┐      |
-| [220 Ω ] [Lamp]     |                      │   │ 14  13  12  11  10   9   8    │      |
-| [⏚ GND ] [1Hz Clk]  |   [SW A] ●───────────┼──►│ )   [X-Ray Mini Gates]        │      |
-| [7-Seg BCD Display] |   [SW B] ●───────────┼──►│ 1   2   3   4   5   6   7     │      |
-| 74xx Series DIP ICs:|                      │   └─────────┬───────────────┬─────┘      |
-| [7404] [7400] [7402]|                      │             └──[220Ω]──►(Lamp)─┐         |
-| [7408] [7432] [7486]|                      └────────────────────────────────┴─► ⏚ GND |
-| [74266][7410] [7411]|                                                                 |
-| [7427]              |                                                                 |
-+---------------------+-----------------------------------------------------------------+
 ```
 
-#### Sublab 7A: Logic Gates Simulator View
-- **Zero-Scroll Single-Screen Workspace**: Fits 100% within a single desktop screen (`100dvh`) with a dedicated **Left Component Sidebar** (`Move / Edit`, `Wire`, `Pan`, `Input (A-D)`, `Output (F-Y)`, `Const 1/0`, and all 8 IEEE gates), a central schematic canvas, and the Right Analysis Dock.
-- **Live Boolean Formula Bar (Top)**: As soon as you wire logic gates together, the exact Boolean algebra equation for each output (`F, G, H, Y`) appears above the schematic. Hovering your mouse over any bracketed term in the formula highlights the exact gate on the canvas that produces that term.
-- **Quiet Simplification Preview**: Directly beneath your formula, an automatic preview tells you if your circuit can be simplified (for example, showing that `F = (A·B) + (A·B') + (A·C)` simplifies to `F = A` and saves 5 gates), or confirms `✓ Minimal` when no further reduction is possible.
+#### What You See on the Screen
+- **Standalone Gate & MSI/Latch Workspace**: Dedicated single-screen (`100dvh`) digital logic studio with a **Left Component Sidebar** (`Move / Edit`, `Wire`, `Pan`, up to 12 `Inputs (A–P)`, up to 8 `Outputs (F–V)`, `Const 1/0`, IEEE gates, combinational MSI blocks `HA`/`FA`/`MUX2`/`MUX4`/`ENC42`/`DEC24`/`COMP2`, and sequential `SR_LATCH`/`D_LATCH`), central schematic canvas, and Right Analysis Dock.
+- **Live Boolean Formula Bar (Top)**: Displays the live Boolean algebra equation for active outputs and lets you hover any term to highlight the exact gate on the canvas, paired with a simplification preview (`✓ Minimal` or gate-saving hint).
 - **Three-Tab Analysis Dock (Right)**:
-  - **Truth Table**: Displays all input combinations (`2`, `4`, `8`, or `16` rows) alongside every output column, plus canonical minterm (`Σm`) and maxterm (`ΠM`) lists.
-  - **Karnaugh Map (K-Map)**: A Gray-code 2D table with interactive Prime Implicant chips underneath.
-  - **Simplify & Convert**: Compares your drawn circuit against its Minimal SOP and Minimal POS forms and provides one-click **Apply Minimal**, **NAND-Only**, and **NOR-Only** converters.
-- **6 Built-In Gate Examples**:
+  - **Truth Table**: Interactive input/output rows alongside canonical minterm (`Σm`) and maxterm (`ΠM`) lists.
+  - **Karnaugh Map (K-Map)**: Gray-code 2D table with interactive Prime Implicant chips.
+  - **Simplify & Convert**: One-click **Apply Minimal**, **NAND-Only**, and **NOR-Only** synthesis converters.
+- **Responsive Mobile Layout (`<= 980px`)**: Converts the left sidebar into a sleek, space-saving **horizontal 2-row swipeable palette strip** (`grid-auto-flow: column; grid-template-rows: repeat(2, auto)`) while freeing the full phone viewport below for panning, wiring, and docking truth tables cleanly.
+- **Built-In Gate Examples**:
   1. *Basic AND / OR circuit (`F = A·B + C`)*
   2. *Half Adder (`Carry F & Sum G`)*
   3. *1-Bit Full Adder (`Carry-Out F & Sum G`)*
@@ -757,18 +728,36 @@ This section is written from the user's perspective, providing a visual and expe
   5. *De Morgan's Law (`(A·B)' = A' + B'`)*
   6. *Simplification Demo (`F = A·B + A·B' + A·C`)*
 
-#### Sublab 7B: Logic IC Lab View (74xx Series DIP Breadboard)
-- **Maximized Full-Screen Bench Canvas**: Places a compact **Left Component Sidebar** flush on the left edge and expands the interactive breadboard canvas across the entire remaining viewport width and height. Clicking any component opens a sleek floating inspector card in the top-right corner without shrinking the canvas.
-- **10 Authentic 74xx DIP ICs by Model Number**: Select `7404`, `7400`, `7402`, `7408`, `7432`, `7486`, `74266`, `7410`, `7411`, or `7427` from the left sidebar. Toggle **X-Ray internal gates** to peer inside each translucent 14-pin DIP package and see the datasheet gate connections between pins!
-- **Real Closed-Circuit Bench Components**: Wire a **5V Battery**, **Toggle Switches**, **220 Ω Resistors**, **Multi-Color Indicator Lamps**, **Ground (`⏚ GND`)**, **1 Hz Clock**, and **BCD 7-Segment Display**.
-- **True Ground Return Enforcement**: Indicator lamps only illuminate when their **Anode (`+`)** receives `+5V` AND their **Cathode (`−`)** has a closed return path to **Ground (`0V`)** or **Battery (`−`)**. Unconnected/open wires render as dashed gray lines (`OPEN`), and ungrounded lamps display an amber **`OPEN GND`** diagnostic badge.
-- **6 Curated 74xx IC Bench Presets**:
-  1. *`7408` — Quad 2-Input AND Bench (Battery + Switches + Resistor + Lamp)*
-  2. *`7486 + 7408` — 74xx Half Adder Breadboard (Sum & Carry Lamps)*
-  3. *`7411 + 7404` — 3-Input Majority/All-High Detector & Inverter*
-  4. *`7400 + 7-Seg` — Quad NAND Logic Decoder & Clock Bench*
-  5. *`7404 + 7408 + 7432` — 2-to-1 Data Multiplexer Bench (D0, D1, Select)*
-  6. *`74266 + 7408` — 2-Bit Equality Comparator Bench (A = B Detector)*
+---
+
+### Virtual Lab 8: Electronics Lab — 74xx DIP Breadboard (`electronics.html`)
+
+```
++---------------------------------------------------------------------------------------+
+| ← Electricsim   Electronics Lab (74xx IC Breadboard)         [Auto-Power]  [Presets]  |
++---------------------+-----------------------------------------------------------------+
+| LEFT COMPONENT CARD | MAXIMIZED 74xx DIP BREADBOARD SIMULATION CANVAS                 |
+| [↖ Move / Edit    ] |                                                                 |
+| [─●─ Wire] [✋ Pan] |   [5V Battery] (+) ───────► Pin 14 (VCC)                        |
+| [5V Bat] [Switch]   |                (−) ──┐   ┌───────────────────────────────┐      |
+| [DIP-4 ] [1Hz Clk]  |   [SW A] ●───────────┼──►│ )   [X-Ray Mini Gates]        │      |
+| [220 Ω ] [Lamp]     |   [SW B] ●───────────┼──►│ 1   2   3   4   5   6   7     │      |
+| [7-Seg ] [Probe]    |                      │   └─────────┬───────────────┬─────┘      |
+| [⏚ GND ]            |                      │             └──[220Ω]──►(Lamp)─┐         |
+| 17x 74xx DIP ICs:   |                      └────────────────────────────────┴─► ⏚ GND |
+| [7404..7427]        |                                                                 |
+| [7474][7475][74279] |   [ Floating Top-Right Inspector + Live Pin State Monitor ]     |
+| [74283][74157]..[93]|                                                                 |
++---------------------+-----------------------------------------------------------------+
+```
+
+#### What You See on the Screen
+- **Completely Standalone 74xx Bench**: Launched directly from **Virtual Labs → Electronics Lab** (`electronics.html`), putting the breadboard canvas center stage with a dedicated Left Component Sidebar and floating top-right component inspector + **Live Pin State Monitor** (`H` / `L` / `Z`).
+- **17 Authentic 74xx DIP-14 & DIP-16 ICs**: Select gate ICs (`7404`, `7400`, `7402`, `7408`, `7432`, `7486`, `74266`, `7410`, `7411`, `7427`) alongside latches, flip-flops, MSI & counters (`7474`, `7475`, `74279`, `74283`, `74157`, `74148`, `7493`). Toggle **X-Ray internal gates** to view internal logic inside translucent packages.
+- **9 Physical Bench Components**: Wire a **5V Battery**, **Toggle Switches**, **DIP-4 Switch Bank**, **1 Hz Clock**, **220 Ω Resistors**, **Multi-Color Indicator Lamps**, **BCD 7-Segment Display**, **Logic Probe**, and **Ground (`⏚ GND`)**.
+- **True Ground Return Enforcement & Auto-Power**: Indicator lamps only illuminate when their **Anode (`+`)** receives `+5V` AND their **Cathode (`−`)** has a closed return path to **Ground (`0V`)** or **Battery (`−`)** (`OPEN` dashed gray lines and amber **`OPEN GND`** badges flag incomplete return paths); optional **Auto-Power VCC/GND** helper supplies clean IC rails while prototyping.
+- **Mobile Touch & Swipe Palette (`<= 980px`)**: Automatically arranges tools, parts, and 74xx chips into a compact **horizontal 2-row scrollable component bar** above a full-width touch canvas.
+- **9 Curated 74xx IC Bench Presets**: Includes classic gate benches (`7408` AND, `7486 + 7408` Half Adder, `7411 + 7404` 3-Input Detector, `7400 + 7-Seg` Decoder, `7404 + 7408 + 7432` 2:1 Mux, `74266 + 7408` Equality Comparator) plus arithmetic, MSI muxing, and sequential latch/counter presets across the expanded catalog.
 
 ---
 
@@ -780,14 +769,13 @@ To guarantee scientific precision and protect against regressions, the repositor
 
 | Script | Verification Focus | Checks |
 | :--- | :--- | :--- |
-| `hub-search.test.js` | Keyword search filtering, 7 centered-title lab cards, UI aria attributes | 15 checks |
+| `hub-search.test.js` | Keyword search filtering, 9 simulation/lab cards across 2 Hub sections, UI aria attributes | 15 checks |
 | `semiconductor-model.test.js` | Mass-action law ($np = n_i^2$), carrier freeze-out, doping transitions | 14 checks |
-| `dc-circuit.test.js` | KVL/KCL balance, series/parallel networks, RC curves, lamp glow | 28 checks |
+| `dc-circuit.test.js` | KVL/KCL balance, series/parallel networks, RC curves, lamp glow, oscilloscope & `1 µA` scale | 36 checks |
 | `dc-circuit.math.test.js` | 360 randomized circuit meshes, MNA linear solver, AC transformers, diodes | 17 suites |
 | `dc-circuit.improvements.test.js` | Undo/redo stability, time-slice budgeting, wire current caching | 24 checks |
 | `dc-circuit.browser.test.js` / `.interaction.test.js` | UI verification tests for circuit drawing, touch gestures, and responsive screens | E2E browser checks |
-| `logic-ic-lab.test.js` | 3 full systematic scans: closed-circuit lamp ground enforcement, open-switch return isolation, 10 74xx IC truth tables, 4-way rotation, obstacle routing, and all 6 IC presets | 14 suites |
-| `logic-tests.html` | Browser-native test suite: all 8 gate types, cycle detection, exhaustive 65,536-function SOP/POS minimization, NAND/NOR synthesis, and IC ground checks | 7 suites (65,536+ checks) |
+| `logic-ic-lab.test.js` | 5 systematic scans: closed-circuit ground enforcement, 17x 74xx IC truth tables, MSI blocks, sequential latches, routing, 9 presets & standalone UI | 22 checks (5 scans) |
 
 *(Note: These verification scripts are purely supplementary regression checks. The application itself requires only a browser to open `index.html`.)*
 
