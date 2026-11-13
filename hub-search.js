@@ -6,7 +6,13 @@
     const input=document.getElementById('labSearch');if(!input)return;
     const cards=[...document.querySelectorAll('.nav-card')],clear=document.getElementById('clearSearch'),count=document.getElementById('searchCount'),empty=document.getElementById('noResults');
     const searchable=cards.map(card=>[card,[...card.querySelectorAll('.card-title,.card-meta,.card-desc')].map(el=>el.textContent).join(' ')]);
-    function filter(){let visible=0;for(const [card,text] of searchable){card.hidden=!matches(text,input.value);if(!card.hidden)visible++;}clear.hidden=!input.value;empty.hidden=visible>0;count.textContent=visible===cards.length?visible+' labs':visible+' of '+cards.length+' labs';}
+    const sections=[...document.querySelectorAll('.hub-section')];
+    function filter(){
+        let visible=0;
+        for(const [card,text] of searchable){card.hidden=!matches(text,input.value);if(!card.hidden)visible++;}
+        for(const sec of sections){const hasVisible=[...sec.querySelectorAll('.nav-card')].some(c=>!c.hidden);sec.hidden=!hasVisible;}
+        clear.hidden=!input.value;empty.hidden=visible>0;count.textContent=visible===cards.length?visible+' modules':visible+' of '+cards.length+' modules';
+    }
     input.addEventListener('input',filter);
     input.addEventListener('keydown',event=>{if(event.key==='Escape'){input.value='';filter();}});
     clear.addEventListener('click',()=>{input.value='';filter();input.focus();});

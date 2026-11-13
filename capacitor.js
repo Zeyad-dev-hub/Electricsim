@@ -56,13 +56,15 @@ const zoomLabel = document.getElementById('zoomLabel');
 // Initialization
 // ==========================================
 function init() {
+    if (document.body?.dataset?.capMode === 'network') mode = 'network';
+    else if (document.body?.dataset?.capMode === 'physics') mode = 'physics';
     setupUI();
     setupZoomControls();
     resizeCanvas();
     window.addEventListener('resize', resizeCanvas);
     
-    updatePhysics();
-    updateNetwork();
+    if (mode === 'physics') updatePhysics();
+    if (mode === 'network') updateNetwork();
     
     requestAnimationFrame(renderLoop);
 }
@@ -182,29 +184,30 @@ function updateZoomLabel() {
 // Setup & Physics Logic
 // ==========================================
 function setupUI() {
-    // Mode Switching
-    document.getElementById('btnModePhysics').addEventListener('click', () => switchMode('physics'));
-    document.getElementById('btnModeNetwork').addEventListener('click', () => switchMode('network'));
+    const on = (id, ev, fn) => { const el = document.getElementById(id); if (el) el.addEventListener(ev, fn); };
+    // Mode Switching (only when mode buttons exist)
+    on('btnModePhysics', 'click', () => switchMode('physics'));
+    on('btnModeNetwork', 'click', () => switchMode('network'));
 
     // Modals & Panels
-    document.getElementById('btnFormulas').addEventListener('click', () => {
-        document.getElementById('formulasModal').classList.remove('hidden');
+    on('btnFormulas', 'click', () => {
+        document.getElementById('formulasModal')?.classList.remove('hidden');
         if (window.MathJax) MathJax.typesetPromise();
     });
-    document.getElementById('btnCloseFormulas').addEventListener('click', () => {
-        document.getElementById('formulasModal').classList.add('hidden');
+    on('btnCloseFormulas', 'click', () => {
+        document.getElementById('formulasModal')?.classList.add('hidden');
     });
 
-    document.getElementById('toggleEField').addEventListener('change', e => pState.showField = e.target.checked);
-    document.getElementById('toggleCharges').addEventListener('change', e => pState.showCharges = e.target.checked);
+    on('toggleEField', 'change', e => pState.showField = e.target.checked);
+    on('toggleCharges', 'change', e => pState.showCharges = e.target.checked);
 
     // Explorer State Handlers
-    document.getElementById('selGeometry').addEventListener('change', (e) => {
+    on('selGeometry', 'change', (e) => {
         pState.type = e.target.value;
         document.querySelectorAll('.dynamic-controls').forEach(el => el.classList.add('hidden'));
-        document.getElementById(`controls-${pState.type}`).classList.remove('hidden');
+        document.getElementById(`controls-${pState.type}`)?.classList.remove('hidden');
         const isParallel = pState.type === 'parallel';
-        document.getElementById('rowE').classList.toggle('hidden', !isParallel);
+        document.getElementById('rowE')?.classList.toggle('hidden', !isParallel);
         const rowVc = document.getElementById('rowVc');
         const rowState = document.getElementById('rowState');
         if (rowVc) rowVc.classList.toggle('hidden', !isParallel);
@@ -212,27 +215,29 @@ function setupUI() {
         updatePhysics();
     });
 
-    document.getElementById('selDielectric').addEventListener('change', (e) => {
+    on('selDielectric', 'change', (e) => {
         const val = e.target.value;
         const customGroup = document.getElementById('customDielectricGroup');
         if (val === 'custom') {
-            customGroup.classList.remove('hidden');
-            pState.k = parseFloat(document.getElementById('sliderK').value);
+            customGroup?.classList.remove('hidden');
+            pState.k = parseFloat(document.getElementById('sliderK')?.value || '1');
         } else {
-            customGroup.classList.add('hidden');
+            customGroup?.classList.add('hidden');
             pState.k = parseFloat(val);
         }
         updatePhysics();
     });
 
-    document.getElementById('sliderK').addEventListener('input', (e) => {
+    on('sliderK', 'input', (e) => {
         pState.k = parseFloat(e.target.value);
-        document.getElementById('valK').innerText = pState.k.toFixed(1);
+        const valK = document.getElementById('valK');
+        if (valK) valK.innerText = pState.k.toFixed(1);
         updatePhysics();
     });
-    document.getElementById('sliderV').addEventListener('input', (e) => {
+    on('sliderV', 'input', (e) => {
         pState.V = parseFloat(e.target.value);
-        document.getElementById('valV').innerText = `${pState.V}V`;
+        const valV = document.getElementById('valV');
+        if (valV) valV.innerText = `${pState.V}V`;
         updatePhysics();
     });
 
@@ -248,7 +253,7 @@ function setupUI() {
     ];
 
     binders.forEach(b => {
-        document.getElementById(b.slider).addEventListener('input', (e) => {
+        on(b.slider, 'input', (e) => {
             let val = parseFloat(e.target.value);
             if (b.pair) {
                 let pairVal = parseFloat(document.getElementById(b.pair).value);
@@ -257,26 +262,29 @@ function setupUI() {
                 e.target.value = val;
             }
             pState[b.prop] = b.scale ? val * b.scale : val;
-            document.getElementById(b.idVal).innerText = b.format(val);
+            const valEl = document.getElementById(b.idVal);
+            if (valEl) valEl.innerText = b.format(val);
             updatePhysics();
         });
     });
 
     // Network Handlers
-    document.getElementById('netSliderV').addEventListener('input', (e) => {
+    on('netSliderV', 'input', (e) => {
         nState.voltage = parseFloat(e.target.value);
-        document.getElementById('valNetV').innerText = `${nState.voltage}V`;
+        const el = document.getElementById('valNetV');
+        if (el) el.innerText = `${nState.voltage}V`;
         updateNetwork();
     });
-    document.getElementById('netSliderC').addEventListener('input', (e) => {
-        document.getElementById('valNetC').innerHTML = `${e.target.value}&mu;F`;
+    on('netSliderC', 'input', (e) => {
+        const el = document.getElementById('valNetC');
+        if (el) el.innerHTML = `${e.target.value}&mu;F`;
     });
-    document.getElementById('btnAddSeries').addEventListener('click', () => addNetworkNode('series'));
-    document.getElementById('btnAddParallel').addEventListener('click', () => addNetworkNode('parallel'));
+    on('btnAddSeries', 'click', () => addNetworkNode('series'));
+    on('btnAddParallel', 'click', () => addNetworkNode('parallel'));
 
-    document.getElementById('btnRemoveNode').addEventListener('click', removeSelectedNode);
+    on('btnRemoveNode', 'click', removeSelectedNode);
     setupParallelCircuitButtons();
-    document.getElementById('btnClearNetwork').addEventListener('click', () => {
+    on('btnClearNetwork', 'click', () => {
         nState.network = null;
         nState.selectedNodeId = null;
         nState.nextId = 1;
@@ -287,19 +295,21 @@ function setupUI() {
 
 function switchMode(newMode) {
     mode = newMode;
-    document.getElementById('btnModePhysics').className = mode === 'physics' ? 'btn-primary' : 'btn-secondary';
-    document.getElementById('btnModeNetwork').className = mode === 'network' ? 'btn-primary' : 'btn-secondary';
+    const btnP = document.getElementById('btnModePhysics');
+    const btnN = document.getElementById('btnModeNetwork');
+    if (btnP) btnP.className = mode === 'physics' ? 'btn-primary' : 'btn-secondary';
+    if (btnN) btnN.className = mode === 'network' ? 'btn-primary' : 'btn-secondary';
 
     if (mode === 'physics') {
-        document.getElementById('physicsSidebar').classList.remove('hidden');
-        document.getElementById('physicsHud').classList.remove('hidden');
-        document.getElementById('networkSidebar').classList.add('hidden');
-        document.getElementById('networkHud').classList.add('hidden');
+        document.getElementById('physicsSidebar')?.classList.remove('hidden');
+        document.getElementById('physicsHud')?.classList.remove('hidden');
+        document.getElementById('networkSidebar')?.classList.add('hidden');
+        document.getElementById('networkHud')?.classList.add('hidden');
     } else {
-        document.getElementById('physicsSidebar').classList.add('hidden');
-        document.getElementById('physicsHud').classList.add('hidden');
-        document.getElementById('networkSidebar').classList.remove('hidden');
-        document.getElementById('networkHud').classList.remove('hidden');
+        document.getElementById('physicsSidebar')?.classList.add('hidden');
+        document.getElementById('physicsHud')?.classList.add('hidden');
+        document.getElementById('networkSidebar')?.classList.remove('hidden');
+        document.getElementById('networkHud')?.classList.remove('hidden');
     }
 
     // Reset zoom when changing modes
@@ -360,10 +370,13 @@ function updatePhysics() {
     pState.U = 0.5 * pState.C * pState.V * pState.V;
 
     // Update HUD
-    document.getElementById('hudC').innerText = formatEng(pState.C, 'F');
-    document.getElementById('hudQ').innerText = formatEng(pState.Q, 'C');
-    document.getElementById('hudU').innerText = formatEng(pState.U, 'J');
-    document.getElementById('hudE').innerText = formatEng(pState.E, 'V/m');
+    const hudC = document.getElementById('hudC');
+    if (hudC) {
+        hudC.innerText = formatEng(pState.C, 'F');
+        document.getElementById('hudQ').innerText = formatEng(pState.Q, 'C');
+        document.getElementById('hudU').innerText = formatEng(pState.U, 'J');
+        document.getElementById('hudE').innerText = formatEng(pState.E, 'V/m');
+    }
     updatePhysicsHUD();
 }
 
@@ -404,7 +417,9 @@ function setupParallelCircuitButtons() {
 }
 
 function updatePhysicsHUD() {
-    document.getElementById('hudC').innerText = formatEng(pState.C, 'F');
+    const hudC = document.getElementById('hudC');
+    if (!hudC) return;
+    hudC.innerText = formatEng(pState.C, 'F');
     document.getElementById('hudQ').innerText = formatEng(pState.Q, 'C');
     document.getElementById('hudU').innerText = formatEng(pState.U, 'J');
     document.getElementById('hudE').innerText = formatEng(pState.E, 'V/m');
@@ -787,7 +802,9 @@ function updateNetwork() {
         nState.totalC = 0; nState.totalQ = 0; nState.totalU = 0;
     }
 
-    document.getElementById('hudNetC').innerText = formatEng(nState.totalC, 'F');
+    const hudNetC = document.getElementById('hudNetC');
+    if (!hudNetC) return;
+    hudNetC.innerText = formatEng(nState.totalC, 'F');
     document.getElementById('hudNetQ').innerText = formatEng(nState.totalQ, 'C');
     document.getElementById('hudNetU').innerText = formatEng(nState.totalU, 'J');
 
@@ -1908,9 +1925,9 @@ function renderNetwork3D() {
     drawEngineeringGrid(xMin, xMax, yMin, yMax, zoom);
 
     if (!nState.network) {
-        ctx.fillStyle = 'rgba(255,255,255,0.4)';
-        ctx.font = '22px Inter'; ctx.textAlign = 'center';
-        ctx.fillText("Workspace Empty — Add capacitors from sidebar", 0, 0);
+        ctx.fillStyle = 'rgba(255,255,255,0.45)';
+        ctx.font = (isMobile ? '15px Inter' : '22px Inter'); ctx.textAlign = 'center';
+        ctx.fillText("Workspace Empty — Add capacitors from tools", 0, 0, Math.max(220, (vw - 32) / zoom));
         return;
     }
 

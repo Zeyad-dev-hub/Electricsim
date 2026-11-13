@@ -3254,8 +3254,9 @@
             });
         }
 
-        // Mode switcher handlers
+        // Mode switcher handlers (only when embedded alongside Gates mode)
         function switchMode(mode) {
+            if (!btnGates || !btnIC || !gatesMain || !icMain) return;
             const isIC = mode === 'ic';
             btnGates.classList.toggle('active', !isIC);
             btnGates.setAttribute('aria-selected', String(!isIC));
@@ -3264,8 +3265,8 @@
 
             gatesMain.hidden = isIC;
             icMain.hidden = !isIC;
-            gatesTopControls.hidden = isIC;
-            icTopControls.hidden = !isIC;
+            if (gatesTopControls) gatesTopControls.hidden = isIC;
+            if (icTopControls) icTopControls.hidden = !isIC;
 
             if (isIC) {
                 renderer.resize();
@@ -3278,6 +3279,8 @@
         if (btnGates && btnIC) {
             btnGates.addEventListener('click', () => switchMode('gates'));
             btnIC.addEventListener('click', () => switchMode('ic'));
+        } else {
+            renderer.resize();
         }
 
         // Top controls

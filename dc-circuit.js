@@ -6,7 +6,7 @@
     const TYPE_LABEL={voltage:'battery',ac:'AC source',diode:'diode',led:'LED',zener:'Zener diode',transformer:'transformer',resistor:'resistor',lamp:'lamp',capacitor:'capacitor',inductor:'inductor',switch:'switch',current:'current source'};
     const typeName=t=>TYPE_LABEL[t]||t;
     const scopeHistory=[];
-    let scopeTargetId=null,scopeManualTarget='auto',scopeZoomRipple=false,scopePrewarmKey=null,scopeIsPrewarmed=false;
+    let scopeTargetId=null,scopeManualTarget='auto',scopeTimebase='auto',scopeZoomRipple=false,scopeInvert=false,scopeHoverX=null,scopePrewarmKey=null,scopeIsPrewarmed=false;
     const reducedMotion=window.matchMedia('(prefers-reduced-motion: reduce)');
     let tool='select',selected=null,connection=null,pointer=null,drag=null,draft=null,pinch=null,placement=null,gesture=false;
     let running=false,stepTarget=null,targetTime=0,lastFrame=performance.now(),lastRefresh=0,scheduled=false,scaleReady=false,selectionDoc=null;
@@ -319,17 +319,43 @@
     $('resetBtn').onclick=()=>{pause();simulation.reset();motion.reset();scopeHistory.length=0;scopePrewarmKey=null;scopeIsPrewarmed=false;scaleReady=false;targetTime=0;readyMessage();sync();};
     $('stepBtn').onclick=()=>{if(!simulation.state||simulation.error)return;if(scopeIsPrewarmed){scopeHistory.length=0;scopeIsPrewarmed=false;}if(!scaleReady)calibrate();pause();stepTarget=simulation.state.time+.01;sync();};
     $('clearBtn').onclick=()=>{pause();selected=null;connection=null;if(commit(D.blank(),false)){simulation.reset();motion.reset();scopeHistory.length=0;scopePrewarmKey=null;scopeIsPrewarmed=false;scaleReady=false;renderer.view={panX:0,panY:0,zoom:1};setTool('select');}};
-    if($('scopeClearBtn'))$('scopeClearBtn').onclick=()=>{scopeHistory.length=0;scopePrewarmKey='cleared';scopeIsPrewarmed=false;drawScope(simulation.state?.acceptedSolution);};
+    if($('scopeClearBtn'))$('scopeClearBtn').onclick=()=>{scopeHistory.length=0;scopePrewarmKey='cleared';scopeIsPrewarmed=false;scopeHoverX=null;drawScope(simulation.state?.acceptedSolution);};
     if($('scopeZoomRippleBtn'))$('scopeZoomRippleBtn').onclick=()=>{
         scopeZoomRipple=!scopeZoomRipple;
         $('scopeZoomRippleBtn').setAttribute('aria-pressed',String(scopeZoomRipple));
         drawScope(simulation.state?.acceptedSolution);
+    };
+    if($('scopeInvertBtn'))$('scopeInvertBtn').onclick=()=>{
+        scopeInvert=!scopeInvert;
+        $('scopeInvertBtn').setAttribute('aria-pressed',String(scopeInvert));
+        drawScope(simulation.state?.acceptedSolution);
+    };
+    if($('scopeTimebaseSelect'))$('scopeTimebaseSelect').onchange=()=>{
+        scopeTimebase=$('scopeTimebaseSelect').value||'auto';
+        scopeHistory.length=0;scopePrewarmKey=null;scopeIsPrewarmed=false;
+        refreshMeasurements(true);
     };
     if($('scopeTargetSelect'))$('scopeTargetSelect').onchange=()=>{
         scopeManualTarget=$('scopeTargetSelect').value||'auto';
         scopeHistory.length=0;scopePrewarmKey=null;scopeIsPrewarmed=false;
         refreshMeasurements(true);
     };
+    {
+        const sc=$('scopeCanvas'),panel=sc?.closest('details');
+        const redrawScope=()=>drawScope(simulation.error?null:simulation.state?.acceptedSolution);
+        if(sc&&typeof ResizeObserver==='function')new ResizeObserver(redrawScope).observe(sc);
+        if(panel)panel.addEventListener('toggle',()=>{if(panel.open)requestAnimationFrame(redrawScope);});
+        if(sc){
+            sc.addEventListener('pointermove',e=>{
+                const rect=sc.getBoundingClientRect();
+                scopeHoverX=e.clientX-rect.left;
+                redrawScope();
+            });
+            sc.addEventListener('pointerleave',()=>{
+                if(scopeHoverX!==null){scopeHoverX=null;redrawScope();}
+            });
+        }
+    }
     $('flowScale').onchange=()=>{calibrate();requestDraw();};$('motionToggle').onchange=requestDraw;
     $('timeScale').onchange=()=>{lastFrame=performance.now();requestDraw();};
     document.querySelectorAll('[data-tool]').forEach(b=>b.onclick=()=>setTool(b.dataset.tool));
@@ -389,43 +415,78 @@
         if(parallelLoad)return parallelLoad;
         return comps.find(c=>c.type==='capacitor'||c.type==='inductor'||c.type==='zener'||c.type==='led')||comps.find(c=>c.type==='resistor'||c.type==='lamp')||comps[0];
     }
+    function niceScopeStep(rawPerDiv){
+        if(!Number.isFinite(rawPerDiv)||rawPerDiv<=0)return 1e-3;
+        const exp=Math.floor(Math.log10(rawPerDiv));
+        const base=Math.pow(10,exp);
+        const frac=rawPerDiv/base;
+        const mult=frac<=1?1:frac<=2?2:frac<=5?5:10;
+        return mult*base;
+    }
     function getScopeWindowSpan(){
+        if(scopeTimebase!=='auto'){
+            const perDiv=Number(scopeTimebase);
+            if(Number.isFinite(perDiv)&&perDiv>0)return 8*perDiv;
+        }
         const comps=doc().components;
         const acFreqs=comps.filter(c=>c.type==='ac'&&Number.isFinite(c.frequency)&&c.frequency>0).map(c=>c.frequency);
         if(acFreqs.length){
             const minF=Math.min(...acFreqs);
-            return Math.max(0.04,Math.min(8.0,3.0/minF));
+            const rawDiv=(3.0/minF)/8;
+            return Math.max(8e-5,Math.min(8.0,8*niceScopeStep(rawDiv)));
         }
         return 2.0;
+    }
+    function readScopeProbe(target,r){
+        if(!target||!r)return {v:0,i:0};
+        let v=0,i=0;
+        if(target.type==='transformer'){
+            v=r.secondaryVoltage??0;i=r.secondaryCurrent??0;
+        }else if(target.type==='voltage'||target.type==='ac'){
+            v=r.voltage??0;i=-(r.current??0);
+        }else if(target.type==='current'){
+            v=-(r.voltage??0);i=r.current??0;
+        }else{
+            v=r.voltage??0;i=r.current??0;
+        }
+        return {v:Number.isFinite(v)?v:0,i:Number.isFinite(i)?i:0};
+    }
+    function computeTotalReactiveEnergy(solution){
+        let total=0;
+        if(solution){
+            for(const item of doc().components){
+                const r=solution.componentResults[item.id];
+                if(r&&Number.isFinite(r.energy))total+=r.energy;
+            }
+        }
+        return total;
     }
     function recordScopeSample(time,solution,target=pickScopeComponent()){
         if(!target||!solution)return;
         if(scopeTargetId!==target.id){scopeTargetId=target.id;scopeHistory.length=0;scopePrewarmKey=null;}
         const r=solution.componentResults[target.id];if(!r)return;
-        const v=target.type==='transformer'?(r.secondaryVoltage??0):(r.voltage??0);
-        const i=target.type==='transformer'?(r.secondaryCurrent??0):(r.current??0);
+        const {v,i}=readScopeProbe(target,r);
+        const energy=computeTotalReactiveEnergy(solution);
         const span=getScopeWindowSpan();
-        const minDt=span/960;
-        const pt={time,v:Number.isFinite(v)?v:0,i:Number.isFinite(i)?i:0};
+        const minDt=span/720;
+        const pt={time,v,i,energy};
         if(!scopeHistory.length){
             scopeHistory.push(pt);
             return;
         }
         const last=scopeHistory.at(-1);
-        if(time<last.time-1e-6){
+        if(time<last.time-1e-9){
             scopeHistory.length=0;
             scopeHistory.push(pt);
             return;
         }
-        // Keep sharp peaks/troughs or points spaced by at least minDt
-        if(time-last.time>=minDt||Math.abs(pt.v-last.v)>0.02){
+        const stepJump=Math.abs(pt.v-last.v)>Math.max(0.5,0.08*Math.max(1,Math.abs(last.v)))&&(time-last.time)>=minDt*0.15;
+        if(time-last.time>=minDt||stepJump){
             scopeHistory.push(pt);
-        }else if(Math.abs(pt.v)>=Math.abs(last.v)){
-            scopeHistory[scopeHistory.length-1]=pt;
         }
         const cutoff=time-span;
         while(scopeHistory.length>2&&scopeHistory[0].time<cutoff)scopeHistory.shift();
-        if(scopeHistory.length>1200)scopeHistory.splice(0,scopeHistory.length-1200);
+        if(scopeHistory.length>2400)scopeHistory.splice(0,scopeHistory.length-2400);
     }
     function recordStateSamples(state){
         const target=pickScopeComponent();if(!target||!state)return;
@@ -441,7 +502,7 @@
         if(running||simulation.error||!simulation.compiled||!target)return;
         if(scopeHistory.length>=8||scopePrewarmKey==='cleared')return;
         if(!D.isDynamic(simulation.compiled))return;
-        const key=`${simulation.key||''}::${target.id}`;
+        const key=`${simulation.key||''}::${target.id}::${scopeTimebase}`;
         if(scopePrewarmKey===key&&scopeHistory.length>=2)return;
         scopePrewarmKey=key;
         try{
@@ -452,8 +513,10 @@
             recordScopeSample(tempState.time,tempState.acceptedSolution,target);
             const steps=96;
             const dt=span/steps;
+            const started=performance.now();
             for(let k=1;k<=steps;k++){
-                tempState=D.advanceTransient(simulation.compiled,tempState,k*dt,{maxAttempts:160,budgetMs:12});
+                if(performance.now()-started>260)break;
+                tempState=D.advanceTransient(simulation.compiled,tempState,k*dt,{maxAttempts:240,budgetMs:40});
                 recordStateSamples(tempState);
             }
             scopeIsPrewarmed=true;
@@ -461,142 +524,362 @@
             // Ignore prewarm errors and fall back to single-point live state
         }
     }
+    function integrateScopeSegment(v1,v2,i1,i2,dt){
+        return {
+            areaV:0.5*(v1+v2)*dt,
+            areaV2:((v1*v1+v1*v2+v2*v2)/3)*dt,
+            areaI2:((i1*i1+i1*i2+i2*i2)/3)*dt
+        };
+    }
     function computeScopeStats(target){
         if(!target||scopeHistory.length<2)return null;
+        const sign=scopeInvert?-1:1;
         const tMin=scopeHistory[0].time,tMax=scopeHistory.at(-1).time,totalSpan=tMax-tMin;
-        // Analyze steady-state region (skip initial turn-on quarter-cycle charge transient if window is wide enough)
-        const steadyStart=scopeHistory.length>=12&&totalSpan>1e-3?tMin+totalSpan*0.28:tMin;
+        // Skip initial turn-on transient when analyzing steady-state cycles if window is wide
+        const steadyStart=scopeHistory.length>=16&&totalSpan>1e-4?tMin+totalSpan*0.25:tMin;
         let steady=scopeHistory.filter(p=>p.time>=steadyStart);
         if(steady.length<3)steady=scopeHistory;
-        const isPassive=['resistor','lamp','capacitor','zener','led'].includes(target.type);
-        const rawMax=Math.max(...steady.map(p=>p.v));
-        const rawMin=Math.min(...steady.map(p=>p.v));
-        const sign=(isPassive&&rawMax<=1e-4&&rawMin<-1e-3)?-1:1;
-        let vMax=-Infinity,vMin=Infinity,iMax=-Infinity,iMin=Infinity,area=0,span=0;
-        for(let k=0;k<steady.length;k++){
-            const v=sign*steady[k].v,i=sign*steady[k].i;
+        let sMax=-Infinity,sMin=Infinity;
+        for(const p of steady){
+            const v=sign*p.v;
+            if(v>sMax)sMax=v;
+            if(v<sMin)sMin=v;
+        }
+        const swing=sMax-sMin;
+        // Schmitt-trigger rising crossings at midpoint for cycle-accurate Vdc, Vrms, Freq
+        const crossings=[];
+        if(swing>1e-4){
+            const mid=(sMax+sMin)/2,hyst=Math.max(1e-5,swing*0.08);
+            let armed=sign*steady[0].v<=mid-hyst;
+            for(let k=1;k<steady.length;k++){
+                const v0=sign*steady[k-1].v,v1=sign*steady[k].v;
+                if(!armed){
+                    if(v1<=mid-hyst)armed=true;
+                }else if(v0<mid&&v1>=mid){
+                    const frac=(mid-v0)/Math.max(1e-12,v1-v0);
+                    crossings.push(steady[k-1].time+frac*(steady[k].time-steady[k-1].time));
+                    armed=false;
+                }
+            }
+        }
+        let intSeries=steady;
+        let freq=null;
+        if(crossings.length>=2){
+            const tStart=crossings[0],tEnd=crossings.at(-1);
+            if(tEnd-tStart>1e-9){
+                freq=(crossings.length-1)/(tEnd-tStart);
+                const cyclePts=[];
+                for(let k=0;k<steady.length-1;k++){
+                    const a=steady[k],b=steady[k+1];
+                    if(b.time<tStart||a.time>tEnd)continue;
+                    const dt=b.time-a.time;
+                    if(dt<=0)continue;
+                    if(a.time<=tStart&&b.time>=tStart){
+                        const f=(tStart-a.time)/dt;
+                        cyclePts.push({time:tStart,v:a.v+f*(b.v-a.v),i:a.i+f*(b.i-a.i)});
+                    }
+                    if(b.time>tStart&&b.time<tEnd){
+                        cyclePts.push(b);
+                    }
+                    if(a.time<=tEnd&&b.time>=tEnd){
+                        const f=(tEnd-a.time)/dt;
+                        cyclePts.push({time:tEnd,v:a.v+f*(b.v-a.v),i:a.i+f*(b.i-a.i)});
+                    }
+                }
+                if(cyclePts.length>=2)intSeries=cyclePts;
+            }
+        }
+        let vMax=-Infinity,vMin=Infinity,iMax=-Infinity,iMin=Infinity;
+        let areaV=0,areaV2=0,areaI2=0,span=0;
+        for(let k=0;k<intSeries.length;k++){
+            const v=sign*intSeries[k].v,i=sign*intSeries[k].i;
             if(v>vMax)vMax=v;
             if(v<vMin)vMin=v;
             if(i>iMax)iMax=i;
             if(i<iMin)iMin=i;
             if(k>0){
-                const dt=steady[k].time-steady[k-1].time;
+                const dt=intSeries[k].time-intSeries[k-1].time;
                 if(dt>0){
-                    area+=0.5*(sign*steady[k-1].v+v)*dt;
-                    span+=dt;
+                    const seg=integrateScopeSegment(sign*intSeries[k-1].v,v,sign*intSeries[k-1].i,i,dt);
+                    areaV+=seg.areaV;areaV2+=seg.areaV2;areaI2+=seg.areaI2;span+=dt;
                 }
             }
         }
+        if(!Number.isFinite(vMax)){vMax=sMax;vMin=sMin;}
         const vRipple=Math.max(0,vMax-vMin);
-        const vDc=span>1e-9?area/span:(steady.reduce((s,p)=>s+sign*p.v,0)/steady.length);
+        const vDc=span>1e-9?areaV/span:(intSeries.reduce((s,p)=>s+sign*p.v,0)/intSeries.length);
+        const vRms=span>1e-9?Math.sqrt(Math.max(0,areaV2/span)):Math.abs(vDc);
+        const iRms=span>1e-9?Math.sqrt(Math.max(0,areaI2/span)):Math.abs(intSeries[0]?.i||0);
         const ripplePct=Math.abs(vDc)>0.05?(vRipple/Math.abs(vDc))*100:null;
-        const isRectifiedDc=vMin>-0.05*Math.max(1,Math.abs(vMax))&&vMax>0.1;
-        return {sign,vMax,vMin,vRipple,vDc,ripplePct,iMax,iMin,tMin,tMax: Math.max(tMin+1e-6,tMax),isRectifiedDc};
+        const isRectifiedDc=vMin>-0.05*Math.max(1,Math.abs(vMax))&&vMax>0.1&&vDc>0.05;
+        return {sign,vMax,vMin,vRipple,vDc,vRms,iRms,freq,ripplePct,iMax,iMin,tMin,tMax:Math.max(tMin+1e-9,tMax),isRectifiedDc};
+    }
+    function ensureScopeCanvasSize(sc){
+        const rect=sc.getBoundingClientRect();
+        const w=Math.max(200,Math.round(rect.width||sc.clientWidth||820));
+        const h=Math.max(84,Math.round(rect.height||sc.clientHeight||140));
+        const dpr=Math.min(window.devicePixelRatio||1,2);
+        const bw=Math.round(w*dpr),bh=Math.round(h*dpr);
+        if(sc.width!==bw||sc.height!==bh){sc.width=bw;sc.height=bh;}
+        return {w,h,dpr};
+    }
+    function drawScopePill(ctx,text,x,y,color,align='left',bg='rgba(5, 8, 15, 0.84)'){
+        ctx.save();
+        ctx.font='600 10.5px Inter, system-ui, sans-serif';
+        ctx.textAlign='left';
+        ctx.textBaseline='middle';
+        const tw=ctx.measureText(text).width;
+        const px=6,ph=15,pw=tw+px*2;
+        const bx=align==='right'?x-pw:align==='center'?x-pw/2:x;
+        const by=y-ph/2;
+        ctx.fillStyle=bg;
+        ctx.beginPath();
+        if(ctx.roundRect)ctx.roundRect(bx,by,pw,ph,4);
+        else ctx.rect(bx,by,pw,ph);
+        ctx.fill();
+        ctx.fillStyle=color;
+        ctx.fillText(text,bx+px,y+0.5);
+        ctx.restore();
+        return pw;
     }
     function drawScope(solution){
         const sc=$('scopeCanvas');if(!sc)return;
-        const ctx=sc.getContext('2d'),w=sc.width,h=sc.height;
-        ctx.clearRect(0,0,w,h);
-        // Grid lines
-        ctx.strokeStyle='#152033';ctx.lineWidth=1;
-        for(let x=0;x<=w;x+=w/8){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,h);ctx.stroke();}
-        for(let y=0;y<=h;y+=h/4){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(w,y);ctx.stroke();}
-        ctx.strokeStyle='#243552';ctx.beginPath();ctx.moveTo(0,h/2);ctx.lineTo(w,h/2);ctx.stroke();
-        const target=pickScopeComponent();
-        let totalEnergy=0;
-        if(solution){
-            for(const item of doc().components){
-                const r=solution.componentResults[item.id];
-                if(r&&Number.isFinite(r.energy))totalEnergy+=r.energy;
-            }
+        const {w,h,dpr}=ensureScopeCanvasSize(sc);
+        const ctx=sc.getContext('2d');
+        ctx.setTransform(dpr,0,0,dpr,0,0);
+        const padL=8,padR=8,padT=20,padB=18;
+        const plotW=Math.max(40,w-padL-padR),plotH=Math.max(30,h-padT-padB);
+        const bgGrad=ctx.createLinearGradient(0,0,0,h);
+        bgGrad.addColorStop(0,'#060a13');bgGrad.addColorStop(1,'#04070d');
+        ctx.fillStyle=bgGrad;ctx.fillRect(0,0,w,h);
+
+        // Crisp 8x4 sub-pixel aligned oscilloscope graticule
+        ctx.strokeStyle='#131e30';ctx.lineWidth=1;
+        ctx.beginPath();
+        for(let i=0;i<=8;i++){
+            const x=Math.round(padL+(plotW*i)/8)+0.5;
+            ctx.moveTo(x,padT);ctx.lineTo(x,padT+plotH);
         }
-        if($('scopeEnergy'))$('scopeEnergy').textContent=`Reactive Energy: ${D.format(totalEnergy,'J')}`;
+        for(let j=0;j<=4;j++){
+            const y=Math.round(padT+(plotH*j)/4)+0.5;
+            ctx.moveTo(padL,y);ctx.lineTo(padL+plotW,y);
+        }
+        ctx.stroke();
+        ctx.strokeStyle='#1a273d';
+        ctx.strokeRect(Math.round(padL)+0.5,Math.round(padT)+0.5,Math.round(plotW),Math.round(plotH));
+
+        const target=pickScopeComponent();
         if(!target||!solution){
             if($('scopeTargetLabel'))$('scopeTargetLabel').textContent='Probe: None';
-            if($('scopeRipple'))$('scopeRipple').textContent='Ripple Vr(pp): —';
+            if($('scopeVpp'))$('scopeVpp').textContent='CH1 V(t): —';
+            if($('scopeVrms'))$('scopeVrms').textContent='Vrms: —';
             if($('scopeVdc'))$('scopeVdc').textContent='Vdc: —';
+            if($('scopeRipple'))$('scopeRipple').textContent='Vpp: —';
+            if($('scopeFreq'))$('scopeFreq').textContent='Freq: —';
+            if($('scopeIpeak'))$('scopeIpeak').textContent='CH2 I(t): —';
+            if($('scopeEnergy'))$('scopeEnergy').textContent='Energy: 0 J';
+            ctx.fillStyle='#6d7f99';
+            ctx.font='500 11px Inter, system-ui, sans-serif';
+            ctx.textAlign='center';ctx.textBaseline='middle';
+            ctx.fillText('Build or select a circuit component to probe V(t) & I(t)',w/2,padT+plotH/2);
             return;
         }
         if(scopeTargetId!==target.id){scopeTargetId=target.id;scopeHistory.length=0;scopePrewarmKey=null;}
         prewarmScopeIfNeeded(target);
         if(!scopeHistory.length)recordScopeSample(simulation.state?.time||0,solution,target);
+        const sign=scopeInvert?-1:1;
+        const lastPt=scopeHistory.at(-1);
         const r=solution.componentResults[target.id];
+        const liveProbe=readScopeProbe(target,r);
+        // Keep toolbar values 100% consistent with the displayed trace (including preview mode)
+        const curV=sign*(lastPt?lastPt.v:liveProbe.v);
+        const curI=sign*(lastPt?lastPt.i:liveProbe.i);
+        const shownEnergy=lastPt&&Number.isFinite(lastPt.energy)?lastPt.energy:computeTotalReactiveEnergy(solution);
         const stats=computeScopeStats(target);
-        const sign=stats?.sign||1;
-        const curV=sign*(target.type==='transformer'?(r?.secondaryVoltage??0):(r?.voltage??0));
-        const curI=sign*(target.type==='transformer'?(r?.secondaryCurrent??0):(r?.current??0));
-        if($('scopeTargetLabel'))$('scopeTargetLabel').textContent=`Probe: ${target.label}`;
+        const plusPin=target.type==='transformer'?'S1':target.type==='current'?'B':'A';
+        const minusPin=target.type==='transformer'?'S2':target.type==='current'?'A':'B';
+        const polTag=scopeInvert?`${minusPin}+/${plusPin}−`:`${plusPin}+/${minusPin}−`;
+        if($('scopeTargetLabel'))$('scopeTargetLabel').textContent=`Probe: ${target.label} (${polTag})`;
         if($('scopeVpp'))$('scopeVpp').textContent=`CH1 V(t): ${D.reading(curV,'V')}`;
         if($('scopeIpeak'))$('scopeIpeak').textContent=`CH2 I(t): ${D.reading(curI,'A')}`;
+        if($('scopeEnergy'))$('scopeEnergy').textContent=`Energy: ${D.format(shownEnergy,'J')}`;
+        const acqLabel=running?'LIVE':scopeIsPrewarmed?'PREVIEW':'HOLD';
+        const acqColor=running?'#34d399':scopeIsPrewarmed?'#fbbf24':'#94a3b8';
+
         if(!stats){
-            if($('scopeRipple'))$('scopeRipple').textContent='Ripple Vr(pp): 0 V';
+            if($('scopeVrms'))$('scopeVrms').textContent=`Vrms: ${D.format(Math.abs(curV),'V')}`;
             if($('scopeVdc'))$('scopeVdc').textContent=`Vdc: ${D.reading(curV,'V')}`;
+            if($('scopeRipple'))$('scopeRipple').textContent='Vpp: 0 V';
+            if($('scopeFreq'))$('scopeFreq').textContent='Freq: DC';
+            const vDiv=niceScopeStep(Math.max(1e-3,Math.abs(curV))/1.6);
+            const iDiv=niceScopeStep(Math.max(1e-6,Math.abs(curI))/1.5);
+            const topV=2*vDiv,topI=2*iDiv;
+            const yZero=Math.round(padT+plotH/2)+0.5;
+            ctx.strokeStyle='#243552';ctx.lineWidth=1;
+            ctx.beginPath();ctx.moveTo(padL,yZero);ctx.lineTo(padL+plotW,yZero);ctx.stroke();
+            const yV=yZero-(curV/topV)*(plotH/2);
+            const yI=yZero-(curI/topI)*(plotH/2);
+            ctx.save();
+            ctx.beginPath();ctx.rect(padL,padT,plotW,plotH);ctx.clip();
+            ctx.strokeStyle='#f6b944';ctx.lineWidth=1.5;ctx.globalAlpha=0.85;
+            ctx.beginPath();ctx.moveTo(padL,yI);ctx.lineTo(padL+plotW,yI);ctx.stroke();
+            ctx.globalAlpha=1;ctx.strokeStyle='#3dd9ff';ctx.lineWidth=2;
+            ctx.beginPath();ctx.moveTo(padL,yV);ctx.lineTo(padL+plotW,yV);ctx.stroke();
+            ctx.restore();
+            const w1=drawScopePill(ctx,`CH1 ${D.format(vDiv,'V')}/div`,padL,10,'#3dd9ff','left','transparent');
+            drawScopePill(ctx,`CH2 ${D.format(iDiv,'A')}/div`,padL+w1+4,10,'#f6b944','left','transparent');
+            drawScopePill(ctx,acqLabel,w-padR,10,acqColor,'right','transparent');
+            drawScopePill(ctx,'0 V center',padL,h-8,'#7c8fa8','left','transparent');
+            drawScopePill(ctx,`Time: ${D.format(getScopeWindowSpan()/8,'s')}/div · DC steady`,w-padR,h-8,'#7c8fa8','right','transparent');
             return;
         }
-        if($('scopeRipple')){
-            const rangeText=stats.vRipple>1e-4?` (${D.format(stats.vMin,'V')} ↔ ${D.format(stats.vMax,'V')})`:'';
-            $('scopeRipple').textContent=`Ripple Vr(pp): ${D.format(stats.vRipple,'V')}${rangeText}`;
-        }
+        if($('scopeVrms'))$('scopeVrms').textContent=`Vrms: ${D.format(stats.vRms,'V')}`;
         if($('scopeVdc')){
             const pctText=stats.isRectifiedDc&&stats.ripplePct!==null&&stats.vRipple>1e-4?` (${stats.ripplePct.toFixed(1)}% ripple)`:'';
             $('scopeVdc').textContent=`Vdc: ${D.reading(stats.vDc,'V')}${pctText}`;
         }
-        const {tMin,tMax}=stats;
-        const maxAbsV=Math.max(1e-3,...scopeHistory.map(p=>Math.abs(p.v)));
-        const maxAbsI=Math.max(1e-6,...scopeHistory.map(p=>Math.abs(p.i)));
-        const mapX=t=>8+((t-tMin)/Math.max(1e-9,tMax-tMin))*(w-16);
-        let mapYV;
-        if(scopeZoomRipple&&stats.vRipple>1e-5){
-            const pad=Math.max(stats.vRipple*0.35,0.05);
-            const lo=stats.vMin-pad,hi=stats.vMax+pad;
-            mapYV=v=>h-12-((v-lo)/Math.max(1e-6,hi-lo))*(h-24);
-        }else if(stats.isRectifiedDc&&stats.vMin>=0){
-            // Unipolar positive scale [0 .. 1.15 * maxAbsV] so rectified DC + ripple uses the full height of the scope!
-            const topV=Math.max(1e-3,maxAbsV*1.15);
-            const botY=h-14,topY=14;
-            ctx.strokeStyle='#243552';ctx.beginPath();ctx.moveTo(0,botY);ctx.lineTo(w,botY);ctx.stroke();
-            mapYV=v=>botY-(v/topV)*(botY-topY);
-        }else{
-            mapYV=v=>h/2-(v/maxAbsV)*(h*0.42);
+        if($('scopeRipple')){
+            const rangeText=stats.vRipple>1e-4?` (${D.format(stats.vMin,'V')} ↔ ${D.format(stats.vMax,'V')})`:'';
+            const lbl=stats.isRectifiedDc?'Ripple Vr(pp)':'Vpp';
+            $('scopeRipple').textContent=`${lbl}: ${D.format(stats.vRipple,'V')}${rangeText}`;
         }
-        const mapYI=i=>h/2-(i/maxAbsI)*(h*0.38);
+        if($('scopeFreq')){
+            $('scopeFreq').textContent=`Freq: ${stats.freq!==null?D.format(stats.freq,'Hz'):(stats.vRipple>1e-4?'Transient':'DC')}`;
+        }
 
-        // Draw Ripple Envelope Guides (Vmax & Vmin dashed lines) when ripple is present
+        const tMin=scopeHistory[0].time,tMax=Math.max(tMin+1e-9,scopeHistory.at(-1).time);
+        const vVals=scopeHistory.map(p=>sign*p.v);
+        const iVals=scopeHistory.map(p=>sign*p.i);
+        const vAllMin=Math.min(...vVals),vAllMax=Math.max(...vVals);
+        const iAllMin=Math.min(...iVals),iAllMax=Math.max(...iVals);
+        const maxAbsV=Math.max(1e-3,Math.abs(vAllMin),Math.abs(vAllMax));
+        const maxAbsI=Math.max(1e-6,Math.abs(iAllMin),Math.abs(iAllMax));
+        const mapX=t=>padL+((t-tMin)/Math.max(1e-9,tMax-tMin))*plotW;
+        const unipolarV=!scopeZoomRipple&&stats.isRectifiedDc&&vAllMin>=-0.05*maxAbsV;
+        let mapYV,vScaleText,zeroYV=null;
+        if(scopeZoomRipple&&stats.vRipple>1e-5){
+            const vDiv=niceScopeStep(Math.max(stats.vRipple*1.2,1e-4)/4);
+            const midV=(stats.vMin+stats.vMax)/2;
+            const lo=midV-2*vDiv,hi=midV+2*vDiv;
+            mapYV=v=>padT+plotH-((v-lo)/Math.max(1e-9,hi-lo))*plotH;
+            vScaleText=`CH1 ${D.format(vDiv,'V')}/div (AC zoom)`;
+        }else if(unipolarV){
+            const vDiv=niceScopeStep(Math.max(1e-3,vAllMax*1.06)/4);
+            const topV=4*vDiv;
+            zeroYV=padT+plotH;
+            mapYV=v=>zeroYV-(v/topV)*plotH;
+            vScaleText=`CH1 ${D.format(vDiv,'V')}/div`;
+        }else{
+            const vDiv=niceScopeStep((maxAbsV*1.06)/2);
+            const topV=2*vDiv;
+            zeroYV=padT+plotH/2;
+            mapYV=v=>zeroYV-(v/topV)*(plotH/2);
+            vScaleText=`CH1 ${D.format(vDiv,'V')}/div`;
+        }
+        let mapYI,iScaleText;
+        if(unipolarV&&iAllMin>=-0.05*maxAbsI){
+            const iDiv=niceScopeStep(Math.max(1e-6,iAllMax*1.08)/4);
+            const topI=4*iDiv;
+            mapYI=i=>(padT+plotH)-(i/topI)*plotH;
+            iScaleText=`CH2 ${D.format(iDiv,'A')}/div`;
+        }else{
+            const iDiv=niceScopeStep((maxAbsI*1.08)/2);
+            const topI=2*iDiv;
+            mapYI=i=>(padT+plotH/2)-(i/topI)*(plotH/2);
+            iScaleText=`CH2 ${D.format(iDiv,'A')}/div`;
+        }
+
+        if(zeroYV!==null){
+            const zy=Math.round(zeroYV)+0.5;
+            ctx.strokeStyle='#263856';ctx.lineWidth=1;
+            ctx.beginPath();ctx.moveTo(padL,zy);ctx.lineTo(padL+plotW,zy);ctx.stroke();
+        }
+
+        // Clipped plot region
+        ctx.save();
+        ctx.beginPath();ctx.rect(padL,padT,plotW,plotH);ctx.clip();
+        ctx.lineJoin='round';ctx.lineCap='round';
+
         if(stats.vRipple>1e-3){
             const yMax=mapYV(stats.vMax),yMin=mapYV(stats.vMin);
             ctx.save();
-            ctx.setLineDash([5,4]);
-            ctx.strokeStyle='rgba(192, 132, 252, 0.55)';
-            ctx.lineWidth=1.1;
+            ctx.setLineDash([4,4]);
+            ctx.strokeStyle='rgba(192, 132, 252, 0.52)';
+            ctx.lineWidth=1;
             ctx.beginPath();
-            ctx.moveTo(8,yMax);ctx.lineTo(w-8,yMax);
-            ctx.moveTo(8,yMin);ctx.lineTo(w-8,yMin);
+            ctx.moveTo(padL,yMax);ctx.lineTo(padL+plotW,yMax);
+            ctx.moveTo(padL,yMin);ctx.lineTo(padL+plotW,yMin);
             ctx.stroke();
-            ctx.setLineDash([]);
-            ctx.fillStyle='#c084fc';
-            ctx.font='600 10.5px ui-monospace, monospace';
-            ctx.textAlign='right';
-            ctx.fillText(`Vmax ${D.format(stats.vMax,'V')}`,w-12,Math.max(11,yMax-4));
-            ctx.fillText(`Vmin ${D.format(stats.vMin,'V')} · ΔVr = ${D.format(stats.vRipple,'V')}`,w-12,Math.min(h-4,yMin+12));
             ctx.restore();
         }
 
-        // Plot V(t) in cyan
-        ctx.strokeStyle='#3dd9ff';ctx.lineWidth=2.1;ctx.beginPath();
+        // CH2 I(t) in amber
+        ctx.strokeStyle='#f6b944';ctx.lineWidth=1.5;ctx.globalAlpha=0.86;ctx.beginPath();
         scopeHistory.forEach((pt,idx)=>{
-            const x=mapX(pt.time);
-            const y=mapYV(sign*pt.v);
+            const x=mapX(pt.time),y=mapYI(sign*pt.i);
             idx?ctx.lineTo(x,y):ctx.moveTo(x,y);
         });
         ctx.stroke();
-        // Plot I(t) in amber
-        ctx.strokeStyle='#f6b944';ctx.lineWidth=1.6;ctx.beginPath();
+
+        // CH1 V(t) in cyan
+        ctx.globalAlpha=1;
+        ctx.save();
+        ctx.strokeStyle='#3dd9ff';ctx.lineWidth=2;
+        ctx.shadowColor='rgba(61, 217, 255, 0.35)';ctx.shadowBlur=5;
+        ctx.beginPath();
         scopeHistory.forEach((pt,idx)=>{
-            const x=mapX(pt.time);
-            const y=mapYI(sign*pt.i);
+            const x=mapX(pt.time),y=mapYV(sign*pt.v);
             idx?ctx.lineTo(x,y):ctx.moveTo(x,y);
         });
         ctx.stroke();
+        ctx.restore();
+        ctx.restore();
+
+        // Non-overlapping envelope labels
+        if(stats.vRipple>1e-3){
+            const yMax=mapYV(stats.vMax),yMin=mapYV(stats.vMin);
+            const clampY=y=>Math.max(padT+9,Math.min(padT+plotH-9,y));
+            if(Math.abs(yMin-yMax)<20){
+                drawScopePill(ctx,`${D.format(stats.vMin,'V')} ↔ ${D.format(stats.vMax,'V')} (Δ${D.format(stats.vRipple,'V')})`,w-padR-4,clampY((yMax+yMin)/2-10),'#d8b4fe','right');
+            }else{
+                drawScopePill(ctx,`Vmax ${D.format(stats.vMax,'V')}`,w-padR-4,clampY(yMax-9),'#d8b4fe','right');
+                drawScopePill(ctx,`Vmin ${D.format(stats.vMin,'V')} · ΔV ${D.format(stats.vRipple,'V')}`,w-padR-4,clampY(yMin+9),'#d8b4fe','right');
+            }
+        }
+
+        // Interactive DSO hover crosshair & cursor readout
+        if(scopeHoverX!==null&&scopeHoverX>=padL&&scopeHoverX<=padL+plotW&&scopeHistory.length>=2){
+            const frac=(scopeHoverX-padL)/plotW;
+            const tCursor=tMin+frac*(tMax-tMin);
+            let lo=0,hi=scopeHistory.length-1;
+            while(hi-lo>1){const mid=(lo+hi)>>1;if(scopeHistory[mid].time<=tCursor)lo=mid;else hi=mid;}
+            const a=scopeHistory[lo],b=scopeHistory[hi];
+            const dtSeg=Math.max(1e-12,b.time-a.time);
+            const u=Math.max(0,Math.min(1,(tCursor-a.time)/dtSeg));
+            const vCur=sign*(a.v+u*(b.v-a.v));
+            const iCur=sign*(a.i+u*(b.i-a.i));
+            const cx=Math.round(scopeHoverX)+0.5;
+            ctx.save();
+            ctx.setLineDash([3,3]);ctx.strokeStyle='rgba(213, 223, 237, 0.55)';ctx.lineWidth=1;
+            ctx.beginPath();ctx.moveTo(cx,padT);ctx.lineTo(cx,padT+plotH);ctx.stroke();
+            ctx.restore();
+            const cyV=Math.max(padT,Math.min(padT+plotH,mapYV(vCur)));
+            const cyI=Math.max(padT,Math.min(padT+plotH,mapYI(iCur)));
+            ctx.fillStyle='#3dd9ff';ctx.beginPath();ctx.arc(cx,cyV,3.2,0,Math.PI*2);ctx.fill();
+            ctx.fillStyle='#f6b944';ctx.beginPath();ctx.arc(cx,cyI,2.8,0,Math.PI*2);ctx.fill();
+            const cursorText=`t=${D.format(tCursor,'s')} · V=${D.reading(vCur,'V')} · I=${D.reading(iCur,'A')}`;
+            const align=scopeHoverX>w*0.58?'right':'left';
+            const tx=align==='right'?cx-8:cx+8;
+            drawScopePill(ctx,cursorText,tx,padT+10,'#e2e8f0',align,'rgba(12, 18, 30, 0.92)');
+        }
+
+        // Top & bottom oscilloscope HUD
+        const w1=drawScopePill(ctx,vScaleText,padL,10,'#3dd9ff','left','transparent');
+        drawScopePill(ctx,iScaleText,padL+w1+4,10,'#f6b944','left','transparent');
+        drawScopePill(ctx,acqLabel,w-padR,10,acqColor,'right','transparent');
+        const baseLabel=scopeZoomRipple?'Center: Vmid':unipolarV?'0 V base':'0 V center';
+        drawScopePill(ctx,baseLabel,padL,h-8,'#7c8fa8','left','transparent');
+        drawScopePill(ctx,`Time: ${D.format((tMax-tMin)/8,'s')}/div · t = ${D.format(tMax,'s')}`,w-padR,h-8,'#7c8fa8','right','transparent');
     }
     function refreshMeasurements(force=false){
         const now=performance.now();if(!force&&now-lastRefresh<200)return;lastRefresh=now;
@@ -633,9 +916,11 @@
                 }
                 if(scopeStats&&scopeStats.vRipple>1e-4){
                     details.push(
-                        ...detail('Ripple voltage Vr(pp)',D.format(scopeStats.vRipple,'V')),
+                        ...detail('Peak-to-peak Vpp',D.format(scopeStats.vRipple,'V')),
+                        ...detail('RMS voltage Vrms',D.format(scopeStats.vRms,'V')),
                         ...detail('DC average Vdc',D.reading(scopeStats.vDc,'V')),
-                        ...detail('Envelope (Vmin ↔ Vmax)',`${D.format(scopeStats.vMin,'V')} ↔ ${D.format(scopeStats.vMax,'V')}`)
+                        ...detail('Envelope (Vmin ↔ Vmax)',`${D.format(scopeStats.vMin,'V')} ↔ ${D.format(scopeStats.vMax,'V')}`),
+                        ...(scopeStats.freq!==null?detail('Frequency',D.format(scopeStats.freq,'Hz')):[])
                     );
                 }
                 if(r){details.push(...detail('Terminal A',D.format(r.va,'V')+(solution.nodeVoltages[simulation.compiled.netOf.get(c.terminals[0])]?.local?' · local':'')),...detail('Terminal B',D.format(r.vb,'V')+(solution.nodeVoltages[simulation.compiled.netOf.get(c.terminals[1])]?.local?' · local':'')));}

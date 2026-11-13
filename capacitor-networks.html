@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Electricsim · Capacitor Networks</title>
+    <meta name="theme-color" content="#030405">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=SF+Mono&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="capacitor.css?v=2">
+    <link rel="stylesheet" href="research-theme.css?v=5">
+</head>
+<body data-cap-mode="network">
+    <canvas id="bgCanvas"></canvas>
+    <!-- Main Simulation Canvas -->
+    <canvas id="capacitorCanvas"></canvas>
+
+    <!-- Top Navigation -->
+    <header class="top-nav glass-panel">
+        <div class="nav-left">
+            <a href="index.html" class="hub-btn" title="Back to Hub">⌂ Hub</a>
+            <div class="title-group">
+                <h1>🔗 Capacitor Networks</h1>
+            </div>
+        </div>
+
+        <div class="nav-right">
+            <button id="btnFormulas" class="btn-icon" title="Physics Formulas (MathJax)">?</button>
+        </div>
+    </header>
+
+    <aside class="concept-guide" aria-label="Capacitance concept map">
+        <span class="concept-kicker">Concept map</span>
+        <div class="concept-flow"><span>Series &amp; parallel topology</span><b>→</b><span>Equivalent C<sub>eq</sub></span><b>→</b><span>Voltage &amp; charge split</span></div>
+        <span class="concept-detail"><i class="legend-dot field-dot"></i>Q = CV · U = ½CV² · Nested network builder</span>
+    </aside>
+
+    <!-- Sidebar - Network Controls -->
+    <aside class="sidebar-left glass-panel" id="networkSidebar">
+        <h3>Network Tools</h3>
+        <p style="font-size: 0.8rem; color:#94a3b8; margin-bottom: 0.8rem;">Build complex capacitor networks with nested series &amp; parallel groups. Select nodes in the tree below to add relative to them.</p>
+        
+        <div class="prop-group">
+            <label>Master Source (V)</label>
+            <div class="prop-input-wrap slider-wrap">
+                <input type="range" id="netSliderV" min="1" max="100" step="1" value="12">
+                <span class="prop-unit val-readout" id="valNetV">12V</span>
+            </div>
+        </div>
+
+        <div class="divider mt-2 mb-2" style="width:100%; height:1px; margin: 15px 0;"></div>
+
+        <h3>Add Single Capacitor</h3>
+        <div class="prop-group">
+            <label>Capacitance (&mu;F)</label>
+            <div class="prop-input-wrap slider-wrap">
+                <input type="range" id="netSliderC" min="1" max="100" step="1" value="10">
+                <span class="prop-unit val-readout" id="valNetC">10&mu;F</span>
+            </div>
+        </div>
+        
+        <div class="btn-group mt-2">
+            <button id="btnAddSeries" class="btn-primary w-full" style="padding: 0.5rem; margin-bottom: 6px;">⊕ Series</button>
+            <button id="btnAddParallel" class="btn-secondary w-full" style="padding: 0.5rem;">⊕ Parallel</button>
+        </div>
+
+        <div class="divider mt-2 mb-2" style="width:100%; height:1px; margin: 12px 0;"></div>
+
+        <h3>Network Tree</h3>
+        <div id="networkList" class="network-tree-list">
+            <p style="color:#64748b; font-size:0.75rem; text-align:center;">No components yet</p>
+        </div>
+        
+        <div class="btn-group mt-2">
+            <button id="btnRemoveNode" class="btn-danger w-full" style="padding: 0.5rem; margin-bottom: 6px;">✕ Remove Selected</button>
+            <button id="btnClearNetwork" class="btn-danger w-full" style="padding: 0.5rem; opacity: 0.7;">🗑 Clear All</button>
+        </div>
+    </aside>
+
+    <!-- Network HUD -->
+    <div class="hud bottom-left glass-panel-small" id="networkHud">
+        <h3>Equivalent Circuit</h3>
+        <div class="reading"><strong>Total C (C<sub>eq</sub>):</strong> <span id="hudNetC" class="color-cyan">0.00 &mu;F</span></div>
+        <div class="reading"><strong>Tot. Charge (Q):</strong> <span id="hudNetQ" class="color-pink">0.00 &mu;C</span></div>
+        <div class="reading"><strong>Tot. Energy (U):</strong> <span id="hudNetU" class="color-yellow">0.00 mJ</span></div>
+        
+        <div id="selCapInfoWrapper" class="hidden" style="margin-top: 15px; padding-top: 15px; border-top: 1px solid rgba(255,255,255,0.1);">
+            <h3 style="color: #6ee7b7;">Selected Element <span id="selNodeTitle" style="font-size: 0.8em; color: rgba(255,255,255,0.6); font-weight: normal;"></span></h3>
+            <div class="reading"><strong>Capacitance:</strong> <span id="selNetC" class="color-cyan">0.00 &mu;F</span></div>
+            <div class="reading"><strong>Voltage (V):</strong> <span id="selNetV" class="color-green">0.00 V</span></div>
+            <div class="reading"><strong>Charge (Q):</strong> <span id="selNetQ" class="color-pink">0.00 &mu;C</span></div>
+            <div class="reading"><strong>Energy (U):</strong> <span id="selNetU" class="color-yellow">0.00 mJ</span></div>
+        </div>
+    </div>
+
+    <!-- Zoom Controls -->
+    <div class="view-controls bottom-right glass-panel-small">
+        <div class="zoom-controls">
+            <button id="btnZoomOut" class="btn-icon small">-</button>
+            <span id="zoomLabel">100%</span>
+            <button id="btnZoomIn" class="btn-icon small">+</button>
+            <button id="btnZoomReset" class="btn-icon small" title="Reset View">⤢</button>
+        </div>
+    </div>
+
+    <!-- Modals -->
+    <div id="formulasModal" class="modal-overlay hidden">
+        <div class="modal-content glass-panel">
+            <h2 style="color:var(--accent); margin-bottom: 1rem;">Capacitor Network Formulas</h2>
+            <div class="formula-grid">
+                <div class="formula-card">
+                    <h4>Series Network</h4>
+                    <p>$$ \frac{1}{C_{eq}} = \sum \frac{1}{C_i} $$</p>
+                    <p>$$ Q_{total} = Q_1 = Q_2 = \dots $$</p>
+                </div>
+                <div class="formula-card">
+                    <h4>Parallel Network</h4>
+                    <p>$$ C_{eq} = \sum C_i $$</p>
+                    <p>$$ V_{total} = V_1 = V_2 = \dots $$</p>
+                </div>
+                <div class="formula-card">
+                    <h4>Charge &amp; Energy</h4>
+                    <p>$$ Q = CV \quad\quad U = \frac{1}{2}CV^2 $$</p>
+                </div>
+            </div>
+            <button id="btnCloseFormulas" class="btn-primary mt-2">Close</button>
+        </div>
+    </div>
+
+    <!-- MathJax -->
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+
+    <script src="shared-bg.js"></script>
+    <script src="capacitor.js?v=4"></script>
+</body>
+</html>

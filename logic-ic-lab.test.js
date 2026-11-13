@@ -460,14 +460,14 @@ check('3.4: Open switch on ground return path NEVER grounds a Lamp or IC Pin 7',
     assert.equal(res2.icStates.get('ic2').powered, true, 'IC with closed switch on Pin 7 GND must be powered');
 });
 
-check('3.5: Left Component Sidebar layout in logic.html replaces trafficked upper bar', () => {
+check('3.5: Left Component Sidebar layout in logic.html and electronics.html replaces trafficked upper bar', () => {
     const fs = require('node:fs');
     const path = require('node:path');
-    const html = fs.readFileSync(path.join(__dirname, 'logic.html'), 'utf8');
-    // Both modes should have .logic-palette-sidebar inside .logic-workspace
-    const sidebarMatches = html.match(/class="logic-palette-sidebar glass-panel-small"/g) || [];
-    assert.equal(sidebarMatches.length, 2, 'Both Gates and IC Lab modes must have a Left Component Sidebar');
-    assert.ok(html.includes('class="logic-tools ic-tools-palette logic-sidebar-tools"'), 'IC tools palette must be styled as sidebar tools');
+    const logicHtml = fs.readFileSync(path.join(__dirname, 'logic.html'), 'utf8');
+    const elecHtml = fs.readFileSync(path.join(__dirname, 'electronics.html'), 'utf8');
+    assert.ok(logicHtml.includes('class="logic-palette-sidebar glass-panel-small"'), 'Logic Lab must have a Left Component Sidebar');
+    assert.ok(elecHtml.includes('class="logic-palette-sidebar glass-panel-small"'), 'Electronics Lab must have a Left Component Sidebar');
+    assert.ok(elecHtml.includes('class="logic-tools ic-tools-palette logic-sidebar-tools"'), 'IC tools palette must be styled as sidebar tools');
 });
 
 // =========================================================================

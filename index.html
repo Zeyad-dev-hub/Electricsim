@@ -8,7 +8,7 @@
     <meta name="theme-color" content="#000000">
     <meta name="description" content="Electricsim scientific research platform for electrostatics, capacitance, material conductivity, and semiconductor physics simulations.">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="research-theme.css?v=2">
+    <link rel="stylesheet" href="research-theme.css?v=6">
     <style>
         :root {
             --bg-color: #000000;
@@ -152,13 +152,13 @@
         }
 
         .nav-card {
-            min-height: 160px;
+            min-height: 92px;
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
             text-align: center;
-            padding: 24px 20px;
+            padding: 16px 20px;
             text-decoration: none;
             color: #f4f7fb;
             position: relative;
@@ -175,21 +175,11 @@
             animation-delay: 0.16s;
         }
 
-        .card-meta {
-            color: var(--hover-color);
-            font-size: 0.74rem;
-            font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: 0.07em;
-            margin-bottom: 8px;
-            text-align: center;
-        }
-
-        .card-title {
+        .nav-card .card-title {
             margin: 0;
-            font-size: 1.3rem;
+            font-size: clamp(1.35rem, 1.9vw, 1.65rem);
             font-weight: 700;
-            line-height: 1.3;
+            line-height: 1.28;
             text-align: center;
             color: #f8fbff;
         }
@@ -293,17 +283,12 @@
             }
 
             .nav-card {
-                min-height: 125px;
-                padding: 18px 14px;
-            }
-
-            .card-meta {
-                font-size: 0.68rem;
-                margin-bottom: 6px;
+                min-height: 76px;
+                padding: 14px 14px;
             }
 
             .card-title {
-                font-size: 1.1rem;
+                font-size: 1.35rem;
                 margin: 0;
             }
 
@@ -327,6 +312,16 @@
         #noResults { padding: 24px 0; color: #aab7c8; line-height: 1.6; }
         #card-dc-circuit { --hover-color: #8b9dff; }
         #card-logic { --hover-color: #37e0a1; }
+        #card-electronics { --hover-color: #f6b944; }
+        #card-cap-networks { --hover-color: #3dd9ff; }
+        .hub-section { margin-top: 10px; }
+        .hub-section + .hub-section { margin-top: 26px; }
+        .hub-section-header { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 12px; padding-bottom: 8px; margin-bottom: 14px; border-bottom: 1px solid rgba(255, 255, 255, 0.14); }
+        .hub-section-title { font-size: 1.2rem; font-weight: 700; letter-spacing: 0.02em; color: #f4f7fb; display: inline-flex; align-items: center; gap: 9px; }
+        .hub-section-title::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: #3dd9ff; box-shadow: 0 0 12px rgba(61, 217, 255, 0.65); }
+        #labsSectionTitle::before { background: #37e0a1; box-shadow: 0 0 12px rgba(55, 224, 161, 0.65); }
+        .hub-section-count { font-size: 0.78rem; font-weight: 600; color: #8fa0b5; text-transform: uppercase; letter-spacing: 0.06em; }
+        .hub-section[hidden] { display: none; }
         @media (prefers-reduced-motion: reduce) { .nav-card { animation: none; transition: none; } }
     </style>
 </head>
@@ -340,59 +335,81 @@
             <h1 class="hub-title">Electricsim Platform</h1>
             <p class="hub-subtitle">Turn equations into observable systems. Change one variable, watch the field respond, and connect microscopic behavior to measurable results.</p>
             <div class="hub-metrics" aria-label="Platform features">
-                <span class="hub-metric">7 interactive labs</span>
+                <span class="hub-metric">5 physics simulations</span>
+                <span class="hub-metric">4 virtual labs</span>
                 <span class="hub-metric">Live SI measurements</span>
                 <span class="hub-metric">Cause → effect learning</span>
             </div>
         </header>
 
-        <form class="hub-search" role="search" aria-label="Find a lab">
-            <label for="labSearch">Find a lab</label>
+        <form class="hub-search" role="search" aria-label="Find a simulation or lab">
+            <label for="labSearch">Find a simulation or lab</label>
             <div class="search-row"><input id="labSearch" type="search" placeholder="Search by name or topic…" autocomplete="off" aria-controls="labCards"><button id="clearSearch" type="button" hidden>Clear</button></div>
-            <output id="searchCount" role="status" aria-live="polite">7 labs</output>
+            <output id="searchCount" role="status" aria-live="polite">9 modules</output>
         </form>
-        <p id="noResults" hidden>No labs match your search. Try another name or topic.</p>
-        <section id="labCards" class="cards-wrapper" aria-label="Simulation modules">
-            <a href="electrostatics.html" class="nav-card glass-panel" id="card-electro">
-                <div class="card-meta">Electrostatics</div>
-                <h2 class="card-title">Electrostatics Simulator</h2>
-                <span class="card-desc" hidden>Model point charges and continuous distributions to analyze electric field vectors, potential contours, and electrostatic force dynamics.</span>
-            </a>
+        <p id="noResults" hidden>No simulations or labs match your search. Try another name or topic.</p>
+        <div id="labCards">
+            <section class="hub-section" aria-labelledby="simSectionTitle">
+                <div class="hub-section-header">
+                    <h2 id="simSectionTitle" class="hub-section-title">Simulations</h2>
+                    <span class="hub-section-count">5 Physics Simulations</span>
+                </div>
+                <div class="cards-wrapper" aria-label="Physics simulations">
+                    <a href="electrostatics.html" class="nav-card glass-panel" id="card-electro">
+                        <h3 class="card-title">Electrostatics Simulator</h3>
+                        <span class="card-desc" hidden>Model point charges and continuous distributions to analyze electric field vectors, potential contours, and electrostatic force dynamics.</span>
+                    </a>
 
-            <a href="gauss.html" class="nav-card glass-panel" id="card-gauss">
-                <div class="card-meta">Gauss's Law</div>
-                <h2 class="card-title">Gauss's Law Explorer</h2>
-                <span class="card-desc" hidden>Explore electric flux through spherical, cylindrical, and planar Gaussian surfaces, illustrating the direct relationship between flux and enclosed charge.</span>
-            </a>
+                    <a href="conductivity.html" class="nav-card glass-panel" id="card-conductivity">
+                        <h3 class="card-title">Conductivity Explorer</h3>
+                        <span class="card-desc" hidden>Simulate electron drift velocity under Drude scattering, exploring the microstructural impacts of temperature, dimension, and materials on resistance.</span>
+                    </a>
 
-            <a href="capacitor.html" class="nav-card glass-panel" id="card-capacitor">
-                <div class="card-meta">Capacitance</div>
-                <h2 class="card-title">Capacitor Simulator</h2>
-                <span class="card-desc" hidden>Analyze parallel plate, cylindrical, and spherical capacitor geometries, dielectric boundary conditions, and nested series-parallel networks.</span>
-            </a>
+                    <a href="gauss.html" class="nav-card glass-panel" id="card-gauss">
+                        <h3 class="card-title">Gauss's Law Explorer</h3>
+                        <span class="card-desc" hidden>Explore electric flux through spherical, cylindrical, and planar Gaussian surfaces, illustrating the direct relationship between flux and enclosed charge.</span>
+                    </a>
 
-            <a href="conductivity.html" class="nav-card glass-panel" id="card-conductivity">
-                <div class="card-meta">Transport &amp; Resistance</div>
-                <h2 class="card-title">Conductivity Explorer</h2>
-                <span class="card-desc" hidden>Simulate electron drift velocity under Drude scattering, exploring the microstructural impacts of temperature, dimension, and materials on resistance.</span>
-            </a>
+                    <a href="capacitor.html" class="nav-card glass-panel" id="card-capacitor">
+                        <h3 class="card-title">Capacitor Physics Explorer</h3>
+                        <span class="card-desc" hidden>Analyze parallel plate, cylindrical, and spherical capacitor geometries, dielectric boundary conditions, and electric field dynamics.</span>
+                    </a>
 
-            <a href="semiconductor.html" class="nav-card glass-panel" id="card-semiconductor">
-                <div class="card-meta">Semiconductor Physics</div>
-                <h2 class="card-title">Semiconductor Physics Simulation</h2>
-                <span class="card-desc" hidden>Follow bond electrons, thermal excitation, doping, and electron-driven hole motion in one crystal. Apply voltage and watch charge flow.</span>
-            </a>
-            <a href="dc-circuit.html" class="nav-card glass-panel" id="card-dc-circuit">
-                <div class="card-meta">Circuit Analysis &amp; Dynamics</div>
-                <h2 class="card-title">Circuits Lab</h2>
-                <span class="card-desc" hidden>Start with a blank canvas, add batteries, AC sources, diodes, transformers, resistors and capacitors, and connect them with click-to-create wires. Read volts, amps and resistance above the components.</span>
-            </a>
-            <a href="logic.html" class="nav-card glass-panel" id="card-logic">
-                <div class="card-meta">Digital Logic &amp; Boolean Algebra</div>
-                <h2 class="card-title">Logic Circuits Lab</h2>
-                <span class="card-desc" hidden>Build digital logic circuits with up to four inputs, watch the live Boolean equation and truth table update above the schematic, simplify expressions with Karnaugh maps, and convert to universal NAND or NOR gates.</span>
-            </a>
-        </section>
+                    <a href="semiconductor.html" class="nav-card glass-panel" id="card-semiconductor">
+                        <h3 class="card-title">Semiconductor Physics Simulation</h3>
+                        <span class="card-desc" hidden>Follow bond electrons, thermal excitation, doping, and electron-driven hole motion in one crystal. Apply voltage and watch charge flow.</span>
+                    </a>
+                </div>
+            </section>
+
+            <section class="hub-section" aria-labelledby="labsSectionTitle">
+                <div class="hub-section-header">
+                    <h2 id="labsSectionTitle" class="hub-section-title">Virtual Labs</h2>
+                    <span class="hub-section-count">4 Interactive Labs</span>
+                </div>
+                <div class="cards-wrapper" aria-label="Virtual engineering labs">
+                    <a href="capacitor-networks.html" class="nav-card glass-panel" id="card-cap-networks">
+                        <h3 class="card-title">Capacitor Networks</h3>
+                        <span class="card-desc" hidden>Build nested series and parallel capacitor networks, analyze equivalent capacitance, and inspect voltage, charge, and energy distribution across each node.</span>
+                    </a>
+
+                    <a href="logic.html" class="nav-card glass-panel" id="card-logic">
+                        <h3 class="card-title">Logic Lab</h3>
+                        <span class="card-desc" hidden>Build digital logic gate circuits, watch live Boolean equations and truth tables update, simplify expressions with Karnaugh maps, and convert to universal NAND or NOR gates.</span>
+                    </a>
+
+                    <a href="electronics.html" class="nav-card glass-panel" id="card-electronics">
+                        <h3 class="card-title">Electronics Lab</h3>
+                        <span class="card-desc" hidden>Wire authentic 74xx DIP integrated circuits on an interactive bench with X-ray internals, DIP switches, 7-segment display, clock generator, and logic probe.</span>
+                    </a>
+
+                    <a href="dc-circuit.html" class="nav-card glass-panel" id="card-dc-circuit">
+                        <h3 class="card-title">Circuits Lab</h3>
+                        <span class="card-desc" hidden>Build DC and AC circuits with batteries, current sources, AC sources, diodes, Zeners, LEDs, transformers, resistors, inductors, and capacitors, with a live dual-channel oscilloscope.</span>
+                    </a>
+                </div>
+            </section>
+        </div>
 
         <footer class="footer-text">
             These are virtual labs related to computer, electronics, communications, and electrical engineering, developed by the student Zeyad Mahmoud, dedicated to the Faculty of Engineering at Shoubra, and carried out under the supervision of its professors.
