@@ -2,7 +2,7 @@
 const assert=require('node:assert/strict'),http=require('node:http'),fs=require('node:fs'),path=require('node:path'),os=require('node:os');
 const {chromium}=require('playwright');
 (async()=>{
- const root=__dirname,server=http.createServer((req,res)=>{const file=path.resolve(root,'.'+decodeURIComponent(new URL(req.url,'http://localhost').pathname));if(!file.startsWith(root+path.sep)){res.writeHead(403);res.end();return;}fs.readFile(file,(error,data)=>{if(error){res.writeHead(404);res.end();return;}res.setHeader('Content-Type',file.endsWith('.js')?'text/javascript':file.endsWith('.css')?'text/css':'text/html');res.end(data);});});
+ const root=path.resolve(__dirname,'..'),server=http.createServer((req,res)=>{const file=path.resolve(root,'.'+decodeURIComponent(new URL(req.url,'http://localhost').pathname));if(!file.startsWith(root+path.sep)){res.writeHead(403);res.end();return;}fs.readFile(file,(error,data)=>{if(error){res.writeHead(404);res.end();return;}res.setHeader('Content-Type',file.endsWith('.js')?'text/javascript':file.endsWith('.css')?'text/css':'text/html');res.end(data);});});
  await new Promise(r=>server.listen(0,'127.0.0.1',r));let browser;
  try{
   browser=await chromium.launch({headless:true,...(process.platform==='win32'?{channel:process.env.CIRCUIT_BROWSER_CHANNEL||'msedge'}:{})});
@@ -16,7 +16,7 @@ const {chromium}=require('playwright');
     const observe=name==='Renderer'?'draw(...args){window.__drawn=window.DCCircuit.clone(args[0]);window.__preview=args[2]?.placement;return super.draw(...args);}':'';
     await route.fulfill({response,body:(await response.text())+`\n{const Base=window.DCCircuit.${name};window.DCCircuit.${name}=class extends Base{constructor(...args){super(...args);window.__${name.toLowerCase()}=this;}${observe}};}`});
    });
-   await page.goto(`http://127.0.0.1:${server.address().port}/dc-circuit.html`);await page.waitForFunction(()=>window.__drawn);
+   await page.goto(`http://127.0.0.1:${server.address().port}/pages/dc-circuit.html`);await page.waitForFunction(()=>window.__drawn);
    return page;
   }
   const page=await pageFor({viewport:{width:1366,height:900}}),canvas=page.locator('#circuitCanvas');

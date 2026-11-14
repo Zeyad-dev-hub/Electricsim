@@ -1,6 +1,6 @@
 'use strict';
 const assert = require('node:assert/strict');
-const Lab = require('./logic-ic-lab.js');
+const Lab = require('../js/logic-ic-lab.js');
 
 let checks = 0;
 function check(name, fn) {
@@ -463,8 +463,8 @@ check('3.4: Open switch on ground return path NEVER grounds a Lamp or IC Pin 7',
 check('3.5: Left Component Sidebar layout in logic.html and electronics.html replaces trafficked upper bar', () => {
     const fs = require('node:fs');
     const path = require('node:path');
-    const logicHtml = fs.readFileSync(path.join(__dirname, 'logic.html'), 'utf8');
-    const elecHtml = fs.readFileSync(path.join(__dirname, 'electronics.html'), 'utf8');
+    const logicHtml = fs.readFileSync(path.join(__dirname, '../pages/logic.html'), 'utf8');
+    const elecHtml = fs.readFileSync(path.join(__dirname, '../pages/electronics.html'), 'utf8');
     assert.ok(logicHtml.includes('class="logic-palette-sidebar glass-panel-small"'), 'Logic Lab must have a Left Component Sidebar');
     assert.ok(elecHtml.includes('class="logic-palette-sidebar glass-panel-small"'), 'Electronics Lab must have a Left Component Sidebar');
     assert.ok(elecHtml.includes('class="logic-tools ic-tools-palette logic-sidebar-tools"'), 'IC tools palette must be styled as sidebar tools');
@@ -475,12 +475,12 @@ check('3.5: Left Component Sidebar layout in logic.html and electronics.html rep
 // =========================================================================
 console.log('\n>>> [SCAN 4] Logic Gates Simulator — MSI Blocks, Latches & Large-Scale Designs');
 
-require('./logic-model.js');
-require('./logic-evaluator.js');
-require('./logic-expression.js');
-require('./logic-simplify.js');
-require('./logic-synthesis.js');
-require('./logic-presets.js');
+require('../js/logic-model.js');
+require('../js/logic-evaluator.js');
+require('../js/logic-expression.js');
+require('../js/logic-simplify.js');
+require('../js/logic-synthesis.js');
+require('../js/logic-presets.js');
 const L = globalThis.LogicLab;
 
 check('4.1: Half Adder (HA) & Full Adder (FA) blocks — exact truth table & multi-output wiring', () => {

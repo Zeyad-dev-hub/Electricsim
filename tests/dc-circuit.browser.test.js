@@ -2,12 +2,12 @@
 const assert=require('node:assert/strict');const http=require('node:http'),fs=require('node:fs'),path=require('node:path'),os=require('node:os');
 const {chromium}=require('playwright');
 (async()=>{
- const root=__dirname,server=http.createServer((req,res)=>{const pathname=decodeURIComponent(new URL(req.url,'http://localhost').pathname),file=path.resolve(root,'.'+pathname);if(!file.startsWith(root+path.sep)){res.writeHead(403);res.end();return;}fs.readFile(file,(error,data)=>{if(error){res.writeHead(404);res.end();return;}res.setHeader('Content-Type',file.endsWith('.js')?'text/javascript':file.endsWith('.css')?'text/css':'text/html');res.end(data);});});
+ const root=path.resolve(__dirname,'..'),server=http.createServer((req,res)=>{const pathname=decodeURIComponent(new URL(req.url,'http://localhost').pathname),file=path.resolve(root,'.'+pathname);if(!file.startsWith(root+path.sep)){res.writeHead(403);res.end();return;}fs.readFile(file,(error,data)=>{if(error){res.writeHead(404);res.end();return;}res.setHeader('Content-Type',file.endsWith('.js')?'text/javascript':file.endsWith('.css')?'text/css':'text/html');res.end(data);});});
  await new Promise(r=>server.listen(0,'127.0.0.1',r));let browser;
  try{
   browser=await chromium.launch({headless:true,...(process.platform==='win32'?{channel:process.env.CIRCUIT_BROWSER_CHANNEL||'msedge'}:{})});
   const page=await browser.newPage({viewport:{width:1366,height:900}}),errors=[];page.on('pageerror',e=>errors.push(e.message));
-  await page.route('https://fonts.googleapis.com/**',route=>route.abort());await page.goto(`http://127.0.0.1:${server.address().port}/dc-circuit.html`);
+  await page.route('https://fonts.googleapis.com/**',route=>route.abort());await page.goto(`http://127.0.0.1:${server.address().port}/pages/dc-circuit.html`);
   const canvas=page.locator('#circuitCanvas');
   async function at(x,y){const b=await canvas.boundingBox();await page.mouse.click(b.x+b.width/2+x,b.y+b.height/2+y);}
   async function add(type,x,y,rotate=false){await page.locator(`[data-tool="${type}"]`).click();await at(x,y);if(rotate)await page.locator('#rotateBtn').click();}
@@ -54,7 +54,7 @@ const {chromium}=require('playwright');
   for(const device of [{name:'small-phone',width:320,height:740,dpr:2},{name:'iphone-size',width:390,height:844,dpr:3},{name:'android-size',width:412,height:915,dpr:2.625}]){
    const context=await browser.newContext({viewport:{width:device.width,height:device.height},deviceScaleFactor:device.dpr,isMobile:true,hasTouch:true});
    const phone=await context.newPage();phone.on('pageerror',e=>errors.push(`${device.name}: ${e.message}`));
-   await phone.route('https://fonts.googleapis.com/**',route=>route.abort());await phone.goto(`http://127.0.0.1:${server.address().port}/dc-circuit.html`);
+   await phone.route('https://fonts.googleapis.com/**',route=>route.abort());await phone.goto(`http://127.0.0.1:${server.address().port}/pages/dc-circuit.html`);
    const phoneCanvas=phone.locator('#circuitCanvas');
    async function place(type,x,y,rotate=false){await phone.locator(`[data-tool="${type}"]`).tap();await phoneCanvas.scrollIntoViewIfNeeded();const b=await phoneCanvas.boundingBox();await phone.touchscreen.tap(b.x+b.width/2+x,b.y+b.height/2+y);if(rotate)await phone.locator('#rotateBtn').tap();}
    async function pick(label){await phone.locator('#selectionSelect').selectOption({label});}

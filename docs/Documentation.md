@@ -14,112 +14,69 @@ This document provides a three-dimensional view of the entire codebase and platf
 ```text
 Electricsim/ (Workspace Root)
 │
-├── Platform Shell & Shared Infrastructure
-│   ├── index.html                           # Central research hub (Simulations [5] & Virtual Labs [4] sections, compact colored cards)
-│   ├── hub-search.js                        # Instant search & keyword filtering hiding empty sections dynamically
-│   ├── shared-bg.js                         # Shared dynamic background engine (ambient animated grid & particle glow)
+├── index.html                               # Central research hub (Simulations [5] & Virtual Labs [4] sections, compact colored cards)
+├── README.md                                # Quick-start overview & directory structure map
+│
+├── pages/ (Standalone Simulation & Virtual Lab HTML Pages)
+│   ├── electrostatics.html                  # Lab 1: Electrostatics Simulator viewport, HUD overlays & modals
+│   ├── gauss.html                           # Lab 2: Gauss's Law Explorer 3D-perspective canvas & flux HUD
+│   ├── capacitor.html                       # Lab 3: Capacitor Physics Explorer (`data-cap-mode="physics"`)
+│   ├── conductivity.html                    # Lab 4: Conductivity & Resistivity Explorer lattice & multimeter HUD
+│   ├── semiconductor.html                   # Lab 5: Semiconductor Physics Simulation crystal, closeup & band diagrams
+│   ├── capacitor-networks.html              # Virtual Lab 1: Capacitor Networks (`data-cap-mode="network"`)
+│   ├── logic.html                           # Virtual Lab 2: Logic Lab (gates, MSI blocks, Boolean bar, K-map & synthesis)
+│   ├── electronics.html                     # Virtual Lab 3: Electronics Lab (74xx DIP IC bench & X-Ray internals)
+│   └── dc-circuit.html                      # Virtual Lab 4: Circuits Lab (DC/AC workspace & dual-channel oscilloscope)
+│
+├── css/ (Stylesheets & Unified Research Design System)
 │   ├── research-theme.css                   # Unified dark research design system (colors, glass panels, colored gradient card titles)
-│   └── style.css                            # Core utility styles and shared structural base styles
-│
-├── Lab 1: Electrostatics Simulator (2D Charge Physics)
-│   ├── electrostatics.html                  # Main viewport, HUD overlays, object creation modal, keyboard shortcuts popover
-│   ├── script.js                            # Complete electrostatics computational engine:
-│   │   ├── RigidBody & PointCharge Models   # Discrete point charges, continuous lines, rings, conducting/dielectric spheres
-│   │   ├── BEM Linear System Solver         # Boundary-Element Method with partial-pivoting Gaussian elimination for induction
-│   │   ├── Field & Potential Integrators    # Coulomb superposition, scalar electric potential (V), force vectors (F = qE)
-│   │   ├── RK4 Field Line Tracing Engine    # 4th-order Runge-Kutta adaptive stream tracing with Path2D rendering
-│   │   └── Marching Squares Contour Engine  # Iso-potential scalar grid sampling and contour segment reconstruction
-│   └── (Uses research-theme.css & style.css)
-│
-├── Lab 2: Gauss's Law Explorer (Flux & Enclosed Charge)
-│   ├── gauss.html                           # 3D-perspective canvas viewport, surface configuration panel, live verification HUD
+│   ├── style.css                            # Core utility styles and shared structural base styles
 │   ├── gauss.css                            # Specialized CSS styling for Gaussian geometry controls and HUD metrics
-│   └── gauss.js                             # Gauss's Law computational & pseudo-3D graphics engine:
-│       ├── Geometry & Symmetry Models       # Point charge, infinite line, infinite plane, conducting & non-conducting spheres
-│       ├── Analytical Flux & Field Solvers  # Closed-form Gauss equations (Φ = ∮ E · dA = Q_enc / ε₀)
-│       └── Pseudo-3D Vector Renderer        # Orthogonal/axonometric projections, flowing chevron field lines, normal vectors
-│
-├── Capacitor Physics Explorer & Capacitor Networks (Separated Standalone Pages)
-│   ├── capacitor.html                       # Standalone Capacitor Physics Explorer (`data-cap-mode="physics"`)
-│   ├── capacitor-networks.html              # Standalone Capacitor Networks Lab (`data-cap-mode="network"`)
-│   ├── capacitor.css                        # Styling for geometry controls, dielectric selector, tree inspector, and responsive mobile header
-│   └── capacitor.js                         # Dual-mode engine reading `document.body.dataset.capMode`:
-│       ├── Physics Explorer Engine
-│       │   ├── Geometry Models              # Parallel-plate, coaxial cylindrical, and concentric spherical capacitors
-│       │   ├── Dielectric Polarization      # Relative permittivity (κ), dielectric breakdown limits, electric displacement
-│       │   ├── Electrostatic Dynamics       # Live charging/discharging transient circuit animation with battery and resistor
-│       │   └── Field & Charge Vector Engine # Dynamic E-field line density rendering and accumulated plate charge glyphs
-│       └── Capacitor Networks Engine
-│           ├── Hierarchical Network Tree    # Recursive Series-Parallel tree data structure (`createGroupNode`, `createCapNode`)
-│           ├── Equivalent Capacitance (C_eq)# Bottom-up recursive reduction solver (Series harmonic sum, Parallel direct sum)
-│           ├── Top-Down Charge/Voltage Dist # Recursive voltage divider and charge conservation solver across subnets
-│           └── PCB Schematic Auto-Layout    # Dynamic 2D schematic generator with responsive empty state, trace routing, and badges
-│
-├── Lab 4: Conductivity & Resistivity Explorer (Drude Transport)
-│   ├── conductivity.html                    # Microscopic lattice window, wire geometry sliders, live SI multimeter HUD
+│   ├── capacitor.css                        # Styling for geometry controls, dielectric selector, tree inspector & mobile header
 │   ├── conductivity.css                     # Custom styling for thermal gradients, lattice viewport, and material pickers
-│   └── conductivity.js                      # Microscopic electron transport & material physics engine:
-│       ├── Material Database                # Cu, Al, Au, Fe, Carbon (Graphite), Constantan (ρ₀, temperature coefficient α, density n)
-│       ├── Drude Scattering Particle Model  # Free electron gas, random thermal velocities (v_th), and field acceleration (a = eE/m)
-│       ├── Spatial Hash Collision Engine    # High-performance lattice ion collision detection via grid-bucket hashing
-│       ├── Thermal Lattice Dynamics         # Temperature-dependent ion vibration amplitude and phonon scattering probability
-│       └── Macroscopic Ohm/Joule Solver     # ρ(T) = ρ₀(1 + αΔT), R = ρL/A, drift velocity v_d, current I, and Joule power P
-│
-├── Lab 5: Semiconductor Physics Simulation (Atomic Bonds & Transport)
-│   ├── semiconductor.html                   # Single-crystal panel, closeup transfer stage, band energy diagram, event logger
 │   ├── semiconductor.css                    # Grid styling, carrier legend indicators, and transfer state animators
-│   ├── semiconductor-model.js               # Headless semiconductor physics & discrete teaching engine:
-│   │   ├── Bulk Equilibrium Solver         # Mass action law (np = nᵢ²), Fermi level (E_F), carrier densities (n, p), conductivity
-│   │   ├── 2D Silicon Lattice Model         # 4×7 atomic core grid, 2-electron covalent shared bond states, vacancy tracking
-│   │   ├── Impurity Dopant Substitution    # Group V donors (Phosphorus) and Group III acceptors (Boron) with freeze-out
-│   │   ├── Discrete Event State Machine     # Thermal generation, recombination, donor ionization, acceptor capture, and valence hops
-│   │   └── Directed Drift & Contact Flow   # Electric field carrier bias, contact charge injection/extraction conservation
-│   ├── semiconductor.js                     # Interactive presentation & multi-canvas synchronization controller:
-│   │   ├── Canvas 1: Crystal Lattice View   # Particle rendering, electron wave clouds, bond occupancy, dopant core badges
-│   │   ├── Canvas 2: Transfer Closeup Stage # Step-by-step valence transfer visualization (source bond A → receiving vacancy B)
-│   │   └── Canvas 3: Band Energy Diagram    # Valence band (E_v), conduction band (E_c), Fermi level (E_F), and impurity levels
+│   ├── dc-circuit.css                       # Viewport flex/grid styling, 3-column mobile tool grid, jitter-free scope telemetry chips
+│   └── logic.css                            # Shared 100dvh desktop layout & compact mobile horizontal-scroll palette bar (`<= 980px`)
 │
-├── Virtual Lab: Circuits Lab (DC & AC Dynamics Workspace + Dual-Channel Oscilloscope)
-│   ├── dc-circuit.html                      # Single-screen (100dvh desktop, responsive mobile) canvas, inspector, fixed-grid scope, 1 µA default scale
-│   ├── dc-circuit.css                       # Viewport flex/grid styling, 3-column mobile tool grid, jitter-free CSS Grid scope telemetry chips
-│   ├── dc-circuit-model.js                  # Document schema v1, inductors, LEDs, Zeners, bounding boxes, and validation checks
-│   ├── dc-circuit-topology.js               # Union-Find net compiler, reference domains, and wire-current balance recovery
+├── js/ (Simulation Engines, Mathematical Solvers & UI Controllers)
+│   ├── shared-bg.js                         # Shared dynamic background engine (ambient animated grid & particle glow)
+│   ├── hub-search.js                        # Instant search & keyword filtering hiding empty sections dynamically
+│   ├── script.js                            # Electrostatics Simulator engine (BEM solver, RK4 field lines, marching squares)
+│   ├── gauss.js                             # Gauss's Law analytical flux solver & pseudo-3D vector renderer
+│   ├── capacitor.js                         # Dual-mode Capacitor Physics & Capacitor Networks recursive tree engine
+│   ├── conductivity.js                      # Microscopic Drude electron transport & spatial-hash collision engine
+│   ├── semiconductor-model.js               # Headless silicon lattice, mass-action equilibrium & discrete carrier hop model
+│   ├── semiconductor.js                     # Multi-canvas Semiconductor Lab synchronization controller
+│   ├── dc-circuit-model.js                  # Circuits Lab document schema v1, inductors, LEDs, Zeners & validation checks
+│   ├── dc-circuit-topology.js               # Union-Find net compiler, reference domains & wire-current balance recovery
 │   ├── dc-circuit-solver.js                 # Modified Nodal Analysis (MNA) solver, adaptive backward Euler, diodes, Zeners & transformers
 │   ├── dc-circuit-analysis.js               # Series-parallel resistor reduction helpers and RC time-constant analysis
-│   ├── dc-circuit-editor.js                 # Grid snapping (24px), obstacle-aware orthogonal A* routing, and route splitting
-│   ├── dc-circuit-simulation.js             # Simulation clock, state lifecycle, undo/redo history, and transient time budgeting
-│   ├── dc-circuit-renderer.js               # Path2D schematic rendering, IEEE/IEC glyphs, current markers, optical/thermal glow
+│   ├── dc-circuit-editor.js                 # Grid snapping (24px), obstacle-aware orthogonal A* routing & route splitting
+│   ├── dc-circuit-simulation.js             # Simulation clock, state lifecycle, undo/redo history & transient time budgeting
+│   ├── dc-circuit-renderer.js               # Path2D schematic rendering, IEEE/IEC glyphs, current markers & optical/thermal glow
 │   ├── dc-circuit-presets.js                # Built-in educational circuits (rectifiers, ripple filter, Zeners, RLC ringing, transformers)
-│   └── dc-circuit.js                        # Controller, dual-channel oscilloscope engine, pointer/touch gestures, 1 µA auto calibration
-│
-├── Virtual Lab: Logic Lab (`logic.html`, Standalone Gates & Boolean Algebra)
-│   ├── logic.html                           # Standalone Logic Lab workspace (no mode toggle), top Boolean bar, left component sidebar
-│   ├── logic.css                            # Shared 100dvh desktop layout & compact mobile horizontal-scroll palette bar (`<= 980px`)
-│   ├── logic-model.js                       # Schema v1 (up to 12 inputs A–P, 8 outputs F–V, gates, MSI blocks, SR/D latches, History)
-│   ├── logic-evaluator.js                   # Kahn topological sort, cycle detection, adaptive 16-bit/multi-input evaluator & latch relaxation
-│   ├── logic-expression.js                  # Gate-to-AST builder, bidirectional gate hover spans, 4 notation printers
-│   ├── logic-simplify.js                    # Isolated exact SOP/POS minimizer and Gray-code K-map builder
+│   ├── dc-circuit.js                        # Controller, dual-channel oscilloscope engine, pointer/touch gestures & 1 µA auto calibration
+│   ├── logic-model.js                       # Logic Lab schema v1 (up to 12 inputs A–P, 8 outputs F–V, gates, MSI blocks, SR/D latches)
+│   ├── logic-evaluator.js                   # Kahn topological sort, cycle detection, adaptive evaluator & latch relaxation
+│   ├── logic-expression.js                  # Gate-to-AST builder, bidirectional gate hover spans & 4 notation printers
+│   ├── logic-simplify.js                    # Exact SOP/POS minimizer and Gray-code K-map builder
 │   ├── logic-synthesis.js                   # Deterministic synthesizer (Minimal SOP/POS, Universal NAND-only & NOR-only)
-│   ├── logic-editor.js                      # 24px grid snapping, pin hit-testing, and obstacle-aware orthogonal wire router
+│   ├── logic-editor.js                      # 24px grid snapping, pin hit-testing & obstacle-aware orthogonal wire router
 │   ├── logic-renderer.js                    # Canvas 2D renderer with IEEE distinctive-shape gates, MSI blocks & glow wires
 │   ├── logic-presets.js                     # Curated gate & combinational presets (including 2-bit Ripple Adder)
-│   └── logic.js                             # Main controller syncing canvas gestures, formula bar, truth table, and K-map
+│   ├── logic.js                             # Main controller syncing canvas gestures, formula bar, truth table & K-map
+│   └── logic-ic-lab.js                      # Electronics Lab 74xx DIP IC breadboard engine (17 ICs, ground-return solver, X-Ray & 9 presets)
 │
-├── Virtual Lab: Electronics Lab (`electronics.html`, Standalone 74xx IC Bench)
-│   ├── electronics.html                     # Standalone 74xx hardware bench workspace (no mode toggle), X-Ray internals, mobile swipe palette
-│   └── logic-ic-lab.js                      # Complete 74xx DIP IC bench engine:
-│       ├── 17-Chip 74xx DIP Catalog         # 10 DIP-14 gate ICs (7404..7427) + 7 MSI/Sequential ICs (7474, 7475, 74279, 74283, 74157, 74148, 7493)
-│       ├── 9 Bench Circuit Components       # 5V Battery, GND, Toggle Switch, DIP-4 Switch Bank, 220Ω Resistor, LED Lamp, 1Hz Clock, Probe, 7-Seg
-│       ├── Closed-Circuit Net Solver        # Union-Find net solver enforcing true ground return (`hasTrueGround`), VCC/GND & short protection
-│       ├── Obstacle-Aware Wire Router       # 4-orientation rotation (`R`), package-bypass routing, draggable segments, hops & junctions
-│       ├── X-Ray Datasheet Renderer         # Translucent DIP package rendering internal IEEE mini-gates & live pin-to-gate traces
-│       └── 9 Curated 74xx Bench Presets     # Ready-to-run IC benches covering gates, adders, multiplexers, decoders, counters & latches
-│
-├── Versions & Feature guides/ (Platform Documentation & Guides)
+├── docs/ (Platform Documentation, Guides & Plans)
 │   ├── Documentation.md                     # Central architectural specification and comprehensive platform reference
-│   └── FEATURES_GUIDE.md                    # Concise user-facing feature catalog covering all 9 simulations & virtual labs
+│   ├── FEATURES_GUIDE.md                    # Concise user-facing feature catalog covering all 9 simulations & virtual labs
+│   └── plans/                               # Historical engineering implementation plans & design reviews
+│       ├── DC_CIRCUIT_LAB_IMPLEMENTATION_PLAN.md
+│       ├── DC_CIRCUIT_LAB_REVIEW.md
+│       ├── SEMICONDUCTOR_LAB_PLAN.md
+│       └── SEMICONDUCTOR_RESTRUCTURE_PLAN.md
 │
-└── Supplementary Verification Scripts (Optional)
+└── tests/ (Supplementary Verification Scripts)
     ├── hub-search.test.js                   # Verifies hub search filtering, 9 simulation/lab cards, 2 sections, and ARIA attributes
     ├── semiconductor-model.test.js          # Verifies carrier equilibrium, mass-action law, and doping calculations
     ├── dc-circuit.test.js                   # Verifies KVL/KCL, series/parallel reductions, and RC curves

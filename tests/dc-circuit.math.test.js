@@ -1,6 +1,6 @@
 'use strict';
 const assert=require('node:assert/strict');
-const D=require('./dc-circuit-solver.js');require('./dc-circuit-editor.js');require('./dc-circuit-presets.js');
+const D=require('../js/dc-circuit-solver.js');require('../js/dc-circuit-editor.js');require('../js/dc-circuit-presets.js');
 let count=0,seed=0x125dc;
 function random(){seed=(1664525*seed+1013904223)>>>0;return seed/4294967296;}
 function near(actual,expected,tolerance=1e-9){assert.ok(Number.isFinite(actual),`Nonfinite value: ${actual}`);assert.ok(Math.abs(actual-expected)<=tolerance*Math.max(1,Math.abs(expected)),`${actual} ≠ ${expected}`);}
@@ -123,12 +123,12 @@ test('all circuit examples including half-wave and full-wave bridge rectifiers s
     for(const id of ['halfWave','fullWaveBridge','transformerStepUp','rc','bridge','series','parallel','currentDivider']){
         const doc=D.makePreset(id),c=D.compileCircuit(doc);
         let state=D.initializeTransient(c);
-        state=advance(c,state,.25);
+        state=advance(c,state,.5);
         assert.ok(state.acceptedSolution);
         if(id==='fullWaveBridge'){
             const rPos=state.acceptedSolution.componentResults[doc.components.find(x=>x.label==='R1').id].voltage;
             assert.ok(rPos>10,`Expected positive bridge output on positive half-cycle, got ${rPos}`);
-            const stateNeg=advance(c,state,.75);
+            const stateNeg=advance(c,state,1.5);
             const rNeg=stateNeg.acceptedSolution.componentResults[doc.components.find(x=>x.label==='R1').id].voltage;
             assert.ok(rNeg>10,`Expected positive bridge output on negative half-cycle, got ${rNeg}`);
         }

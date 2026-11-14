@@ -1,6 +1,6 @@
 'use strict';
 const assert=require('node:assert/strict');
-const D=require('./dc-circuit-simulation.js');require('./dc-circuit-editor.js');require('./dc-circuit-presets.js');
+const D=require('../js/dc-circuit-simulation.js');require('../js/dc-circuit-editor.js');require('../js/dc-circuit-presets.js');
 let count=0;const test=(name,fn)=>{fn();count++;console.log('PASS '+name);};
 const near=(a,b,tol=1e-8)=>assert.ok(Math.abs(a-b)<=tol*Math.max(1,Math.abs(b)),`${a} != ${b}`);
 function advance(sim,time){while(sim.state.time<time-1e-10)sim.advance(time,{maxAttempts:1000});}

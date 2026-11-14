@@ -1,7 +1,7 @@
 'use strict';
 const assert=require('node:assert/strict');
-const {matches,normalize}=require('./hub-search.js');
-const fs=require('node:fs'),path=require('node:path'),html=fs.readFileSync(path.join(__dirname,'index.html'),'utf8');
+const {matches,normalize}=require('../js/hub-search.js');
+const fs=require('node:fs'),path=require('node:path'),html=fs.readFileSync(path.join(__dirname,'../index.html'),'utf8');
 assert.equal(normalize("Gauss’s Law"),'gausss law');
 assert.ok(matches("Gauss's Law Explorer electric flux",' GAUSS flux '));
 assert.ok(matches('Semiconductor Physics Simulation thermal excitation doping','DOPING'));
@@ -15,7 +15,7 @@ assert.ok(!matches('Circuits Lab','dc missingtopic'));
 assert.ok(matches('Logic Circuits Lab boolean algebra truth table karnaugh nand nor','boolean karnaugh'));
 assert.equal((html.match(/class="nav-card glass-panel"/g)||[]).length,9);
 assert.ok(html.includes('Simulations')&&html.includes('Virtual Labs'));
-assert.ok(html.includes('href="capacitor-networks.html"')&&html.includes('href="electronics.html"')&&html.includes('href="logic.html"'));
+assert.ok(html.includes('href="pages/capacitor-networks.html"')&&html.includes('href="pages/electronics.html"')&&html.includes('href="pages/logic.html"'));
 assert.ok(!html.includes('card-visual'));
 assert.ok(!html.includes('body.hub-body {'));
 assert.ok(!html.includes('user-scalable=no'));

@@ -1,6 +1,6 @@
 'use strict';
-const assert=require('node:assert/strict');const D=require('./dc-circuit-analysis.js');require('./dc-circuit-presets.js');
-require('./dc-circuit-editor.js');
+const assert=require('node:assert/strict');const D=require('../js/dc-circuit-analysis.js');require('../js/dc-circuit-presets.js');
+require('../js/dc-circuit-editor.js');
 let count=0;const test=(name,fn)=>{fn();count++;console.log(`PASS ${name}`);};
 const near=(a,b,tol=1e-8)=>assert.ok(Math.abs(a-b)<=tol*Math.max(1,Math.abs(b)),`${a} != ${b}`);
 const make=id=>D.compileCircuit(D.makePreset(id));
@@ -65,8 +65,8 @@ test('current source divider, polarity, superposition, lamp/diode drive and open
  // Open-circuited current source and conflicting series current sources fail clearly
  assert.throws(()=>D.solveDC(D.compileCircuit(D.fixture([['I1','current','0','a',.01],['S1','switch','a','0',0,{closed:false}]]))),/Unconstrained|singular/);
  assert.throws(()=>D.solveDC(D.compileCircuit(D.fixture([['I1','current','0','a',.01],['I2','current','a','b',.02],['R1','resistor','b','0',100]]))),/Unconstrained|singular/);
- const fs=require('node:fs');
- const html=fs.readFileSync('dc-circuit.html','utf8'),js=fs.readFileSync('dc-circuit.js','utf8');
+ const fs=require('node:fs'),path=require('node:path');
+ const html=fs.readFileSync(path.join(__dirname,'../pages/dc-circuit.html'),'utf8'),js=fs.readFileSync(path.join(__dirname,'../js/dc-circuit.js'),'utf8');
  assert.ok(html.includes('data-tool="current"'));assert.ok(html.includes('id="currentNote"'));
  assert.ok(js.includes("current:[[1,'A'],[1e-3,'mA'],[1e-6,'µA']]"));
  assert.ok(js.includes("$('currentNote').hidden=c.type!=='current'"));
@@ -114,7 +114,7 @@ test('nodal voltage: junctions, terminals, wires and ground report the node pote
  const rc=D.fixture([['V','voltage','a','0',10],['R','resistor','a','b',1000],['C','capacitor','b','0',.001]]);c=D.compileCircuit(rc);let st=advance(c,D.initializeTransient(c),1);
  near(D.nodeInfo(c,st.acceptedSolution,'node-b').voltage,10*(1-Math.exp(-1)),.002);
  // UI wiring present.
- const fs=require('node:fs'),html=fs.readFileSync('dc-circuit.html','utf8'),js=fs.readFileSync('dc-circuit.js','utf8'),ren=fs.readFileSync('dc-circuit-renderer.js','utf8');
+ const fs=require('node:fs'),path=require('node:path'),html=fs.readFileSync(path.join(__dirname,'../pages/dc-circuit.html'),'utf8'),js=fs.readFileSync(path.join(__dirname,'../js/dc-circuit.js'),'utf8'),ren=fs.readFileSync(path.join(__dirname,'../js/dc-circuit-renderer.js'),'utf8');
  assert.ok(html.includes('id="nodeVoltageCard"')&&html.includes('id="nodeVoltageValue"'));assert.ok(js.includes('D.nodeInfo(')&&js.includes('updateNodeCard('));
  assert.ok(ren.includes('c.arc(p.x,p.y,r,Math.PI,2*Math.PI)'));
 });
@@ -226,8 +226,8 @@ test('rectifier + parallel filter capacitor produces steady-state ripple voltage
  assert.ok(vMinHW>6.0&&vMinHW<7.2,`Half-wave filtered Vmin should be ~6.5V, got ${vMinHW}`);
  assert.ok(vRippleHW>vRippleFW,`Half-wave ripple (${vRippleHW}) must exceed full-wave ripple (${vRippleFW})`);
  // 3. Verify oscilloscope UI elements for ripple & probe target selection
- const fs=require('node:fs');
- const html=fs.readFileSync('dc-circuit.html','utf8'),js=fs.readFileSync('dc-circuit.js','utf8');
+ const fs=require('node:fs'),path=require('node:path');
+ const html=fs.readFileSync(path.join(__dirname,'../pages/dc-circuit.html'),'utf8'),js=fs.readFileSync(path.join(__dirname,'../js/dc-circuit.js'),'utf8');
  assert.ok(html.includes('id="scopeTargetSelect"')&&html.includes('id="scopeRipple"')&&html.includes('id="scopeVdc"')&&html.includes('id="scopeZoomRippleBtn"'));
  assert.ok(js.includes('computeScopeStats')&&js.includes('prewarmScopeIfNeeded')&&js.includes('findParallelLoadBranch'));
 });

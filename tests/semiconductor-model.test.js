@@ -1,6 +1,6 @@
 'use strict';
 const assert = require('node:assert/strict');
-const { Crystal, solve, density } = require('./semiconductor-model.js');
+const { Crystal, solve, density } = require('../js/semiconductor-model.js');
 const defaults = { temperature: 300, donor: 0, acceptor: 0, voltage: .1, power: false, length: 2, area: .25 };
 let checks = 0;
 function check(name, fn) { fn(); checks++; console.log(`PASS ${name}`); }
