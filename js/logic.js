@@ -950,6 +950,16 @@
     });
 
     // Formula bar controls
+    const formulaBarEl = $('formulaBar');
+    const formulaToggleEl = $('formulaToggle');
+    if (formulaBarEl && formulaToggleEl) {
+        formulaToggleEl.addEventListener('change', () => {
+            formulaBarEl.hidden = !formulaToggleEl.checked;
+            if (typeof renderer.resize === 'function') renderer.resize();
+            scheduleRender();
+        });
+    }
+
     $('notationSelect').addEventListener('change', () => {
         recomputeAll();
     });

@@ -216,6 +216,10 @@ button[aria-selected="true"] {
   gap: 6px;
 }
 
+.logic-formula-bar[hidden] {
+  display: none;
+}
+
 .logic-formula-header {
   display: flex;
   align-items: center;
@@ -272,6 +276,10 @@ button[aria-selected="true"] {
   display: flex;
   flex-direction: column;
   gap: 6px;
+}
+
+.logic-formula-bar[hidden] {
+  display: none;
 }
 
 .logic-formula-row {
