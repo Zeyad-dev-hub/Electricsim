@@ -939,3 +939,92 @@ input[type="text"]:focus {
         font-size: 16px !important;
     }
 }
+
+/* Shared Save / Open / B&W Export Controls & Drag-and-Drop Overlay */
+.esim-io-group {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
+.esim-io-btn {
+    border-color: rgba(61, 217, 255, 0.38) !important;
+    background: rgba(61, 217, 255, 0.08) !important;
+    color: #d7f3ff !important;
+    font-weight: 600 !important;
+}
+
+.esim-io-btn:hover:not(:disabled) {
+    border-color: rgba(61, 217, 255, 0.78) !important;
+    background: rgba(61, 217, 255, 0.18) !important;
+    color: #ffffff !important;
+}
+
+.esim-io-bw-btn {
+    border-color: rgba(255, 255, 255, 0.34) !important;
+    background: rgba(255, 255, 255, 0.08) !important;
+    color: #f4f7fb !important;
+    font-weight: 600 !important;
+}
+
+.esim-io-bw-btn:hover:not(:disabled) {
+    border-color: rgba(255, 255, 255, 0.72) !important;
+    background: rgba(255, 255, 255, 0.16) !important;
+    color: #ffffff !important;
+}
+
+.esim-drop-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    background: rgba(5, 8, 15, 0.82);
+    backdrop-filter: blur(8px);
+    pointer-events: none;
+}
+
+.esim-drop-overlay[hidden] {
+    display: none !important;
+}
+
+.esim-drop-card {
+    max-width: 460px;
+    width: 100%;
+    padding: 32px 28px;
+    border-radius: 16px;
+    border: 2px dashed rgba(61, 217, 255, 0.75);
+    background: linear-gradient(180deg, rgba(16, 23, 38, 0.96), rgba(9, 13, 22, 0.98));
+    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.65), 0 0 32px rgba(61, 217, 255, 0.18);
+    text-align: center;
+    color: #f4f7fb;
+}
+
+.esim-drop-icon {
+    font-size: 40px;
+    line-height: 1;
+    margin-bottom: 12px;
+}
+
+.esim-drop-title {
+    font-size: 18px;
+    font-weight: 700;
+    color: #ffffff;
+    margin-bottom: 8px;
+}
+
+.esim-drop-sub {
+    font-size: 13px;
+    color: #a9b8cf;
+    line-height: 1.5;
+}
+
+.esim-drop-sub code {
+    color: #7ee8ff;
+    background: rgba(61, 217, 255, 0.12);
+    padding: 1px 5px;
+    border-radius: 4px;
+}

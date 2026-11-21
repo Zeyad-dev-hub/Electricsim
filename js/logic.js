@@ -949,6 +949,66 @@
         setHint('Workspace cleared. Add inputs (A–P), gates/blocks, and outputs (F–V).');
     });
 
+    // Save / Open / B&W Schematic Image Export + Drag-and-Drop
+    const IO = window.ElectricsimIO;
+    function loadSavedLogicDoc(loadedDoc, meta) {
+        history.commit(loadedDoc);
+        selected = null;
+        wireStartPin = null;
+        activeKmapGroup = null;
+        if (exampleSelect) exampleSelect.value = '';
+        renderer.fit(doc());
+        recomputeAll();
+        const label = (meta && (meta.sourceFilename || meta.name)) || 'saved logic circuit';
+        setHint(`Loaded "${label}"${meta && meta.sourceKind === 'png' ? ' (from B&W PNG)' : ''}.`);
+    }
+
+    function saveLogicFile() {
+        if (!IO) return;
+        const filename = IO.downloadSavedJson('logic', L.clone(doc()));
+        setHint(`Saved "${filename}" — drag & drop it back here anytime to restore.`);
+    }
+
+    async function exportLogicBWImage() {
+        if (!IO) return;
+        const bwCanvas = renderer.renderBWCanvas(doc(), evaluation);
+        if (!bwCanvas) {
+            setHint('Place at least one gate or input before exporting a B&W schematic image.');
+            return;
+        }
+        try {
+            const filename = await IO.downloadBWImage(bwCanvas, 'logic', L.clone(doc()));
+            setHint(`Exported B&W schematic "${filename}" (drag & drop this PNG back anytime to reload).`);
+        } catch (err) {
+            setHint(`Could not export B&W schematic: ${err.message}`);
+        }
+    }
+
+    if ($('saveBtn')) $('saveBtn').addEventListener('click', saveLogicFile);
+    if ($('exportBwBtn')) $('exportBwBtn').addEventListener('click', exportLogicBWImage);
+    if ($('openBtn') && $('openFileInput')) {
+        $('openBtn').addEventListener('click', () => {
+            $('openFileInput').value = '';
+            $('openFileInput').click();
+        });
+        $('openFileInput').addEventListener('change', async () => {
+            const file = $('openFileInput').files && $('openFileInput').files[0];
+            if (!file || !IO) return;
+            const res = await IO.readImportedFile(file, 'logic', L.validateDocument);
+            if (res.ok) loadSavedLogicDoc(res.doc, res.meta);
+            else setHint(`⚠ ${res.error}`);
+        });
+    }
+    if (IO) {
+        IO.attachDropZone({
+            expectedLab: 'logic',
+            labTitle: 'Logic Lab',
+            validateFn: L.validateDocument,
+            onLoad: loadSavedLogicDoc,
+            onError: err => setHint(`⚠ ${err}`)
+        });
+    }
+
     // Formula bar controls
     const formulaBarEl = $('formulaBar');
     const formulaToggleEl = $('formulaToggle');
@@ -1645,6 +1705,11 @@
         if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'y') {
             e.preventDefault();
             if (history.redo()) recomputeAll();
+            return;
+        }
+        if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
+            e.preventDefault();
+            saveLogicFile();
             return;
         }
         if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'd') {

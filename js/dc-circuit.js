@@ -253,6 +253,7 @@
     document.addEventListener('keydown',e=>{
         if(e.target.matches('input,select,textarea,[contenteditable]'))return;
         if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='z'){e.preventDefault();undo(e.shiftKey);return;}
+        if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='s'){e.preventDefault();saveCircuitFile();return;}
         if(e.target!==canvas)return;
         if(e.key==='Escape'){gesture=pointers.size>0;setTool('select');}
         if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='d'){e.preventDefault();duplicate();return;}
@@ -319,6 +320,55 @@
     $('resetBtn').onclick=()=>{pause();simulation.reset();motion.reset();scopeHistory.length=0;scopePrewarmKey=null;scopeIsPrewarmed=false;scaleReady=false;targetTime=0;readyMessage();sync();};
     $('stepBtn').onclick=()=>{if(!simulation.state||simulation.error)return;if(scopeIsPrewarmed){scopeHistory.length=0;scopeIsPrewarmed=false;}if(!scaleReady)calibrate();pause();stepTarget=simulation.state.time+.01;sync();};
     $('clearBtn').onclick=()=>{pause();selected=null;connection=null;if(commit(D.blank(),false)){simulation.reset();motion.reset();scopeHistory.length=0;scopePrewarmKey=null;scopeIsPrewarmed=false;scaleReady=false;renderer.view={panX:0,panY:0,zoom:1};setTool('select');}};
+    const IO=window.ElectricsimIO;
+    function loadSavedCircuitDoc(loadedDoc,meta){
+        pause();selected=null;connection=null;
+        if(commit(loadedDoc)){
+            simulation.reset();motion.reset();scopeHistory.length=0;scopePrewarmKey=null;scopeIsPrewarmed=false;scaleReady=false;targetTime=0;
+            if($('exampleSelect'))$('exampleSelect').value='';
+            renderer.fit(doc());setTool('select');
+            const label=(meta&&(meta.sourceFilename||meta.name))||'saved circuit';
+            message(`Loaded "${label}"${meta&&meta.sourceKind==='png'?' (from B&W PNG)':''}.`);
+            requestDraw();
+        }
+    }
+    function saveCircuitFile(){
+        if(!IO)return;
+        const filename=IO.downloadSavedJson('dc-circuit',D.clone(doc()));
+        message(`Saved "${filename}" — drag & drop it back here anytime to restore.`);
+    }
+    async function exportCircuitBWImage(){
+        if(!IO)return;
+        const bwCanvas=renderer.renderBWCanvas(doc());
+        if(!bwCanvas){message('Place at least one component before exporting a B&W schematic image.',true);return;}
+        try{
+            const filename=await IO.downloadBWImage(bwCanvas,'dc-circuit',D.clone(doc()));
+            message(`Exported B&W schematic "${filename}" (drag & drop this PNG back anytime to reload).`);
+        }catch(err){
+            message(`Could not export B&W schematic: ${err.message}`,true);
+        }
+    }
+    if($('saveBtn'))$('saveBtn').onclick=saveCircuitFile;
+    if($('exportBwBtn'))$('exportBwBtn').onclick=exportCircuitBWImage;
+    if($('openBtn')&&$('openFileInput')){
+        $('openBtn').onclick=()=>{ $('openFileInput').value=''; $('openFileInput').click(); };
+        $('openFileInput').onchange=async()=>{
+            const file=$('openFileInput').files&&$('openFileInput').files[0];
+            if(!file||!IO)return;
+            const res=await IO.readImportedFile(file,'dc-circuit',D.validateDocument);
+            if(res.ok)loadSavedCircuitDoc(res.doc,res.meta);
+            else message(res.error,true);
+        };
+    }
+    if(IO){
+        IO.attachDropZone({
+            expectedLab:'dc-circuit',
+            labTitle:'Circuits Lab',
+            validateFn:D.validateDocument,
+            onLoad:loadSavedCircuitDoc,
+            onError:err=>message(err,true)
+        });
+    }
     if($('scopeClearBtn'))$('scopeClearBtn').onclick=()=>{scopeHistory.length=0;scopePrewarmKey='cleared';scopeIsPrewarmed=false;scopeHoverX=null;drawScope(simulation.state?.acceptedSolution);};
     if($('scopeZoomRippleBtn'))$('scopeZoomRippleBtn').onclick=()=>{
         scopeZoomRipple=!scopeZoomRipple;

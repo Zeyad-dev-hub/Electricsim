@@ -7,8 +7,8 @@
   <title>Electricsim · Logic Lab</title>
   <meta name="description" content="Interactive digital logic gates simulator with live Boolean algebra equations, truth tables, Karnaugh maps, exact Boolean simplification, and universal NAND/NOR gate conversion.">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="../css/research-theme.css?v=5">
-  <link rel="stylesheet" href="../css/logic.css?v=11">
+  <link rel="stylesheet" href="../css/research-theme.css?v=7">
+  <link rel="stylesheet" href="../css/logic.css?v=12">
 </head>
 <body>
   <canvas id="bgCanvas" aria-hidden="true"></canvas>
@@ -24,6 +24,10 @@
       <select id="exampleSelect" aria-label="Load an example logic circuit">
         <option value="">Choose an example…</option>
       </select>
+      <button id="saveBtn" class="esim-io-btn" type="button" title="Save logic file (.logic.json) — drag &amp; drop it back anytime · Ctrl+S">💾 Save</button>
+      <button id="openBtn" class="esim-io-btn" type="button" title="Open a saved logic file (.json) or Electricsim B&amp;W schematic (.png)">📂 Open</button>
+      <button id="exportBwBtn" class="esim-io-bw-btn" type="button" title="Download a Black &amp; White schematic image (.png) matching your exact layout">🖨 B&amp;W Image</button>
+      <input id="openFileInput" type="file" accept=".json,.png,application/json,image/png" hidden>
       <button id="undoBtn" type="button" title="Undo · Ctrl+Z" disabled>Undo</button>
       <button id="redoBtn" type="button" title="Redo · Ctrl+Y" disabled>Redo</button>
       <button id="clearBtn" type="button">Clear</button>
@@ -299,9 +303,10 @@
   <script src="../js/logic-simplify.js?v=10"></script>
   <script src="../js/logic-synthesis.js?v=10"></script>
   <script src="../js/logic-editor.js?v=10"></script>
-  <script src="../js/logic-renderer.js?v=10"></script>
+  <script src="../js/logic-renderer.js?v=11"></script>
   <script src="../js/logic-presets.js?v=10"></script>
-  <script src="../js/logic.js?v=10"></script>
+  <script src="../js/schematic-io.js?v=1"></script>
+  <script src="../js/logic.js?v=12"></script>
   <script src="../js/shared-bg.js"></script>
 </body>
 </html>

@@ -82,25 +82,27 @@
     }
 
     class Renderer {
-        constructor(canvas) {
+        constructor(canvas, opts = {}) {
             this.canvas = canvas;
             this.ctx = canvas.getContext('2d');
             this.view = { panX: 0, panY: 0, zoom: 1 };
             this.width = 0;
             this.height = 0;
             this.dpr = 1;
+            this.bw = Boolean(opts.bw);
+            this.offscreen = Boolean(opts.offscreen);
             this.gridKey = '';
             this.gridLayer = null;
             this.routeCache = null;
             this.onResize = () => {};
 
-            if (typeof ResizeObserver !== 'undefined') {
+            if (!this.offscreen && typeof ResizeObserver !== 'undefined') {
                 new ResizeObserver(() => {
                     this.resize();
                     this.onResize();
                 }).observe(canvas);
             }
-            this.resize();
+            if (!this.offscreen) this.resize();
         }
 
         resize() {
@@ -352,7 +354,7 @@
             const ctx = this.ctx;
             const { live, loop, floating, selected, preview, crossings = [] } = state;
 
-            if (live === 1 && !preview && !loop) {
+            if (!this.bw && live === 1 && !preview && !loop) {
                 ctx.save();
                 ctx.strokeStyle = COLORS.wire1Glow;
                 ctx.lineWidth = selected ? 9 : 6.5;
@@ -364,9 +366,12 @@
             }
 
             ctx.save();
-            let mainStroke = COLORS.wire0;
-            let mainWidth = 2.1;
-            if (preview) {
+            let mainStroke = this.bw ? '#000000' : COLORS.wire0;
+            let mainWidth = this.bw ? 2.1 : 2.1;
+            if (this.bw) {
+                mainStroke = '#000000';
+                mainWidth = 2.1;
+            } else if (preview) {
                 mainStroke = COLORS.selected;
                 ctx.setLineDash([6, 5]);
                 mainWidth = 2.2;
@@ -405,7 +410,7 @@
 
                 // Subtle bridge halo strictly along the upper arch curve (never cutting the vertical wire below!)
                 ctx.save();
-                ctx.strokeStyle = COLORS.bg;
+                ctx.strokeStyle = this.bw ? '#ffffff' : COLORS.bg;
                 ctx.lineWidth = mainWidth + 3.2;
                 ctx.lineCap = 'butt';
                 ctx.beginPath();
@@ -442,9 +447,9 @@
                     : null;
                 const isOne = pinLive === 1;
                 const isLoop = Boolean(nodeEval?.loop);
-                const isHover = Boolean(hoverNodeId && hoverNodeId === j.nodeId);
+                const isHover = !this.bw && Boolean(hoverNodeId && hoverNodeId === j.nodeId);
 
-                if (isOne && !isLoop) {
+                if (!this.bw && isOne && !isLoop) {
                     ctx.save();
                     ctx.beginPath();
                     ctx.arc(j.x, j.y, 6.5, 0, Math.PI * 2);
@@ -456,7 +461,9 @@
                 ctx.save();
                 ctx.beginPath();
                 ctx.arc(j.x, j.y, isHover ? 4.4 : 3.6, 0, Math.PI * 2);
-                ctx.fillStyle = isLoop
+                ctx.fillStyle = this.bw
+                    ? '#000000'
+                    : isLoop
                     ? COLORS.wireLoop
                     : isHover
                     ? COLORS.selected
@@ -478,7 +485,7 @@
             ctx.globalAlpha = alpha;
             ctx.translate(x, y);
 
-            if (isHovered || isSelected) {
+            if (!this.bw && (isHovered || isSelected)) {
                 ctx.strokeStyle = isSelected ? COLORS.selected : COLORS.wire1;
                 ctx.lineWidth = 2.4;
                 roundedRect(ctx, -38, -22, 66, 44, 10);
@@ -486,31 +493,37 @@
             }
 
             // Lead to output pin at +36
-            ctx.strokeStyle = isOne ? COLORS.wire1 : COLORS.wire0;
+            ctx.strokeStyle = this.bw ? '#000000' : (isOne ? COLORS.wire1 : COLORS.wire0);
             ctx.lineWidth = 2.2;
             ctx.beginPath();
             ctx.moveTo(24, 0);
             ctx.lineTo(36, 0);
             ctx.stroke();
 
-            // Outer housing with subtle depth gradient
-            const inGrad = ctx.createLinearGradient(0, -18, 0, 18);
-            if (isOne) {
-                inGrad.addColorStop(0, '#142338');
-                inGrad.addColorStop(1, '#0b121e');
+            // Outer housing with subtle depth gradient (or crisp white fill in B&W)
+            if (this.bw) {
+                ctx.fillStyle = '#ffffff';
+                ctx.strokeStyle = '#000000';
+                ctx.lineWidth = 1.9;
             } else {
-                inGrad.addColorStop(0, '#141926');
-                inGrad.addColorStop(1, '#0b0e16');
+                const inGrad = ctx.createLinearGradient(0, -18, 0, 18);
+                if (isOne) {
+                    inGrad.addColorStop(0, '#142338');
+                    inGrad.addColorStop(1, '#0b121e');
+                } else {
+                    inGrad.addColorStop(0, '#141926');
+                    inGrad.addColorStop(1, '#0b0e16');
+                }
+                ctx.fillStyle = inGrad;
+                ctx.strokeStyle = isSelected ? COLORS.selected : (isOne ? COLORS.wire1 : COLORS.gateStroke);
+                ctx.lineWidth = isSelected ? 2.3 : 1.7;
             }
-            ctx.fillStyle = inGrad;
-            ctx.strokeStyle = isSelected ? COLORS.selected : (isOne ? COLORS.wire1 : COLORS.gateStroke);
-            ctx.lineWidth = isSelected ? 2.3 : 1.7;
             roundedRect(ctx, -34, -18, 58, 36, 8);
             ctx.fill();
             ctx.stroke();
 
             // Variable or Constant label fitted cleanly inside left compartment (-34..+1)
-            ctx.fillStyle = COLORS.text;
+            ctx.fillStyle = this.bw ? '#000000' : COLORS.text;
             ctx.font = kind === 'const'
                 ? '700 9.5px Inter, system-ui, sans-serif'
                 : '700 13px Inter, system-ui, sans-serif';
@@ -519,14 +532,18 @@
             ctx.fillText(label, -16.5, 0.5, 29);
 
             // Toggle pill [0 / 1]
-            ctx.fillStyle = isOne ? 'rgba(61, 217, 255, 0.22)' : 'rgba(255, 255, 255, 0.06)';
-            ctx.strokeStyle = isOne ? COLORS.wire1 : 'rgba(255, 255, 255, 0.18)';
+            ctx.fillStyle = this.bw
+                ? '#ffffff'
+                : (isOne ? 'rgba(61, 217, 255, 0.22)' : 'rgba(255, 255, 255, 0.06)');
+            ctx.strokeStyle = this.bw
+                ? '#000000'
+                : (isOne ? COLORS.wire1 : 'rgba(255, 255, 255, 0.18)');
             ctx.lineWidth = 1.2;
             roundedRect(ctx, 1, -12, 19, 24, 5);
             ctx.fill();
             ctx.stroke();
 
-            ctx.fillStyle = isOne ? COLORS.wire1 : COLORS.muted;
+            ctx.fillStyle = this.bw ? '#000000' : (isOne ? COLORS.wire1 : COLORS.muted);
             ctx.font = '700 13px Inter, system-ui, sans-serif';
             ctx.fillText(isOne ? '1' : '0', 10.5, 0.5);
 
@@ -544,7 +561,7 @@
             ctx.globalAlpha = alpha;
             ctx.translate(x, y);
 
-            if (isHovered || isSelected) {
+            if (!this.bw && (isHovered || isSelected)) {
                 ctx.strokeStyle = isSelected ? COLORS.selected : COLORS.wire1;
                 ctx.lineWidth = 2.4;
                 roundedRect(ctx, -28, -22, 66, 44, 10);
@@ -552,7 +569,7 @@
             }
 
             // Lead from input pin at -36
-            ctx.strokeStyle = loop ? COLORS.wireLoop : (live === 1 ? COLORS.wire1 : COLORS.wire0);
+            ctx.strokeStyle = this.bw ? '#000000' : (loop ? COLORS.wireLoop : (live === 1 ? COLORS.wire1 : COLORS.wire0));
             ctx.lineWidth = 2.2;
             ctx.beginPath();
             ctx.moveTo(-36, 0);
@@ -560,7 +577,7 @@
             ctx.stroke();
 
             // Glow when logic 1
-            if (live === 1) {
+            if (!this.bw && live === 1) {
                 const grad = ctx.createRadialGradient(5, 0, 2, 5, 0, 28);
                 grad.addColorStop(0, 'rgba(61, 217, 255, 0.28)');
                 grad.addColorStop(1, 'rgba(61, 217, 255, 0)');
@@ -570,35 +587,41 @@
                 ctx.fill();
             }
 
-            const outGrad = ctx.createLinearGradient(0, -18, 0, 18);
-            if (live === 1) {
-                outGrad.addColorStop(0, '#15253b');
-                outGrad.addColorStop(1, '#0b1320');
+            if (this.bw) {
+                ctx.fillStyle = '#ffffff';
+                ctx.strokeStyle = '#000000';
+                ctx.lineWidth = 1.9;
             } else {
-                outGrad.addColorStop(0, '#141926');
-                outGrad.addColorStop(1, '#0b0e16');
+                const outGrad = ctx.createLinearGradient(0, -18, 0, 18);
+                if (live === 1) {
+                    outGrad.addColorStop(0, '#15253b');
+                    outGrad.addColorStop(1, '#0b1320');
+                } else {
+                    outGrad.addColorStop(0, '#141926');
+                    outGrad.addColorStop(1, '#0b0e16');
+                }
+                ctx.fillStyle = outGrad;
+                ctx.strokeStyle = isSelected
+                    ? COLORS.selected
+                    : loop
+                    ? COLORS.wireLoop
+                    : live === 1
+                    ? COLORS.wire1
+                    : valid
+                    ? COLORS.gateStroke
+                    : COLORS.amber;
+                ctx.lineWidth = isSelected ? 2.2 : 1.7;
             }
-            ctx.fillStyle = outGrad;
-            ctx.strokeStyle = isSelected
-                ? COLORS.selected
-                : loop
-                ? COLORS.wireLoop
-                : live === 1
-                ? COLORS.wire1
-                : valid
-                ? COLORS.gateStroke
-                : COLORS.amber;
-            ctx.lineWidth = isSelected ? 2.2 : 1.7;
             roundedRect(ctx, -24, -18, 58, 36, 8);
             ctx.fill();
             ctx.stroke();
 
             const valStr = loop ? '↻' : valid ? String(live) : '?';
-            ctx.fillStyle = loop ? COLORS.wireLoop : live === 1 ? COLORS.wire1 : valid ? COLORS.text : COLORS.amber;
+            ctx.fillStyle = this.bw ? '#000000' : (loop ? COLORS.wireLoop : live === 1 ? COLORS.wire1 : valid ? COLORS.text : COLORS.amber);
             ctx.font = '700 13px Inter, system-ui, sans-serif';
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
-            ctx.fillText(`${node.name} = ${valStr}`, 5, 0.5);
+            ctx.fillText(this.bw ? (valid ? `${node.name} = ${valStr}` : node.name) : `${node.name} = ${valStr}`, 5, 0.5);
 
             ctx.restore();
         }
@@ -630,7 +653,7 @@
                 }
             };
 
-            if (isHovered || isSelected) {
+            if (!this.bw && (isHovered || isSelected)) {
                 ctx.fillStyle = isHovered ? COLORS.hoverHalo : 'rgba(139, 157, 255, 0.16)';
                 traceBody(6, 12);
                 ctx.fill();
@@ -639,7 +662,7 @@
             // Input & Output pin lead stubs
             ctx.lineWidth = 1.8;
             for (const inp of spec.inputs) {
-                ctx.strokeStyle = COLORS.gateStroke;
+                ctx.strokeStyle = this.bw ? '#000000' : COLORS.gateStroke;
                 ctx.beginPath();
                 ctx.moveTo(-halfW, inp.y);
                 ctx.lineTo(-bodyW, inp.y);
@@ -647,7 +670,7 @@
             }
             for (const outp of spec.outputs) {
                 const outHigh = valid && pinLives[outp.pin] === 1;
-                ctx.strokeStyle = outHigh ? COLORS.wire1 : COLORS.gateStroke;
+                ctx.strokeStyle = this.bw ? '#000000' : (outHigh ? COLORS.wire1 : COLORS.gateStroke);
                 ctx.beginPath();
                 ctx.moveTo(bodyW, outp.y);
                 ctx.lineTo(halfW, outp.y);
@@ -655,7 +678,7 @@
             }
 
             // Outer active glow
-            if (anyOutHigh && !loop) {
+            if (!this.bw && anyOutHigh && !loop) {
                 ctx.save();
                 ctx.shadowColor = 'rgba(61, 217, 255, 0.25)';
                 ctx.shadowBlur = 12;
@@ -667,38 +690,44 @@
             }
 
             // Main block body
-            const bodyGrad = ctx.createLinearGradient(0, -bodyH, 0, bodyH);
-            if (anyOutHigh) {
-                bodyGrad.addColorStop(0, '#16253b');
-                bodyGrad.addColorStop(1, '#0b1220');
+            if (this.bw) {
+                ctx.fillStyle = '#ffffff';
+                ctx.strokeStyle = '#000000';
+                ctx.lineWidth = 2.0;
             } else {
-                bodyGrad.addColorStop(0, '#141926');
-                bodyGrad.addColorStop(1, '#0a0d15');
+                const bodyGrad = ctx.createLinearGradient(0, -bodyH, 0, bodyH);
+                if (anyOutHigh) {
+                    bodyGrad.addColorStop(0, '#16253b');
+                    bodyGrad.addColorStop(1, '#0b1220');
+                } else {
+                    bodyGrad.addColorStop(0, '#141926');
+                    bodyGrad.addColorStop(1, '#0a0d15');
+                }
+                ctx.fillStyle = bodyGrad;
+                ctx.strokeStyle = isSelected
+                    ? COLORS.selected
+                    : loop
+                    ? COLORS.wireLoop
+                    : anyOutHigh
+                    ? COLORS.gateStroke1
+                    : COLORS.gateStroke;
+                ctx.lineWidth = isSelected ? 2.4 : 1.8;
             }
-            ctx.fillStyle = bodyGrad;
-            ctx.strokeStyle = isSelected
-                ? COLORS.selected
-                : loop
-                ? COLORS.wireLoop
-                : anyOutHigh
-                ? COLORS.gateStroke1
-                : COLORS.gateStroke;
-            ctx.lineWidth = isSelected ? 2.4 : 1.8;
             traceBody(0, 8);
             ctx.fill();
             ctx.stroke();
 
-            // Accent header / subtle tint clipped to body shape
+            // Accent header / subtle monochrome tint clipped to body shape
             ctx.save();
             traceBody(-1, 7);
             ctx.clip();
-            ctx.fillStyle = spec.accent || '#38bdf8';
-            ctx.globalAlpha = alpha * (isMux ? 0.16 : 0.22);
+            ctx.fillStyle = this.bw ? '#ebebeb' : (spec.accent || '#38bdf8');
+            ctx.globalAlpha = this.bw ? alpha : alpha * (isMux ? 0.16 : 0.22);
             ctx.fillRect(-bodyW, -bodyH, bodyW * 2, isMux ? 24 : 18);
             ctx.restore();
 
             // Block Title
-            ctx.fillStyle = '#f8fafc';
+            ctx.fillStyle = this.bw ? '#000000' : '#f8fafc';
             ctx.font = '700 10px Inter, system-ui, sans-serif';
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
@@ -708,13 +737,13 @@
             ctx.font = '600 8.5px "JetBrains Mono", monospace, sans-serif';
             ctx.textAlign = 'left';
             for (const inp of spec.inputs) {
-                ctx.fillStyle = COLORS.muted;
+                ctx.fillStyle = this.bw ? '#000000' : COLORS.muted;
                 ctx.fillText(inp.label, -bodyW + 5, inp.y + 0.5);
             }
             ctx.textAlign = 'right';
             for (const outp of spec.outputs) {
                 const outHigh = valid && pinLives[outp.pin] === 1;
-                ctx.fillStyle = outHigh ? COLORS.wire1 : COLORS.text;
+                ctx.fillStyle = this.bw ? '#000000' : (outHigh ? COLORS.wire1 : COLORS.text);
                 ctx.fillText(outp.label, bodyW - 5, outp.y + 0.5);
             }
 
@@ -724,12 +753,16 @@
                 const isInvalid = Boolean(st.invalid);
                 const qVal = st.q ? 1 : 0;
                 const badgeText = isInvalid ? 'INV!' : `Q=${qVal}`;
-                ctx.fillStyle = isInvalid
+                ctx.fillStyle = this.bw
+                    ? '#ffffff'
+                    : isInvalid
                     ? 'rgba(239, 68, 68, 0.25)'
                     : qVal === 1
                     ? 'rgba(16, 185, 129, 0.22)'
                     : 'rgba(255, 255, 255, 0.06)';
-                ctx.strokeStyle = isInvalid
+                ctx.strokeStyle = this.bw
+                    ? '#000000'
+                    : isInvalid
                     ? '#ef4444'
                     : qVal === 1
                     ? '#10b981'
@@ -739,16 +772,21 @@
                 ctx.fill();
                 ctx.stroke();
 
-                ctx.fillStyle = isInvalid ? '#fca5a5' : (qVal === 1 ? '#34d399' : COLORS.muted);
+                ctx.fillStyle = this.bw ? '#000000' : (isInvalid ? '#fca5a5' : (qVal === 1 ? '#34d399' : COLORS.muted));
                 ctx.font = '700 8.5px "JetBrains Mono", monospace, sans-serif';
                 ctx.textAlign = 'center';
                 ctx.fillText(badgeText, 0, 10.5);
             } else if ((gate.type === 'HA' || gate.type === 'FA') && valid) {
                 const sumVal = (pinLives.out ? 1 : 0) + ((pinLives.out1 ? 1 : 0) * 2);
-                ctx.fillStyle = 'rgba(56, 189, 248, 0.14)';
+                ctx.fillStyle = this.bw ? '#ffffff' : 'rgba(56, 189, 248, 0.14)';
                 roundedRect(ctx, -16, 2, 32, 15, 4);
                 ctx.fill();
-                ctx.fillStyle = '#38bdf8';
+                if (this.bw) {
+                    ctx.strokeStyle = '#000000';
+                    ctx.lineWidth = 1;
+                    ctx.stroke();
+                }
+                ctx.fillStyle = this.bw ? '#000000' : '#38bdf8';
                 ctx.font = '700 8.5px "JetBrains Mono", monospace, sans-serif';
                 ctx.textAlign = 'center';
                 ctx.fillText(`Σ=${sumVal}`, 0, 10);
@@ -761,7 +799,7 @@
                 if (selPin) {
                     const outHigh = pinLives.out === 1;
                     ctx.save();
-                    ctx.strokeStyle = outHigh ? 'rgba(61, 217, 255, 0.72)' : 'rgba(168, 85, 247, 0.55)';
+                    ctx.strokeStyle = this.bw ? '#333333' : (outHigh ? 'rgba(61, 217, 255, 0.72)' : 'rgba(168, 85, 247, 0.55)');
                     ctx.lineWidth = 1.6;
                     ctx.setLineDash([4, 3]);
                     ctx.beginPath();
@@ -770,13 +808,13 @@
                     ctx.stroke();
                     ctx.restore();
                 }
-                ctx.fillStyle = 'rgba(168, 85, 247, 0.18)';
-                ctx.strokeStyle = 'rgba(168, 85, 247, 0.45)';
+                ctx.fillStyle = this.bw ? '#ffffff' : 'rgba(168, 85, 247, 0.18)';
+                ctx.strokeStyle = this.bw ? '#000000' : 'rgba(168, 85, 247, 0.45)';
                 ctx.lineWidth = 1;
                 roundedRect(ctx, -19, 8, 38, 15, 4);
                 ctx.fill();
                 ctx.stroke();
-                ctx.fillStyle = '#d8b4fe';
+                ctx.fillStyle = this.bw ? '#000000' : '#d8b4fe';
                 ctx.font = '700 8px "JetBrains Mono", monospace, sans-serif';
                 ctx.textAlign = 'center';
                 ctx.fillText(`D${selIdx}→Y`, 0, 16);
@@ -806,15 +844,15 @@
             ctx.translate(x, y);
             ctx.rotate(((gate.rotation || 0) * Math.PI) / 180);
 
-            if (isHovered || isSelected) {
+            if (!this.bw && (isHovered || isSelected)) {
                 ctx.fillStyle = isHovered ? COLORS.hoverHalo : 'rgba(139, 157, 255, 0.16)';
                 roundedRect(ctx, -44, -32, 88, 64, 14);
                 ctx.fill();
             }
 
             // Input lead lines from x = -48 to gate back wall
-            ctx.strokeStyle = COLORS.gateStroke;
-            ctx.lineWidth = 1.8;
+            ctx.strokeStyle = this.bw ? '#000000' : COLORS.gateStroke;
+            ctx.lineWidth = this.bw ? 1.9 : 1.8;
             ctx.beginPath();
             for (const ly of pinYs) {
                 ctx.moveTo(-48, ly);
@@ -829,7 +867,7 @@
 
             // Extra XOR / XNOR input arc
             if (type === 'XOR' || type === 'XNOR') {
-                ctx.strokeStyle = isSelected ? COLORS.selected : (live === 1 ? COLORS.wire1 : COLORS.gateStroke);
+                ctx.strokeStyle = this.bw ? '#000000' : (isSelected ? COLORS.selected : (live === 1 ? COLORS.wire1 : COLORS.gateStroke));
                 ctx.lineWidth = 2.0;
                 ctx.beginPath();
                 ctx.moveTo(-31, -26);
@@ -837,8 +875,8 @@
                 ctx.stroke();
             }
 
-            // Gate main body with subtle surface depth gradient and active glow
-            if (live === 1 && !loop) {
+            // Gate main body with subtle surface depth gradient and active glow (or crisp white/black in B&W)
+            if (!this.bw && live === 1 && !loop) {
                 ctx.save();
                 ctx.shadowColor = 'rgba(61, 217, 255, 0.28)';
                 ctx.shadowBlur = 12;
@@ -849,23 +887,29 @@
                 ctx.restore();
             }
 
-            const bodyGrad = ctx.createLinearGradient(0, -26, 0, 26);
-            if (live === 1) {
-                bodyGrad.addColorStop(0, '#16253b');
-                bodyGrad.addColorStop(1, '#0c1422');
+            if (this.bw) {
+                ctx.fillStyle = '#ffffff';
+                ctx.strokeStyle = '#000000';
+                ctx.lineWidth = 2.1;
             } else {
-                bodyGrad.addColorStop(0, '#141926');
-                bodyGrad.addColorStop(1, '#0b0e16');
+                const bodyGrad = ctx.createLinearGradient(0, -26, 0, 26);
+                if (live === 1) {
+                    bodyGrad.addColorStop(0, '#16253b');
+                    bodyGrad.addColorStop(1, '#0c1422');
+                } else {
+                    bodyGrad.addColorStop(0, '#141926');
+                    bodyGrad.addColorStop(1, '#0b0e16');
+                }
+                ctx.fillStyle = bodyGrad;
+                ctx.strokeStyle = isSelected
+                    ? COLORS.selected
+                    : loop
+                    ? COLORS.wireLoop
+                    : live === 1
+                    ? COLORS.gateStroke1
+                    : COLORS.gateStroke;
+                ctx.lineWidth = isSelected ? 2.5 : 2.0;
             }
-            ctx.fillStyle = bodyGrad;
-            ctx.strokeStyle = isSelected
-                ? COLORS.selected
-                : loop
-                ? COLORS.wireLoop
-                : live === 1
-                ? COLORS.gateStroke1
-                : COLORS.gateStroke;
-            ctx.lineWidth = isSelected ? 2.5 : 2.0;
             traceGateBody(ctx, type);
             ctx.fill();
             ctx.stroke();
@@ -873,7 +917,8 @@
             // Inversion bubble for NOT, NAND, NOR, XNOR
             if (inverted) {
                 const bx = frontX + 5.5;
-                ctx.fillStyle = COLORS.gateFill;
+                ctx.fillStyle = this.bw ? '#ffffff' : COLORS.gateFill;
+                ctx.strokeStyle = this.bw ? '#000000' : ctx.strokeStyle;
                 ctx.beginPath();
                 ctx.arc(bx, 0, 5, 0, Math.PI * 2);
                 ctx.fill();
@@ -890,7 +935,7 @@
             const maxLabelW = (type === 'NOT' || type === 'BUF') ? 18 : 24;
             ctx.translate(labelX, 0);
             ctx.rotate(-((gate.rotation || 0) * Math.PI) / 180);
-            ctx.fillStyle = live === 1 ? COLORS.wire1 : COLORS.muted;
+            ctx.fillStyle = this.bw ? '#000000' : (live === 1 ? COLORS.wire1 : COLORS.muted);
             ctx.font = (type.length >= 4 || type === 'NOT' || type === 'BUF')
                 ? '600 8.5px Inter, system-ui, sans-serif'
                 : '600 9.2px Inter, system-ui, sans-serif';
@@ -905,6 +950,16 @@
         drawPins(pins, evaluation, hoverPinKey, activeWireStartPin) {
             const ctx = this.ctx;
             for (const pin of pins.values()) {
+                if (this.bw) {
+                    ctx.beginPath();
+                    ctx.arc(pin.x, pin.y, 2.8, 0, Math.PI * 2);
+                    ctx.fillStyle = '#ffffff';
+                    ctx.strokeStyle = '#000000';
+                    ctx.lineWidth = 1.4;
+                    ctx.fill();
+                    ctx.stroke();
+                    continue;
+                }
                 const isHover = hoverPinKey === pin.key;
                 const isStart = activeWireStartPin && activeWireStartPin.key === pin.key;
                 const isCompatibleTarget = activeWireStartPin && activeWireStartPin.role !== pin.role && activeWireStartPin.nodeId !== pin.nodeId;
@@ -947,7 +1002,7 @@
         }
 
         render(doc, evaluation, uiState = {}) {
-            this.resize();
+            if (!this.offscreen) this.resize();
             if (this.width <= 0 || this.height <= 0 || !this.canvas.width || !this.canvas.height) return;
 
             const ctx = this.ctx;
@@ -966,12 +1021,12 @@
             // Clear the entire physical backing store in device pixels so zooming/moving never leaves ghost trails
             ctx.setTransform(1, 0, 0, 1, 0, 0);
             ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-            ctx.fillStyle = COLORS.bg;
+            ctx.fillStyle = this.bw ? '#ffffff' : COLORS.bg;
             ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
 
-            // Set HiDPI logical pixel transform, draw background grid, then enter world coordinates
+            // Set HiDPI logical pixel transform, draw background grid (skipped in B&W export), then enter world coordinates
             ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
-            this.drawGrid();
+            if (!this.bw) this.drawGrid();
 
             ctx.save();
             ctx.translate(this.width / 2 + panX, this.height / 2 + panY);
@@ -982,8 +1037,8 @@
             for (const w of doc.wires) {
                 const path = routes.get(w.id);
                 const wEval = evaluation?.wires.get(w.id);
-                const isSel = selected && selected.kind === 'wire' && selected.id === w.id;
-                const isHoverSrc = hoverNodeId && w.from.nodeId === hoverNodeId;
+                const isSel = !this.bw && selected && selected.kind === 'wire' && selected.id === w.id;
+                const isHoverSrc = !this.bw && hoverNodeId && w.from.nodeId === hoverNodeId;
                 const pass = this.drawWirePath(path, {
                     live: wEval?.live,
                     loop: wEval?.loop,
@@ -1000,10 +1055,10 @@
             this.drawBridgeHopOverpasses(hopPasses);
 
             // 1b. Draw solder dots on shared fan-out T-junctions
-            this.drawJunctions(junctions, evaluation, hoverNodeId);
+            this.drawJunctions(junctions, evaluation, this.bw ? null : hoverNodeId);
 
             // 2. Active wire preview (also computes live curved hops over vertical wires!)
-            if (wirePreviewPath && wirePreviewPath.length >= 2) {
+            if (!this.bw && wirePreviewPath && wirePreviewPath.length >= 2) {
                 const previewCrossings = [];
                 if (verticalSegments && verticalSegments.length) {
                     for (let i = 1; i < wirePreviewPath.length; i++) {
@@ -1027,7 +1082,7 @@
             }
 
             // 2b. Snapped target shadow while dragging a node smoothly
-            if (dragSnapPreview) {
+            if (!this.bw && dragSnapPreview) {
                 const { kind, node, point } = dragSnapPreview;
                 const ghost = { ...node, position: point };
                 if (kind === 'gate') {
@@ -1041,28 +1096,28 @@
 
             // 3. Draw nodes
             for (const inp of doc.inputs) {
-                const isSel = selected && selected.id === inp.id;
-                const isHov = hoverNodeId === inp.id;
+                const isSel = !this.bw && selected && selected.id === inp.id;
+                const isHov = !this.bw && hoverNodeId === inp.id;
                 this.drawInputNode(inp, 'input', evaluation?.nodes.get(inp.id), isSel, isHov, 1);
             }
             for (const c of doc.consts) {
-                const isSel = selected && selected.id === c.id;
-                const isHov = hoverNodeId === c.id;
+                const isSel = !this.bw && selected && selected.id === c.id;
+                const isHov = !this.bw && hoverNodeId === c.id;
                 this.drawInputNode(c, 'const', evaluation?.nodes.get(c.id), isSel, isHov, 1);
             }
             for (const g of doc.gates) {
-                const isSel = selected && selected.id === g.id;
-                const isHov = hoverNodeId === g.id;
+                const isSel = !this.bw && selected && selected.id === g.id;
+                const isHov = !this.bw && hoverNodeId === g.id;
                 this.drawGateNode(g, evaluation?.nodes.get(g.id), isSel, isHov, 1);
             }
             for (const out of doc.outputs) {
-                const isSel = selected && selected.id === out.id;
-                const isHov = hoverNodeId === out.id;
+                const isSel = !this.bw && selected && selected.id === out.id;
+                const isHov = !this.bw && hoverNodeId === out.id;
                 this.drawOutputNode(out, evaluation?.nodes.get(out.id), isSel, isHov, 1);
             }
 
             // 4. Translucent placement preview for ALL tools (inputs, outputs, constants, and gates)
-            if (placementPreview) {
+            if (!this.bw && placementPreview) {
                 const { tool, point, rotation = 0 } = placementPreview;
                 if (L.GATE_TYPES.includes(tool)) {
                     this.drawGateNode(
@@ -1108,10 +1163,10 @@
             }
 
             // 5. Draw terminal pins
-            this.drawPins(pins, evaluation, hoverPinKey, wireStartPin);
+            this.drawPins(pins, evaluation, this.bw ? null : hoverPinKey, this.bw ? null : wireStartPin);
 
             // 6. Empty workspace prompt (matching Circuits Lab)
-            if (!doc.inputs.length && !doc.gates.length && !doc.outputs.length && !doc.consts.length && !placementPreview) {
+            if (!this.bw && !doc.inputs.length && !doc.gates.length && !doc.outputs.length && !doc.consts.length && !placementPreview) {
                 ctx.save();
                 ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
                 ctx.fillStyle = COLORS.muted;
@@ -1127,6 +1182,66 @@
             }
 
             ctx.restore();
+        }
+
+        renderBWCanvas(doc, evaluation) {
+            if (!doc || (!doc.inputs.length && !doc.gates.length && !doc.outputs.length && !doc.consts.length)) {
+                return null;
+            }
+            const { pins, routes } = this.geometry(doc);
+            const xs = [];
+            const ys = [];
+            const pushPt = (x, y) => {
+                if (Number.isFinite(x) && Number.isFinite(y)) {
+                    xs.push(x);
+                    ys.push(y);
+                }
+            };
+            const pushBounds = (node, kind) => {
+                if (typeof L.nodeBounds === 'function') {
+                    const b = L.nodeBounds(node, kind);
+                    if (b && Number.isFinite(b.left) && Number.isFinite(b.right) && Number.isFinite(b.top) && Number.isFinite(b.bottom)) {
+                        pushPt(b.left, b.top);
+                        pushPt(b.right, b.bottom);
+                        return;
+                    }
+                }
+                pushPt(node.position.x - 56, node.position.y - 44);
+                pushPt(node.position.x + 56, node.position.y + 44);
+            };
+            for (const n of doc.inputs) pushBounds(n, 'input');
+            for (const n of doc.consts) pushBounds(n, 'const');
+            for (const n of doc.gates) pushBounds(n, 'gate');
+            for (const n of doc.outputs) pushBounds(n, 'output');
+            for (const p of pins.values()) pushPt(p.x, p.y);
+            for (const path of routes.values()) {
+                for (const p of path) pushPt(p.x, p.y);
+            }
+            if (!xs.length) return null;
+
+            const pad = 56;
+            const minX = Math.min(...xs) - pad;
+            const maxX = Math.max(...xs) + pad;
+            const minY = Math.min(...ys) - pad;
+            const maxY = Math.max(...ys) + pad;
+            const w = Math.max(480, Math.ceil(maxX - minX));
+            const h = Math.max(280, Math.ceil(maxY - minY));
+            const dpr = Math.max(1, Math.min(2.5, 3400 / Math.max(w, h)));
+
+            const off = document.createElement('canvas');
+            off.width = Math.round(w * dpr);
+            off.height = Math.round(h * dpr);
+            const bwRen = new Renderer(off, { offscreen: true, bw: true });
+            bwRen.width = w;
+            bwRen.height = h;
+            bwRen.dpr = dpr;
+            bwRen.view = {
+                zoom: 1,
+                panX: -((minX + maxX) / 2),
+                panY: -((minY + maxY) / 2)
+            };
+            bwRen.render(doc, evaluation || null, {});
+            return off;
         }
     }
 
