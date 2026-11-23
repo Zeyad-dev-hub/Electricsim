@@ -21,7 +21,8 @@ Electricsim/
 │   ├── conductivity.html       # Conductivity Explorer (Drude electron transport & thermal phonon scattering)
 │   ├── semiconductor.html      # Semiconductor Physics Simulation (Si crystal bonds, doping & hole transport)
 │   ├── logic.html              # Logic Lab (gates, MSI blocks, SR/D latches, Boolean algebra, K-maps, synthesis)
-│   ├── electronics.html        # Electronics Lab (17x 74xx DIP ICs, X-Ray internals, DIP-4, 7-seg, probe)
+│   ├── logic-ic.html           # Logic IC Lab (classic 17x 74xx DIP IC digital bench with X-Ray internals)
+│   ├── electronics.html        # 2D Electronics Lab (breadboards, AA/9V/PSU, DC motor RPM, variable resistors, pot, NPN, DMM, 17x 74xx ICs w/ X-Ray, 3-mode export)
 │   └── dc-circuit.html         # Circuits Lab (DC/AC MNA solver, RLC transients, diodes/Zeners, dual-channel scope)
 │
 ├── css/                        # Stylesheets & unified dark research theme
@@ -61,7 +62,12 @@ Electricsim/
 │   ├── logic-renderer.js       # IEEE distinctive-shape gate & MSI renderer
 │   ├── logic-presets.js        # Built-in combinational & sequential logic presets
 │   ├── logic.js                # Logic Lab UI controller
-│   └── logic-ic-lab.js         # Electronics Lab 74xx DIP IC breadboard engine & presets
+│   ├── schematic-io.js         # Shared JSON & PNG iTXt save/load/drag-and-drop engine
+│   ├── electronics-solver.js   # Unified hybrid analog + digital MNA solver & component overload/corruption physics
+│   ├── electronics-components.js # Realistic 2D hardware renderer (breadboards, 2-leg LEDs, AA/9V/PSU, motors, DIP ICs)
+│   ├── electronics-export.js   # 3-mode Electronics Lab exporter (JSON, 2D Bench PNG, textbook IEEE B&W Schematic PNG)
+│   ├── logic-ic-classic.js     # Classic Logic IC Lab 74xx DIP IC bench engine (pages/logic-ic.html)
+│   └── logic-ic-lab.js         # 2D Electronics Lab interactive controller, wire manager & presets
 │
 ├── tests/                      # Automated Node.js & Playwright verification suites
 │   ├── hub-search.test.js
@@ -71,6 +77,8 @@ Electricsim/
 │   ├── dc-circuit.improvements.test.js
 │   ├── dc-circuit.interaction.test.js
 │   ├── dc-circuit.browser.test.js
+│   ├── schematic-io.test.js
+│   ├── electronics-lab-2d.test.js
 │   └── logic-ic-lab.test.js
 │
 └── docs/                       # Platform documentation, user guides & design plans
@@ -96,6 +104,8 @@ node tests/dc-circuit.test.js
 node tests/dc-circuit.math.test.js
 node tests/dc-circuit.improvements.test.js
 node tests/logic-ic-lab.test.js
+node tests/electronics-lab-2d.test.js
+node tests/schematic-io.test.js
 ```
 
 ---

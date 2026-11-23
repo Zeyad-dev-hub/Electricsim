@@ -336,58 +336,49 @@ Build digital logic gate circuits, test truth tables and Karnaugh maps, simplify
 
 ## 10. Electronics Lab (`electronics.html`)
 
-Wire authentic 74xx Series DIP integrated circuits on an interactive hardware bench with X-ray gate internals, live pin state monitoring, DIP switches, 7-segment display, 1 Hz clock generator, and logic probe. (Now a standalone lab separate from Logic Lab; on mobile screens `≤ 980px`, the component & IC palette becomes a compact 2-row horizontal swipe strip above the bench canvas.)
+Build realistic 2D hardware prototypes on solderless breadboards or free-form workbenches with unified analog + digital physics, authentic component overload/corruption warnings, realistic 3D-molded 74xx DIP ICs (with toggleable X-Ray internals), and 3-mode drag-and-drop save/export.
 
 ### Top Bar
 - **← Electricsim:** Returns to the main Electricsim Hub page.
-- **IC Presets (dropdown):** Loads curated 74xx IC bench circuits.
+- **Presets (dropdown):** Grouped into **⚡ 2D Hardware & Breadboard Demos** (Breadboard Button+LED, DC Motor Speed Control w/ Multimeter, 9V Overload Protection Demo, NPN 2N2222 Motor & Buzzer Driver) and **🔲 74xx Digital IC Presets** (9 classic logic/MSI circuits).
+- **✨ Tidy Wires:** Clears manual waypoints and neatly auto-routes and color-codes all jumper wires into separated channels.
+- **💾 Save (`Ctrl+S`):** Downloads an editable `.electronics.json` file.
+- **📷 Bench PNG:** Exports a high-DPI full-color 2D hardware bench picture with embedded circuit data (drag & drop back in to edit!).
+- **📐 Schematic PNG:** Translates every 2D part and breadboard net into a textbook IEEE Black & White engineering schematic PNG (also drag & drop reloadable!).
+- **📂 Open:** Opens any saved `.electronics.json`, **Bench PNG**, or **Schematic PNG** (or simply drag & drop anywhere onto the page).
 - **Undo (`Ctrl+Z`) / Redo (`Ctrl+Y`) / Clear:** Reverses edits, restores undone edits, or clears the bench.
 
 ### Bench Options Subbar
-- **🔬 X-Ray IC Internals (checkbox):** Shows semi-transparent internal gate diagrams, live MSI telemetry, and pin connections inside each 74xx chip.
-- **⚡ Auto-Power (VCC/GND) (checkbox):** Automatically supplies `+5V` to VCC and `0V` to GND on all ICs so you don't have to wire power manually.
-- **Snap to grid (checkbox):** Snaps chips, bench parts, and wires to the grid.
-- **Keep placing (checkbox):** Keeps the selected part or IC active so you can place multiple copies in a row.
-- **↻ Rotate next (R):** Rotates the next part before placing it.
-- **`−` / `+` / `Fit view`:** Zooms out, zooms in, or fits the bench to the screen.
+- **🔬 X-Ray IC Internals:** Toggles between semi-transparent internal datasheet gate/pin views and realistic matte-epoxy DIP-14/16 IC packages.
+- **⚡ Auto-Power:** Automatically supplies regulated `+5V` to VCC and `0V` to GND on all 74xx ICs.
+- **〰 Flow:** Animates current pulse dashes along energized wires.
+- **🔊 Sound:** Opt-in live Web Audio synthesizer tone whenever a Piezo Buzzer is energized.
+- **Snap / Keep placing / Wire Color Swatches (`Auto` + 8 PVC jumper colors) / `−` `+` `Fit view`.**
 
 ### Component & IC Palette (Left Sidebar / Mobile Swipe Strip)
 - **Cursor & Wiring:** **Move / Edit**, **Wire**, **Pan**.
-- **Bench Components:**
-  - **🔋 5V Battery:** Provides `+5V` (VCC) and `0V` (GND) power.
-  - **⏚ GND:** Ground (`0V`) reference terminal.
-  - **⏻ Switch:** Clickable ON/OFF toggle switch.
-  - **🎛 DIP-4 Bank:** 4-channel DIP switch bank (`B0..B3`) for driving 4-bit binary buses.
-  - **〰 Resistor:** `220 Ω` current-limiting resistor.
-  - **💡 Lamp:** Indicator LED that lights up when powered.
-  - **⏱ 1Hz Clock:** Automatically pulses `1` and `0` once per second (or click to step manually).
-  - **🔎 Logic Probe:** Test probe that displays `HI (5V)`, `LO (0V)`, or `Hi-Z` at any pin or wire.
-  - **🔢 7-Seg Display:** 7-segment hex display with 4 inputs (`A, B, C, D`).
-- **74xx Basic Logic ICs (14-Pin DIP):**
-  - **7404:** Hex Inverter (6× NOT gates)
-  - **7400:** Quad 2-Input NAND
-  - **7402:** Quad 2-Input NOR
-  - **7408:** Quad 2-Input AND
-  - **7432:** Quad 2-Input OR
-  - **7486:** Quad 2-Input XOR
-  - **74266:** Quad 2-Input XNOR
-  - **7410:** Triple 3-Input NAND
-  - **7411:** Triple 3-Input AND
-  - **7427:** Triple 3-Input NOR
-- **74xx MSI & Sequential ICs (14-Pin & 16-Pin DIP):**
-  - **7474:** Dual Positive-Edge-Triggered D Flip-Flop
-  - **7475:** 4-Bit Bistable D-Latch (16-pin)
-  - **74279:** Quad S-R Latch (16-pin)
-  - **74283:** 4-Bit Binary Full Adder w/ Fast Carry (16-pin)
-  - **74157:** Quad 2-to-1 Data Multiplexer (16-pin)
-  - **74148:** 8-to-3 Priority Encoder (16-pin)
-  - **7493 Counter:** 4-Bit Binary Ripple Counter (14-pin)
+- **Boards & Power:**
+  - **🧩 Half Breadboard (30-col + Rails) & Mini Breadboard (17-col):** Electrically connected internal copper strips with live green strip hover highlighting and automatic plug-in snapping when dragging components onto holes. Dragging a breadboard carries all plugged-in parts with it.
+  - **🔋 AA Pack (1–4 cells):** Authentic `1.5 V` per AA cell (`1×AA = 1.5V`, `2×AA = 3.0V`, `3×AA = 4.5V`, `4×AA = 6.0V` max) with dynamic cell visuals.
+  - **⚡ 9V Battery:** Fixed `9.0 V` PP3 alkaline battery.
+  - **🖥 Bench PSU:** Adjustable regulated `0.0 V – 12.0 V` laboratory power supply with ON/OFF toggle and live V/mA LCD.
+  - **⏚ GND:** `0 V` reference ground.
+- **Passives & Controls:**
+  - **〰 Variable 4-Band Resistor (`1 Ω – 10 MΩ`):** Live EIA 4-band color stripes update dynamically; warns on overheating (`> 250 mW`).
+  - **🎛 Pot / Dial (Potentiometer):** 3-terminal rotary voltage divider (`0–100%` wiper slider + total resistance presets).
+  - **⏺ Push Button (4-pin):** Press-and-hold momentary or toggleable latched mode.
+  - **🔀 3-Pin Switch (SPDT):** Clickable single-pole double-throw slide switch (`T1 ↔ COM ↔ T2`).
+  - **⏻ Toggle SW**, **🎚 DIP-4 Bank**, **⏱ 1Hz Clock**.
+- **Outputs, Motors & Active:**
+  - **💡 5mm LED (2-Leg):** Realistic domed LED with bent/straight legs, live brightness, and overcurrent burn-out warning (`> 35 mA`).
+  - **🌈 RGB LED (4-Leg):** Common-cathode R/G/B color-mixing LED.
+  - **⚙ DC Motor:** Live spinning rotor proportional to voltage (CW/CCW polarity reversal) and live **RPM Telemetry Card** when selected.
+  - **🔔 Piezo Buzzer:** Animated acoustic wave rings + optional Web Audio tone.
+  - **🔺 NPN 2N2222 (TO-92):** Real E-B-C transistor switching (`CUTOFF / ACTIVE / SATURATED` + base/collector overload protection).
+  - **📟 Digital Multimeter:** Clickable rotary dial cycling **`V` (Volts)**, **`mA` (Current)**, and **`Ω` (Ohms)** with backlit LCD readout.
+  - **🔎 Logic Probe** & **🔢 7-Seg Hex Display**.
+- **74xx Basic Logic & MSI/Sequential ICs (17 authentic 14/16-pin DIP chips):** Safe `4.0 V – 5.5 V` supply window; warns above `5.5 V` and halts with scorched corruption warning above `6.5 V` (e.g. `9 V`) or on reverse polarity, auto-recovering cleanly once corrected.
 
-### Right IC Bench Inspector (when a part or IC is selected)
-- **Lamp Color (dropdown):** *(Lamp only)* Choose *Emerald Green*, *Cyan Blue*, *Amber Gold*, or *Ruby Red*.
-- **Flip Switch (ON ↔ OFF):** *(Switch / Clock only)* Toggles the switch or clock state.
-- **Live Pin State Monitor:** *(74xx IC only)* Shows whether the chip is powered and displays the live `HIGH` / `LOW` / `OPEN` state of all 14 or 16 pins.
-- **↻ Rotate (R) / Duplicate / Delete / Done:** Rotates, copies, removes the selected item, or closes the inspector.
-
-### Bottom IC Bench Footer
-- Shows live counts for **74xx ICs**, **Powered**, **Switches**, **Lamps ON**, **Wires**, **I<sub>CC</sub> (mA)** supply current, **Power (mW)**, **t<sub>pd</sub> (ns)** propagation delay, and bench status.
+### Floating Inspector & Bottom Bench Footer
+- Dynamic component controls (AA cell selector, PSU voltage slider, Resistor Ω input + quick E12 chips + 4-band preview, Potentiometer `%` knob, DC Motor live RPM card, Multimeter `V / mA / Ω`, Wire color & Net tag, Live 74xx Pin Monitor, and real-time Overload/Corruption Diagnostic Banners).
+- Footer tracks live **74xx ICs**, **Powered**, **Controls**, **LEDs ON**, **Wires**, **Total I (mA)**, **Power (mW)**, **t<sub>pd</sub> (ns)**, and **Bench Health / Fault status**.

@@ -5,7 +5,8 @@
     const CHUNK_KEYWORD = 'ElectricsimData';
     const LAB_NAMES = {
         'dc-circuit': 'Circuits Lab',
-        logic: 'Logic Lab'
+        logic: 'Logic Lab',
+        electronics: 'Electronics Lab'
     };
 
     // Precompute standard IEEE 802.3 CRC-32 lookup table for valid PNG chunks
@@ -302,8 +303,9 @@
     }
 
     function downloadSavedJson(lab, doc, baseName) {
-        const stem = baseName || `electricsim-${lab === 'dc-circuit' ? 'circuit' : 'logic'}-${formatTimestamp()}`;
-        const ext = lab === 'dc-circuit' ? '.circuit.json' : '.logic.json';
+        const prefix = lab === 'dc-circuit' ? 'circuit' : lab === 'electronics' ? 'electronics' : 'logic';
+        const stem = baseName || `electricsim-${prefix}-${formatTimestamp()}`;
+        const ext = `.${prefix}.json`;
         const filename = stem.endsWith('.json') ? stem : `${stem}${ext}`;
         const text = serializeSavedFile(lab, doc, stem);
         const blob = new Blob([text], { type: 'application/json;charset=utf-8' });
@@ -337,7 +339,8 @@
     }
 
     async function downloadBWImage(canvas, lab, doc, baseName) {
-        const stem = baseName || `electricsim-${lab === 'dc-circuit' ? 'circuit' : 'logic'}-bw-${formatTimestamp()}`;
+        const prefix = lab === 'dc-circuit' ? 'circuit' : lab === 'electronics' ? 'electronics' : 'logic';
+        const stem = baseName || `electricsim-${prefix}-bw-${formatTimestamp()}`;
         const filename = stem.endsWith('.png') ? stem : `${stem}.png`;
         const rawPng = await canvasToPngBytes(canvas);
         const jsonText = serializeSavedFile(lab, doc, stem);

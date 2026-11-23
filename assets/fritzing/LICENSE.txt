@@ -1,0 +1,24 @@
+Fritzing Parts Library Hardware Vector Graphics
+License: Creative Commons Attribution-ShareAlike 3.0 Unported (CC-BY-SA 3.0)
+=============================================================================
+
+All hardware SVG vector graphics contained in this directory (`assets/fritzing/`)
+are sourced from or adapted from the official Fritzing Parts Library:
+
+  Project:    Fritzing (https://fritzing.org)
+  Repository: https://github.com/fritzing/fritzing-parts
+  License:    Creative Commons Attribution-ShareAlike 3.0 Unported (CC-BY-SA 3.0)
+              https://creativecommons.org/licenses/by-sa/3.0/
+
+Under the terms of CC-BY-SA 3.0:
+  - Attribution: Credit is given to the Fritzing project and its contributors
+    in this LICENSE.txt file, in SOURCES.md, and visibly in the Electricsim
+    Electronics Lab footer.
+  - ShareAlike: Any adapted or derivative SVG files placed in `assets/fritzing/`
+    are distributed under the same CC-BY-SA 3.0 license.
+  - Asset Isolation: These CC-BY-SA 3.0 visual assets are cleanly isolated in
+    `assets/fritzing/` and loaded dynamically as standalone SVG graphics,
+    separate from Electricsim's JavaScript simulation engine.
+
+See `SOURCES.md` in this directory for the complete per-file manifest, exact
+upstream repository paths, and modification notes.

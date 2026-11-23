@@ -3,6 +3,61 @@
 
     const GRID = 18;
 
+    function getSolverMod() {
+        if (root.ElectronicsSolver) return root.ElectronicsSolver;
+        if (typeof require === 'function') {
+            try { return require('./electronics-solver.js'); } catch (_) { return null; }
+        }
+        return null;
+    }
+
+    function getArtMod() {
+        if (root.ElectronicsArt) return root.ElectronicsArt;
+        if (typeof require === 'function') {
+            try { return require('./electronics-components.js'); } catch (_) { return null; }
+        }
+        return null;
+    }
+
+    function getExportMod() {
+        if (root.ElectronicsExport) return root.ElectronicsExport;
+        if (typeof require === 'function') {
+            try { return require('./electronics-export.js'); } catch (_) { return null; }
+        }
+        return null;
+    }
+
+    function getFritzingMod() {
+        if (root.FritzingRenderer) return root.FritzingRenderer;
+        if (typeof require === 'function') {
+            try { return require('./fritzing-renderer.js'); } catch (_) { return null; }
+        }
+        return null;
+    }
+
+    const WIRE_PALETTE = [
+        { id: 'auto',   label: 'Auto',   hex: null },
+        { id: 'red',    label: 'Red',    hex: '#ef4444' },
+        { id: 'black',  label: 'Black',  hex: '#334155' },
+        { id: 'blue',   label: 'Blue',   hex: '#38bdf8' },
+        { id: 'green',  label: 'Green',  hex: '#34d399' },
+        { id: 'yellow', label: 'Yellow', hex: '#facc15' },
+        { id: 'orange', label: 'Orange', hex: '#fb923c' },
+        { id: 'purple', label: 'Purple', hex: '#c084fc' },
+        { id: 'white',  label: 'White',  hex: '#e2e8f0' }
+    ];
+
+    const WIRE_COLOR_HEX = {
+        red: '#ef4444',
+        black: '#334155',
+        blue: '#38bdf8',
+        green: '#34d399',
+        yellow: '#facc15',
+        orange: '#fb923c',
+        purple: '#c084fc',
+        white: '#e2e8f0'
+    };
+
     // =========================================================================
     // 1. AUTHENTIC 74xx SERIES DIP-14 IC CATALOG
     // =========================================================================
@@ -355,6 +410,148 @@
         return JSON.parse(JSON.stringify(doc));
     }
 
+    const BREADBOARD_PLUGGABLE_KINDS = new Set([
+        'lamp', 'rgb_led', 'resistor', 'pushbutton', 'spdt',
+        'potentiometer', 'buzzer', 'npn', 'ic', 'seg7_10'
+    ]);
+
+    // Physical body footprint (in component-local coordinates) that covers breadboard
+    // holes underneath a placed component, making those holes inaccessible to clicks/wires.
+    function getComponentOcclusionLocalRect(comp) {
+        if (!comp || comp.kind === 'breadboard') return null;
+        if (comp.kind === 'ic') {
+            const spec = IC_CATALOG[comp.model];
+            const hw = (spec?.pinCount === 16) ? 150 : 132;
+            return { left: -hw, right: hw, top: -76, bottom: 76 };
+        }
+        if (comp.kind === 'seg7_10') return { left: -82, right: 82, top: -112, bottom: 112 };
+        if (comp.kind === 'pushbutton') return { left: -40, right: 40, top: -40, bottom: 40 };
+        if (comp.kind === 'resistor') return { left: -74, right: 74, top: -15, bottom: 15 };
+        if (comp.kind === 'lamp') return { left: -24, right: 24, top: -84, bottom: 6 };
+        if (comp.kind === 'rgb_led') return { left: -58, right: 58, top: -82, bottom: 40 };
+        if (comp.kind === 'spdt') return { left: -56, right: 56, top: -52, bottom: 40 };
+        if (comp.kind === 'potentiometer') return { left: -48, right: 48, top: -82, bottom: 40 };
+        if (comp.kind === 'buzzer') return { left: -44, right: 44, top: -74, bottom: 40 };
+        if (comp.kind === 'npn') return { left: -42, right: 42, top: -56, bottom: 40 };
+        const b = getComponentBounds(comp);
+        const rot = ((comp.rotation || 0) % 360 + 360) % 360;
+        const swapped = rot === 90 || rot === 270;
+        const hw = (swapped ? b.h : b.w) / 2;
+        const hh = (swapped ? b.w : b.h) / 2;
+        return { left: -hw, right: hw, top: -hh, bottom: hh };
+    }
+
+    function isPointUnderComponent(doc, pt, ignoreCompId = null) {
+        if (!doc || !pt || !Array.isArray(doc.components)) return false;
+        for (const c of doc.components) {
+            if (c.kind === 'breadboard' || c.id === ignoreCompId) continue;
+            const rect = getComponentOcclusionLocalRect(c);
+            if (!rect) continue;
+            const dx = pt.x - c.position.x;
+            const dy = pt.y - c.position.y;
+            const rot = ((c.rotation || 0) % 360 + 360) % 360;
+            const local = rotateLocal(dx, dy, (360 - rot) % 360);
+            if (local.x >= rect.left && local.x <= rect.right && local.y >= rect.top && local.y <= rect.bottom) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    function isBreadboardHoleAccessible(doc, evalData, hole) {
+        if (!hole || !hole.isBreadboardHole) return true;
+        if (isPointUnderComponent(doc, hole)) return false;
+        if (evalData && evalData.pluggedPinMap) {
+            for (const holeKey of evalData.pluggedPinMap.values()) {
+                if (holeKey === hole.key) return false;
+            }
+        }
+        return true;
+    }
+
+    // Tinkercad-style Magnetic Breadboard Pin-to-Hole Snapping!
+    // Finds the exact (dx, dy) translation within snapRadius that maximizes the number of
+    // component pins landing directly inside open breadboard socket holes (dist <= 2px)
+    // without double-stuffing a hole already occupied by another component!
+    function snapCompToBreadboard(doc, comp, maxRadius = 44) {
+        if (!doc || !comp || !BREADBOARD_PLUGGABLE_KINDS.has(comp.kind)) return null;
+        const solverMod = getSolverMod();
+        if (!solverMod || typeof solverMod.getBreadboardHoles !== 'function') return null;
+
+        const boards = (doc.components || []).filter(c => c.kind === 'breadboard');
+        if (!boards.length) return null;
+
+        const compPins = getComponentPins(comp);
+        if (!compPins.length) return null;
+
+        // Track holes already occupied by OTHER placed components so dragging never causes accidental socket collisions!
+        const occupiedOtherCoords = new Set();
+        for (const other of doc.components) {
+            if (other.kind === 'breadboard' || other.id === comp.id) continue;
+            for (const op of getComponentPins(other)) {
+                occupiedOtherCoords.add(`${Math.round(op.x)},${Math.round(op.y)}`);
+            }
+        }
+
+        let bestSnap = null;
+
+        for (const bb of boards) {
+            const b = getComponentBounds(bb);
+            if (
+                comp.position.x < b.left - 54 || comp.position.x > b.right + 54 ||
+                comp.position.y < b.top - 54 || comp.position.y > b.bottom + 54
+            ) continue;
+
+            const holes = solverMod.getBreadboardHoles(bb);
+            const holeSet = new Map();
+            for (const h of holes) {
+                holeSet.set(`${Math.round(h.x)},${Math.round(h.y)}`, h);
+            }
+
+            const p0 = compPins[0];
+            for (const h of holes) {
+                const dx = h.x - p0.x;
+                const dy = h.y - p0.y;
+                const dist = Math.hypot(dx, dy);
+                if (dist > maxRadius) continue;
+
+                // Count how many pins of `comp` land squarely inside valid, unoccupied breadboard holes at this shift
+                let matched = 0;
+                let collision = false;
+                const matchedHoles = [];
+                for (const p of compPins) {
+                    const coordKey = `${Math.round(p.x + dx)},${Math.round(p.y + dy)}`;
+                    if (occupiedOtherCoords.has(coordKey)) {
+                        collision = true;
+                        break;
+                    }
+                    const mh = holeSet.get(coordKey);
+                    if (mh) {
+                        matched++;
+                        matchedHoles.push(mh);
+                    }
+                }
+                if (collision || matched < Math.min(2, compPins.length)) continue;
+
+                if (
+                    !bestSnap ||
+                    matched > bestSnap.matched ||
+                    (matched === bestSnap.matched && dist < bestSnap.dist)
+                ) {
+                    bestSnap = {
+                        x: Math.round(comp.position.x + dx),
+                        y: Math.round(comp.position.y + dy),
+                        matched,
+                        total: compPins.length,
+                        dist,
+                        holes: matchedHoles
+                    };
+                }
+            }
+        }
+        return bestSnap;
+    }
+
     function snapICPoint(pt, snap = true) {
         if (!snap) {
             return { x: Math.round(pt.x), y: Math.round(pt.y) };
@@ -397,13 +594,49 @@
             return comp;
         }
         if (kind === 'battery') {
+            const cells = Math.max(1, Math.min(4, Math.round(extra.cells || (extra.voltage ? extra.voltage / 1.5 : 3))));
+            const voltage = Math.round(cells * 1.5 * 10) / 10;
             return {
                 id: extra.id || uid('bat'),
                 kind: 'battery',
                 position: pos,
                 rotation,
-                voltage: 5,
-                label: extra.label || '5V DC'
+                cells,
+                voltage,
+                label: extra.label || `${cells}×AA (${voltage.toFixed(1)}V)`
+            };
+        }
+        if (kind === 'battery9v') {
+            return {
+                id: extra.id || uid('bat9'),
+                kind: 'battery9v',
+                position: pos,
+                rotation,
+                voltage: 9.0,
+                label: extra.label || '9V PP3'
+            };
+        }
+        if (kind === 'psu') {
+            const voltage = Math.max(0, Math.min(12, Number(extra.voltage !== undefined ? extra.voltage : 5.0)));
+            return {
+                id: extra.id || uid('psu'),
+                kind: 'psu',
+                position: pos,
+                rotation,
+                voltage: Math.round(voltage * 10) / 10,
+                enabled: extra.enabled !== false,
+                label: extra.label || 'Bench PSU'
+            };
+        }
+        if (kind === 'breadboard' || kind === 'breadboard_mini') {
+            const variant = kind === 'breadboard_mini' ? 'mini' : (extra.variant || 'half');
+            return {
+                id: extra.id || uid('bb'),
+                kind: 'breadboard',
+                variant,
+                position: pos,
+                rotation: 0,
+                label: extra.label || (variant === 'mini' ? 'Mini Breadboard' : 'Half Breadboard')
             };
         }
         if (kind === 'switch') {
@@ -414,6 +647,27 @@
                 rotation,
                 closed: Boolean(extra.closed),
                 label: extra.label || 'SW'
+            };
+        }
+        if (kind === 'pushbutton') {
+            return {
+                id: extra.id || uid('btn'),
+                kind: 'pushbutton',
+                position: pos,
+                rotation,
+                pressed: Boolean(extra.pressed),
+                latched: Boolean(extra.latched),
+                label: extra.label || 'BTN'
+            };
+        }
+        if (kind === 'spdt') {
+            return {
+                id: extra.id || uid('spdt'),
+                kind: 'spdt',
+                position: pos,
+                rotation,
+                positionThrow: extra.positionThrow === 'right' ? 'right' : 'left',
+                label: extra.label || 'SPDT'
             };
         }
         if (kind === 'dip4') {
@@ -436,13 +690,31 @@
             };
         }
         if (kind === 'resistor') {
+            const ohms = Math.max(1, Number(extra.ohms || 220));
+            const solverMod = getSolverMod();
+            const fmt = solverMod ? solverMod.formatOhms(ohms) : `${ohms}Ω`;
             return {
                 id: extra.id || uid('res'),
                 kind: 'resistor',
                 position: pos,
                 rotation,
-                ohms: extra.ohms || 220,
-                label: extra.label || '220Ω'
+                ohms,
+                maxWatts: extra.maxWatts || 0.25,
+                label: extra.label || fmt
+            };
+        }
+        if (kind === 'potentiometer') {
+            const ohms = Math.max(10, Number(extra.ohms || 10000));
+            const wiper = Math.max(0, Math.min(1, Number(extra.wiper !== undefined ? extra.wiper : 0.5)));
+            return {
+                id: extra.id || uid('pot'),
+                kind: 'potentiometer',
+                position: pos,
+                rotation,
+                ohms,
+                wiper,
+                maxWatts: extra.maxWatts || 0.5,
+                label: extra.label || 'POT'
             };
         }
         if (kind === 'lamp') {
@@ -453,6 +725,57 @@
                 rotation,
                 color: extra.color || 'emerald',
                 label: extra.label || 'LED'
+            };
+        }
+        if (kind === 'rgb_led') {
+            return {
+                id: extra.id || uid('rgb'),
+                kind: 'rgb_led',
+                position: pos,
+                rotation,
+                label: extra.label || 'RGB LED'
+            };
+        }
+        if (kind === 'motor') {
+            return {
+                id: extra.id || uid('mot'),
+                kind: 'motor',
+                position: pos,
+                rotation,
+                ratedV: extra.ratedV || 9,
+                maxRpm: extra.maxRpm || 3600,
+                ohms: extra.ohms || 30,
+                label: extra.label || 'DC Motor'
+            };
+        }
+        if (kind === 'buzzer') {
+            return {
+                id: extra.id || uid('buz'),
+                kind: 'buzzer',
+                position: pos,
+                rotation,
+                freqHz: extra.freqHz || 880,
+                label: extra.label || 'Buzzer'
+            };
+        }
+        if (kind === 'npn') {
+            return {
+                id: extra.id || uid('q'),
+                kind: 'npn',
+                position: pos,
+                rotation,
+                model: extra.model || '2N2222',
+                label: extra.label || '2N2222'
+            };
+        }
+        if (kind === 'multimeter') {
+            return {
+                id: extra.id || uid('dmm'),
+                kind: 'multimeter',
+                position: pos,
+                rotation,
+                mode: extra.mode || 'V',
+                label: extra.label || 'DMM'
             };
         }
         if (kind === 'gnd') {
@@ -483,6 +806,15 @@
                 position: pos,
                 rotation,
                 label: extra.label || 'HEX'
+            };
+        }
+        if (kind === 'seg7_10') {
+            return {
+                id: extra.id || uid('seg10'),
+                kind: 'seg7_10',
+                position: pos,
+                rotation,
+                label: extra.label || '7-SEG'
             };
         }
         throw new Error(`Unknown IC Lab component kind: ${kind}`);
@@ -549,15 +881,49 @@
             return pins;
         }
         if (comp.kind === 'battery') {
+            const cells = Math.max(1, Math.min(4, Math.round(comp.cells || (comp.voltage ? comp.voltage / 1.5 : 3))));
+            const v = (cells * 1.5).toFixed(1);
             return [
-                buildPin(comp, 'neg', -36, 0, -1, 0, 'gnd', 'Battery − (GND 0V)'),
-                buildPin(comp, 'pos', 36, 0, 1, 0, 'vcc', 'Battery + (+5V VCC)')
+                buildPin(comp, 'neg', -108, 0, -1, 0, 'gnd', `AA Pack − (0V Return)`),
+                buildPin(comp, 'pos', 108, 0, 1, 0, 'vcc', `AA Pack + (+${v}V · ${cells}×AA)`)
             ];
+        }
+        if (comp.kind === 'battery9v') {
+            return [
+                buildPin(comp, 'neg', -90, 0, -1, 0, 'gnd', '9V Battery − (0V Return)'),
+                buildPin(comp, 'pos', 90, 0, 1, 0, 'vcc', '9V Battery + (+9.0V)')
+            ];
+        }
+        if (comp.kind === 'psu') {
+            const v = Number(comp.voltage !== undefined ? comp.voltage : 5).toFixed(1);
+            return [
+                buildPin(comp, 'neg', -54, 90, 0, 1, 'gnd', 'Bench PSU − (0V Return)'),
+                buildPin(comp, 'pos', 54, 90, 0, 1, 'vcc', `Bench PSU + (+${v}V ${comp.enabled === false ? 'OFF' : 'ON'})`)
+            ];
+        }
+        if (comp.kind === 'breadboard') {
+            const solverMod = getSolverMod();
+            return solverMod ? solverMod.getBreadboardHoles(comp) : [];
         }
         if (comp.kind === 'switch') {
             return [
-                buildPin(comp, 'in', -36, 0, -1, 0, 'in', 'Switch Supply Input (+5V)'),
+                buildPin(comp, 'in', -36, 0, -1, 0, 'in', 'Switch Supply Input'),
                 buildPin(comp, 'out', 36, 0, 1, 0, 'out', 'Switch Output Terminal')
+            ];
+        }
+        if (comp.kind === 'pushbutton') {
+            return [
+                buildPin(comp, 'a1', -36, -36, -1, 0, 'io', 'Push Button A1 (Top-Left)'),
+                buildPin(comp, 'b1', 36, -36, 1, 0, 'io', 'Push Button B1 (Top-Right)'),
+                buildPin(comp, 'a2', -36, 36, -1, 0, 'io', 'Push Button A2 (Bottom-Left)'),
+                buildPin(comp, 'b2', 36, 36, 1, 0, 'io', 'Push Button B2 (Bottom-Right)')
+            ];
+        }
+        if (comp.kind === 'spdt') {
+            return [
+                buildPin(comp, 't1', -36, 36, 0, 1, 'io', 'SPDT Throw 1 (Left)'),
+                buildPin(comp, 'com', 0, 36, 0, 1, 'io', 'SPDT Common (Center)'),
+                buildPin(comp, 't2', 36, 36, 0, 1, 'io', 'SPDT Throw 2 (Right)')
             ];
         }
         if (comp.kind === 'dip4') {
@@ -575,14 +941,54 @@
         }
         if (comp.kind === 'resistor') {
             return [
-                buildPin(comp, 'a', -36, 0, -1, 0, 'io', 'Resistor Lead A'),
-                buildPin(comp, 'b', 36, 0, 1, 0, 'io', 'Resistor Lead B')
+                buildPin(comp, 'a', -72, 0, -1, 0, 'io', 'Resistor Lead A'),
+                buildPin(comp, 'b', 72, 0, 1, 0, 'io', 'Resistor Lead B')
+            ];
+        }
+        if (comp.kind === 'potentiometer') {
+            return [
+                buildPin(comp, 't1', -36, 36, 0, 1, 'io', 'Potentiometer Terminal 1 (CCW)'),
+                buildPin(comp, 'wiper', 0, 36, 0, 1, 'io', 'Potentiometer Wiper (Adjustable)'),
+                buildPin(comp, 't2', 36, 36, 0, 1, 'io', 'Potentiometer Terminal 2 (CW)')
             ];
         }
         if (comp.kind === 'lamp') {
             return [
-                buildPin(comp, 'anode', -36, 0, -1, 0, 'in', 'Lamp Anode (+ Input)'),
-                buildPin(comp, 'cathode', 36, 0, 1, 0, 'gnd', 'Lamp Cathode (− to GND)')
+                buildPin(comp, 'anode', -18, 0, -1, 0, 'in', 'LED Anode (+ Long Leg)'),
+                buildPin(comp, 'cathode', 18, 0, 1, 0, 'gnd', 'LED Cathode (− Flat Edge)')
+            ];
+        }
+        if (comp.kind === 'rgb_led') {
+            return [
+                buildPin(comp, 'r', -54, 36, 0, 1, 'in', 'RGB LED Red Anode (R)'),
+                buildPin(comp, 'gnd', -18, 36, 0, 1, 'gnd', 'RGB LED Common Cathode (−)'),
+                buildPin(comp, 'g', 18, 36, 0, 1, 'in', 'RGB LED Green Anode (G)'),
+                buildPin(comp, 'b', 54, 36, 0, 1, 'in', 'RGB LED Blue Anode (B)')
+            ];
+        }
+        if (comp.kind === 'motor') {
+            return [
+                buildPin(comp, 'pos', -108, -18, -1, 0, 'in', 'DC Motor Terminal + (CW)'),
+                buildPin(comp, 'neg', -108, 18, -1, 0, 'gnd', 'DC Motor Terminal − (Return)')
+            ];
+        }
+        if (comp.kind === 'buzzer') {
+            return [
+                buildPin(comp, 'pos', -36, 36, 0, 1, 'in', 'Piezo Buzzer + (Positive)'),
+                buildPin(comp, 'neg', 36, 36, 0, 1, 'gnd', 'Piezo Buzzer − (Return)')
+            ];
+        }
+        if (comp.kind === 'npn') {
+            return [
+                buildPin(comp, 'e', -36, 36, 0, 1, 'io', 'NPN 2N2222 Emitter (E)'),
+                buildPin(comp, 'b', 0, 36, 0, 1, 'in', 'NPN 2N2222 Base (B)'),
+                buildPin(comp, 'c', 36, 36, 0, 1, 'io', 'NPN 2N2222 Collector (C)')
+            ];
+        }
+        if (comp.kind === 'multimeter') {
+            return [
+                buildPin(comp, 'neg', -36, 126, 0, 1, 'gnd', 'Multimeter COM (− Black Probe)'),
+                buildPin(comp, 'pos', 36, 126, 0, 1, 'in', 'Multimeter VΩmA (+ Red Probe)')
             ];
         }
         if (comp.kind === 'gnd') {
@@ -601,6 +1007,23 @@
                 buildPin(comp, 'B', -36, -18, -1, 0, 'in', 'BCD Bit 1 (2)'),
                 buildPin(comp, 'C', -36, 18, -1, 0, 'in', 'BCD Bit 2 (4)'),
                 buildPin(comp, 'D', -36, 54, -1, 0, 'in', 'BCD Bit 3 (MSB = 8)')
+            ];
+        }
+        if (comp.kind === 'seg7_10') {
+            // Authentic 10-Pin Common-Cathode 5161AS 7-Segment Pinout (0.1" = 36px breadboard pitch!)
+            // Top Row (Row d, y=-108): 10=g, 9=f, 8=COM, 7=a, 6=b
+            // Bot Row (Row g, y=+108):  1=e, 2=d, 3=COM, 4=c, 5=dp
+            return [
+                buildPin(comp, 'g',    -72, -108, 0, -1, 'in',  'Pin 10 · Segment g (Middle)'),
+                buildPin(comp, 'f',    -36, -108, 0, -1, 'in',  'Pin 9 · Segment f (Top-Left)'),
+                buildPin(comp, 'com1',   0, -108, 0, -1, 'gnd', 'Pin 8 · Common Cathode (−)'),
+                buildPin(comp, 'a',     36, -108, 0, -1, 'in',  'Pin 7 · Segment a (Top)'),
+                buildPin(comp, 'b',     72, -108, 0, -1, 'in',  'Pin 6 · Segment b (Top-Right)'),
+                buildPin(comp, 'e',    -72,  108, 0,  1, 'in',  'Pin 1 · Segment e (Bottom-Left)'),
+                buildPin(comp, 'd',    -36,  108, 0,  1, 'in',  'Pin 2 · Segment d (Bottom)'),
+                buildPin(comp, 'com2',   0,  108, 0,  1, 'gnd', 'Pin 3 · Common Cathode (−)'),
+                buildPin(comp, 'c',     36,  108, 0,  1, 'in',  'Pin 4 · Segment c (Bottom-Right)'),
+                buildPin(comp, 'dp',    72,  108, 0,  1, 'in',  'Pin 5 · Decimal Point (dp)')
             ];
         }
         return [];
@@ -625,6 +1048,54 @@
             const spec = IC_CATALOG[comp.model];
             w = (spec?.pinCount === 16) ? 300 : 264;
             h = 148;
+        } else if (comp.kind === 'breadboard') {
+            const solverMod = getSolverMod();
+            const spec = solverMod ? solverMod.getBreadboardSpec(comp.variant || 'half') : { width: 1188, height: 704 };
+            w = spec.width;
+            h = spec.height;
+        } else if (comp.kind === 'battery') {
+            const cells = Math.max(1, Math.min(4, Math.round(comp.cells || (comp.voltage ? comp.voltage / 1.5 : 3))));
+            w = 224;
+            h = Math.max(90, cells * 44 + 44);
+        } else if (comp.kind === 'battery9v') {
+            w = 192;
+            h = 204;
+        } else if (comp.kind === 'psu') {
+            w = 248;
+            h = 196;
+        } else if (comp.kind === 'resistor') {
+            w = 148;
+            h = 40;
+        } else if (comp.kind === 'motor') {
+            w = 244;
+            h = 152;
+        } else if (comp.kind === 'multimeter') {
+            w = 196;
+            h = 266;
+        } else if (comp.kind === 'potentiometer') {
+            w = 108;
+            h = 128;
+        } else if (comp.kind === 'pushbutton') {
+            w = 82;
+            h = 82;
+        } else if (comp.kind === 'spdt') {
+            w = 112;
+            h = 88;
+        } else if (comp.kind === 'buzzer') {
+            w = 96;
+            h = 116;
+        } else if (comp.kind === 'rgb_led') {
+            w = 120;
+            h = 116;
+        } else if (comp.kind === 'npn') {
+            w = 86;
+            h = 96;
+        } else if (comp.kind === 'lamp') {
+            w = 56;
+            h = 98;
+        } else if (comp.kind === 'seg7_10') {
+            w = 172;
+            h = 224;
         } else if (comp.kind === 'seg7' || comp.kind === 'dip4') {
             w = 88;
             h = 152;
@@ -646,19 +1117,64 @@
         };
     }
 
-    function connectICWire(doc, pinAKey, pinBKey, waypoints = []) {
+    function inferWireColor(doc, pinAKey, pinBKey) {
+        const checkKey = k => {
+            if (!k) return null;
+            const [cid, pin] = k.split(':');
+            const c = doc?.components?.find(x => x.id === cid);
+            if (!c) return null;
+            if (c.kind === 'gnd') return 'black';
+            if ((c.kind === 'battery' || c.kind === 'battery9v' || c.kind === 'psu') && pin === 'pos') return 'red';
+            if ((c.kind === 'battery' || c.kind === 'battery9v' || c.kind === 'psu') && pin === 'neg') return 'black';
+            if (c.kind === 'ic') {
+                const sp = IC_CATALOG[c.model];
+                if (sp && String(sp.vccPin) === pin) return 'red';
+                if (sp && String(sp.gndPin) === pin) return 'black';
+            }
+            if (c.kind === 'breadboard') {
+                if (pin.startsWith('tp') || pin.startsWith('bp')) return 'red';
+                if (pin.startsWith('tn') || pin.startsWith('bn')) return 'black';
+            }
+            return null;
+        };
+        const a = checkKey(pinAKey);
+        const b = checkKey(pinBKey);
+        if (a === 'red' || b === 'red') return 'red';
+        if (a === 'black' || b === 'black') return 'black';
+        return null;
+    }
+
+    function connectICWire(doc, pinAKey, pinBKey, waypoints = [], extra = {}) {
         if (!pinAKey || !pinBKey || pinAKey === pinBKey) return false;
         const exists = doc.wires.some(
             w => (w.from === pinAKey && w.to === pinBKey) || (w.from === pinBKey && w.to === pinAKey)
         );
         if (exists) return false;
-        doc.wires.push({
-            id: uid('w'),
+        const chosenColor = (extra && extra.color && extra.color !== 'auto')
+            ? extra.color
+            : inferWireColor(doc, pinAKey, pinBKey);
+        const wireObj = {
+            id: (extra && extra.id) || uid('w'),
             from: pinAKey,
             to: pinBKey,
-            waypoints
-        });
+            waypoints: Array.isArray(waypoints) ? waypoints : []
+        };
+        if (chosenColor) wireObj.color = chosenColor;
+        if (extra && extra.label) wireObj.label = extra.label;
+        doc.wires.push(wireObj);
         return true;
+    }
+
+    function tidyAllWires(doc) {
+        if (!doc || !Array.isArray(doc.wires)) return doc;
+        for (const w of doc.wires) {
+            w.waypoints = [];
+            if (!w.color) {
+                const inferred = inferWireColor(doc, w.from, w.to);
+                if (inferred) w.color = inferred;
+            }
+        }
+        return doc;
     }
 
     // =========================================================================
@@ -690,7 +1206,243 @@
         }
     }
 
+    function evalMsiIC(comp, spec, getPin, phase = 'settle') {
+        if (!comp.state) {
+            comp.state = {
+                q: [0, 0, 0, 0],
+                qBar: [1, 1, 1, 1],
+                count: 0,
+                prevClk1: 0,
+                prevClk2: 0
+            };
+        }
+        const st = comp.state;
+        const isCommit = phase === 'commit';
+        const P = (pin, def = 0) => {
+            const v = getPin(`${comp.id}:${pin}`);
+            return (v === 0 || v === 1) ? v : def;
+        };
+        const outPins = new Map();
+        let summary = '';
+
+        if (comp.model === '7474') {
+            const clr1 = P(1, 1), d1 = P(2, 0), clk1 = P(3, 0), pre1 = P(4, 1);
+            const clr2 = P(13, 1), d2 = P(12, 0), clk2 = P(11, 0), pre2 = P(10, 1);
+
+            let q1 = st.q[0] ? 1 : 0;
+            let qb1 = st.qBar[0] ? 1 : 0;
+            if (pre1 === 0 && clr1 === 0) {
+                q1 = 1; qb1 = 1;
+            } else if (pre1 === 0) {
+                q1 = 1; qb1 = 0;
+            } else if (clr1 === 0) {
+                q1 = 0; qb1 = 1;
+            } else if (isCommit && st.prevClk1 === 0 && clk1 === 1) {
+                q1 = d1; qb1 = d1 ? 0 : 1;
+            }
+
+            let q2 = st.q[1] ? 1 : 0;
+            let qb2 = st.qBar[1] ? 1 : 0;
+            if (pre2 === 0 && clr2 === 0) {
+                q2 = 1; qb2 = 1;
+            } else if (pre2 === 0) {
+                q2 = 1; qb2 = 0;
+            } else if (clr2 === 0) {
+                q2 = 0; qb2 = 1;
+            } else if (isCommit && st.prevClk2 === 0 && clk2 === 1) {
+                q2 = d2; qb2 = d2 ? 0 : 1;
+            }
+
+            if (isCommit) {
+                st.q[0] = q1; st.qBar[0] = qb1; st.prevClk1 = clk1;
+                st.q[1] = q2; st.qBar[1] = qb2; st.prevClk2 = clk2;
+            }
+            outPins.set(5, q1); outPins.set(6, qb1);
+            outPins.set(9, q2); outPins.set(8, qb2);
+            summary = `Q1=${q1} Q2=${q2}`;
+        } else if (comp.model === '7475') {
+            const d1 = P(2, 0), d2 = P(3, 0), en12 = P(4, 0);
+            const d3 = P(6, 0), d4 = P(7, 0), en34 = P(12, 0);
+            const q = [...(st.q || [0, 0, 0, 0])];
+            if (en12 === 1) { q[0] = d1; q[1] = d2; }
+            if (en34 === 1) { q[2] = d3; q[3] = d4; }
+            if (isCommit) {
+                st.q = q;
+                st.qBar = q.map(b => (b ? 0 : 1));
+            }
+            outPins.set(15, q[0]); outPins.set(1, q[0] ? 0 : 1);
+            outPins.set(14, q[1]); outPins.set(13, q[1] ? 0 : 1);
+            outPins.set(11, q[2]); outPins.set(10, q[2] ? 0 : 1);
+            outPins.set(9, q[3]); outPins.set(5, q[3] ? 0 : 1);
+            summary = `Q=${q[3]}${q[2]}${q[1]}${q[0]}`;
+        } else if (comp.model === '74279') {
+            const pairs = [
+                { s: P(1, 0), r: P(2, 0), qPin: 4, qbPin: 3, idx: 0 },
+                { s: P(5, 0), r: P(6, 0), qPin: 7, qbPin: null, idx: 1 },
+                { s: P(9, 0), r: P(10, 0), qPin: 11, qbPin: 12, idx: 2 },
+                { s: P(13, 0), r: P(14, 0), qPin: 15, qbPin: null, idx: 3 }
+            ];
+            const q = [...(st.q || [0, 0, 0, 0])];
+            const qb = [...(st.qBar || [1, 1, 1, 1])];
+            for (const p of pairs) {
+                if (p.s === 1 && p.r === 0) { q[p.idx] = 1; qb[p.idx] = 0; }
+                else if (p.s === 0 && p.r === 1) { q[p.idx] = 0; qb[p.idx] = 1; }
+                else if (p.s === 1 && p.r === 1) { q[p.idx] = 0; qb[p.idx] = 0; }
+                outPins.set(p.qPin, q[p.idx]);
+                if (p.qbPin) outPins.set(p.qbPin, qb[p.idx]);
+            }
+            if (isCommit) { st.q = q; st.qBar = qb; }
+            summary = `SR=${q[3]}${q[2]}${q[1]}${q[0]}`;
+        } else if (comp.model === '74283') {
+            const a = (P(12, 0) << 3) | (P(14, 0) << 2) | (P(3, 0) << 1) | P(5, 0);
+            const b = (P(11, 0) << 3) | (P(15, 0) << 2) | (P(2, 0) << 1) | P(6, 0);
+            const c0 = P(7, 0);
+            const sum = a + b + c0;
+            outPins.set(4, (sum >> 0) & 1);
+            outPins.set(1, (sum >> 1) & 1);
+            outPins.set(13, (sum >> 2) & 1);
+            outPins.set(10, (sum >> 3) & 1);
+            outPins.set(9, (sum >> 4) & 1);
+            summary = `${a}+${b}+${c0}=${sum}`;
+        } else if (comp.model === '74157') {
+            const sel = P(1, 0);
+            const enBar = P(15, 0);
+            if (enBar === 1) {
+                outPins.set(4, 0); outPins.set(7, 0); outPins.set(9, 0); outPins.set(12, 0);
+                summary = 'DISABLED';
+            } else {
+                const y1 = sel ? P(3, 0) : P(2, 0);
+                const y2 = sel ? P(6, 0) : P(5, 0);
+                const y3 = sel ? P(10, 0) : P(11, 0);
+                const y4 = sel ? P(13, 0) : P(14, 0);
+                outPins.set(4, y1); outPins.set(7, y2); outPins.set(9, y3); outPins.set(12, y4);
+                summary = `SEL=${sel ? 'B' : 'A'} Y=${y4}${y3}${y2}${y1}`;
+            }
+        } else if (comp.model === '74148') {
+            const rawPins = [10, 11, 12, 13, 1, 2, 3, 4].map(p => getPin(`${comp.id}:${p}`));
+            const eiRaw = getPin(`${comp.id}:5`);
+            const activeLowMode = (eiRaw === 0) && rawPins.some(v => v === 0) && !rawPins.some(v => v === 1);
+            if (activeLowMode) {
+                let pri = -1;
+                for (let i = 7; i >= 0; i--) {
+                    if (rawPins[i] === 0) { pri = i; break; }
+                }
+                const valid = pri >= 0;
+                const code = valid ? pri : 0;
+                outPins.set(9, valid ? (((code >> 0) & 1) ^ 1) : 1);
+                outPins.set(7, valid ? (((code >> 1) & 1) ^ 1) : 1);
+                outPins.set(6, valid ? (((code >> 2) & 1) ^ 1) : 1);
+                outPins.set(14, valid ? 0 : 1);
+                outPins.set(15, valid ? 1 : 0);
+                summary = valid ? `PRI=I${pri}' (${code})` : 'IDLE';
+            } else {
+                const d = [P(10, 0), P(11, 0), P(12, 0), P(13, 0), P(1, 0), P(2, 0), P(3, 0), P(4, 0)];
+                let pri = -1;
+                for (let i = 7; i >= 0; i--) {
+                    if (d[i] === 1) { pri = i; break; }
+                }
+                const valid = pri >= 0 ? 1 : 0;
+                const code = pri >= 0 ? pri : 0;
+                outPins.set(9, (code >> 0) & 1);
+                outPins.set(7, (code >> 1) & 1);
+                outPins.set(6, (code >> 2) & 1);
+                outPins.set(14, valid);
+                outPins.set(15, valid ? 0 : 1);
+                summary = valid ? `PRI=D${pri} (${code})` : 'IDLE';
+            }
+        } else if (comp.model === '7493') {
+            const clk = P(1, 0);
+            const r1 = P(2, 0), r2 = P(3, 0);
+            let cnt = st.count || 0;
+            if (r1 === 1 && r2 === 1) {
+                cnt = 0;
+            } else if (isCommit) {
+                if (st.prevClk93 === undefined) {
+                    st.prevClk93 = clk;
+                } else if (st.prevClk93 === 1 && clk === 0) {
+                    cnt = (cnt + 1) & 0x0F;
+                }
+            }
+            if (isCommit) {
+                st.count = cnt;
+                st.prevClk93 = clk;
+            }
+            outPins.set(12, (cnt >> 0) & 1);
+            outPins.set(9, (cnt >> 1) & 1);
+            outPins.set(8, (cnt >> 2) & 1);
+            outPins.set(11, (cnt >> 3) & 1);
+            summary = `CNT=${cnt} (0x${cnt.toString(16).toUpperCase()})`;
+        }
+
+        return { outPins, summary };
+    }
+
     function evaluateICBench(doc) {
+        const solverMod = getSolverMod();
+        if (solverMod && typeof solverMod.evaluateHybridBench === 'function') {
+            const res = solverMod.evaluateHybridBench(doc, {
+                IC_CATALOG,
+                evalSingleGate,
+                allICPins,
+                getComponentPins,
+                evalMsiIC
+            });
+            // Compute per-segment illumination for realistic 10-pin 7-segment displays (seg7_10)
+            // directly from the untouched solver's pinVoltages & pinToNet maps!
+            const seg7TenStates = new Map();
+            const segNames = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'dp'];
+            for (const comp of doc.components) {
+                if (comp.kind !== 'seg7_10') continue;
+                const vCom1 = res.pinVoltages ? res.pinVoltages.get(`${comp.id}:com1`) : null;
+                const vCom2 = res.pinVoltages ? res.pinVoltages.get(`${comp.id}:com2`) : null;
+                const vCom = (vCom1 !== null && vCom1 !== undefined && Number.isFinite(vCom1))
+                    ? vCom1
+                    : (vCom2 !== null && vCom2 !== undefined && Number.isFinite(vCom2) ? vCom2 : null);
+
+                // Collect strong voltage source positive net IDs (> 3.6V) to detect direct un-resisted segment shorts
+                const highSrcNets = new Set();
+                for (const c of doc.components) {
+                    if (c.kind === 'battery' || c.kind === 'battery9v' || c.kind === 'psu') {
+                        const vp = res.pinVoltages ? res.pinVoltages.get(`${c.id}:pos`) : null;
+                        if (vp !== null && vp > 3.6) {
+                            const nid = res.pinToNet.get(`${c.id}:pos`);
+                            if (nid !== undefined) highSrcNets.add(nid);
+                        }
+                    }
+                }
+
+                const segs = {};
+                let litCount = 0;
+                let anyOverloaded = false;
+                for (const sn of segNames) {
+                    const key = `${comp.id}:${sn}`;
+                    const vSeg = res.pinVoltages ? res.pinVoltages.get(key) : null;
+                    const drop = (vSeg !== null && vSeg !== undefined && vCom !== null) ? (vSeg - vCom) : 0;
+                    const segNet = res.pinToNet.get(key);
+                    const directHigh = segNet !== undefined && highSrcNets.has(segNet) && drop > 3.6;
+                    const lit = drop >= 1.75 && !directHigh;
+                    if (lit) litCount++;
+                    if (directHigh) anyOverloaded = true;
+                    segs[sn] = {
+                        lit,
+                        overloaded: directHigh,
+                        voltageDrop: drop,
+                        brightness: lit ? Math.max(0.45, Math.min(1, (drop - 1.5) / 2.2)) : 0
+                    };
+                }
+                if (anyOverloaded && Array.isArray(res.faults)) {
+                    res.faults.push({
+                        compId: comp.id,
+                        label: comp.label || '7-SEG',
+                        message: '7-Segment pin connected directly to >3.6V without a 220Ω resistor!'
+                    });
+                }
+                seg7TenStates.set(comp.id, { segs, litCount, overloaded: anyOverloaded });
+            }
+            res.seg7TenStates = seg7TenStates;
+            return res;
+        }
+
         const pins = allICPins(doc);
         const adj = new Map();
         const wireConnectedPins = new Set();
@@ -1423,11 +2175,37 @@
             ], p1Vert);
         }
 
+        const boxes = doc && doc.components
+            ? doc.components.filter(c => c.kind !== 'breadboard').map(c => {
+                const b = getComponentBounds(c);
+                // Keep inner body of endpoint components protected (so wires exiting a pin cannot cut backwards across their own housing!),
+                // and pad non-endpoint components by 12px so wires detour cleanly around them!
+                if (c.id === p1.compId || c.id === p2.compId) {
+                    return {
+                        left: b.left + 12,
+                        right: b.right - 12,
+                        top: b.top + 12,
+                        bottom: b.bottom - 12
+                    };
+                }
+                return {
+                    left: b.left - 12,
+                    right: b.right + 12,
+                    top: b.top - 12,
+                    bottom: b.bottom + 12
+                };
+            })
+            : [];
+
         if (Math.abs(p1.x - p2.x) < 1 && (!p1Vert || (p1.y < p2.y ? (p1.dir?.dy || 0) >= 0 : (p1.dir?.dy || 0) <= 0))) {
-            return [{ x: p1.x, y: p1.y }, { x: p2.x, y: p2.y }];
+            if (!boxes.length || segmentHitsBoxes(p1, p2, boxes) === 0) {
+                return [{ x: p1.x, y: p1.y }, { x: p2.x, y: p2.y }];
+            }
         }
         if (Math.abs(p1.y - p2.y) < 1 && !p1Vert && !p2Vert) {
-            return [{ x: p1.x, y: p1.y }, { x: p2.x, y: p2.y }];
+            if (!boxes.length || segmentHitsBoxes(p1, p2, boxes) === 0) {
+                return [{ x: p1.x, y: p1.y }, { x: p2.x, y: p2.y }];
+            }
         }
 
         const midX = Math.round(((s1.x + s2.x) / 2) / GRID) * GRID + laneShift;
@@ -1440,28 +2218,12 @@
             orthogonalPath([s1, s2], !p1Vert)
         ];
 
-        const boxes = doc && doc.components
-            ? doc.components.map(c => {
-                const b = getComponentBounds(c);
-                // Shrink pin margin slightly so a pin's own exit stub doesn't count as hitting its own package
-                if (c.id === p1.compId || c.id === p2.compId) {
-                    return {
-                        left: b.left + 10,
-                        right: b.right - 10,
-                        top: b.top + 12,
-                        bottom: b.bottom - 12
-                    };
-                }
-                return b;
-            })
-            : [];
-
         if (boxes.length) {
             for (const box of boxes) {
-                for (const y of [box.top - 18, box.bottom + 18]) {
+                for (const y of [box.top - 24 + laneShift, box.bottom + 24 + laneShift]) {
                     candidates.push(orthogonalPath([s1, { x: s1.x, y }, { x: s2.x, y }, s2], true));
                 }
-                for (const x of [box.left - 18, box.right + 18]) {
+                for (const x of [box.left - 24 + laneShift, box.right + 24 + laneShift]) {
                     candidates.push(orthogonalPath([s1, { x, y: s1.y }, { x, y: s2.y }, s2], false));
                 }
             }
@@ -1473,7 +2235,7 @@
             let hits = 0;
             for (let i = 1; i < full.length; i++) {
                 len += Math.hypot(full[i].x - full[i - 1].x, full[i].y - full[i - 1].y);
-                if (boxes.length && i > 1 && i < full.length - 1) {
+                if (boxes.length) {
                     hits += segmentHitsBoxes(full[i - 1], full[i], boxes);
                 }
             }
@@ -1505,9 +2267,9 @@
             const netId = pinToNet ? pinToNet.get(w.from) : w.from;
             let pts = routeICWire(p1, p2, w.waypoints, doc, 0);
 
-            // Auto-separate overlapping parallel vertical or horizontal lanes on different nets
+            // Auto-separate overlapping parallel vertical or horizontal lanes on different nets with generous 14px spacing
             if (!w.waypoints || !w.waypoints.length) {
-                const shifts = [0, 18, -18, 36, -36];
+                const shifts = [0, 14, -14, 28, -28, 42, -42, 56, -56, 70, -70];
                 for (const sh of shifts) {
                     const tryPts = sh === 0 ? pts : routeICWire(p1, p2, null, doc, sh);
                     let overlap = false;
@@ -1517,14 +2279,14 @@
                         if (Math.abs(a.x - b.x) < 1e-4 && Math.abs(a.y - b.y) > 4) {
                             const minY = Math.min(a.y, b.y);
                             const maxY = Math.max(a.y, b.y);
-                            if (vertSegs.some(v => v.netId !== netId && Math.abs(v.x - a.x) < 4 && Math.min(maxY, v.y2) - Math.max(minY, v.y1) > 4)) {
+                            if (vertSegs.some(v => v.netId !== netId && Math.abs(v.x - a.x) < 8 && Math.min(maxY, v.y2) - Math.max(minY, v.y1) > 4)) {
                                 overlap = true;
                                 break;
                             }
                         } else if (Math.abs(a.y - b.y) < 1e-4 && Math.abs(a.x - b.x) > 4) {
                             const minX = Math.min(a.x, b.x);
                             const maxX = Math.max(a.x, b.x);
-                            if (horizSegs.some(h => h.netId !== netId && Math.abs(h.y - a.y) < 4 && Math.min(maxX, h.x2) - Math.max(minX, h.x1) > 4)) {
+                            if (horizSegs.some(h => h.netId !== netId && Math.abs(h.y - a.y) < 8 && Math.min(maxX, h.x2) - Math.max(minX, h.x1) > 4)) {
                                 overlap = true;
                                 break;
                             }
@@ -1944,6 +2706,192 @@
         }
     };
 
+    const BENCH_2D_PRESETS = {
+        bb_7408_ic: {
+            title: 'Breadboard + 7408 DIP-14 IC — Straddling Center Trough + LED',
+            description: '7408 Quad AND DIP-14 IC plugs pin-for-pin across the exact breadboard center trough (Row e & Row f). Powered by 3×AA (4.5V) through the breadboard rails, two tactile buttons drive Gate 1 (Pins 1 & 2) to light a 220Ω-protected 5mm LED!',
+            build() {
+                const doc = blankICDoc();
+                const bb = createICComponent('breadboard', 0, 0, { id: 'bb1', variant: 'half' });
+                const bat = createICComponent('battery', -756, -288, { id: 'bat1', cells: 3, label: '3×AA (4.5V)' });
+                // 7408 at (36, 0): Top pins 8..14 land in Row e (cols 14..20), Bottom pins 1..7 land in Row f (cols 14..20)!
+                const ic = createICComponent('7408', 36, 0, { id: 'ic1', label: '7408' });
+                const btnA = createICComponent('pushbutton', -324, 144, { id: 'btnA', latched: true, pressed: true, label: 'IN A' });
+                const btnB = createICComponent('pushbutton', -180, 144, { id: 'btnB', latched: true, pressed: true, label: 'IN B' });
+                const res = createICComponent('resistor', 288, 144, { id: 'res1', ohms: 220, label: '220Ω' });
+                const led = createICComponent('lamp', 378, 180, { id: 'led1', color: 'emerald', label: 'OUT LED' });
+
+                doc.components.push(bb, bat, ic, btnA, btnB, res, led);
+
+                // Supply 3×AA (4.5V) into Top Rails & bridge to Bottom Rails
+                connectICWire(doc, 'bat1:pos', 'bb1:tp1', [], { color: 'red', label: '+4.5V' });
+                connectICWire(doc, 'bat1:neg', 'bb1:tn1', [], { color: 'black', label: '0V' });
+                connectICWire(doc, 'bb1:tp2', 'bb1:bp2', [], { color: 'red' });
+                connectICWire(doc, 'bb1:tn2', 'bb1:bn2', [], { color: 'black' });
+
+                // Power 7408 Pin 14 (e14 = VCC) and Pin 7 (f20 = GND) via straight breadboard jumpers
+                connectICWire(doc, 'bb1:tp11', 'bb1:a14', [], { color: 'red' });
+                connectICWire(doc, 'bb1:j20', 'bb1:bn16', [], { color: 'black' });
+
+                // Feed Buttons A & B from Bottom + Rail and route outputs into Pin 1 (f14) & Pin 2 (f15)
+                connectICWire(doc, 'bb1:bp5', 'bb1:j6', [], { color: 'red' });
+                connectICWire(doc, 'bb1:bp8', 'bb1:j10', [], { color: 'red' });
+                connectICWire(doc, 'bb1:h8', 'bb1:h14', [], { color: 'blue' });
+                connectICWire(doc, 'bb1:i12', 'bb1:i15', [], { color: 'green' });
+
+                // Route Gate 1 Output Pin 3 (f16) -> Resistor (h22..h26) -> 1U LED (i26..i27) -> Bottom − Rail
+                connectICWire(doc, 'bb1:j16', 'bb1:j22', [], { color: 'yellow' });
+                connectICWire(doc, 'bb1:j27', 'bb1:bn22', [], { color: 'black' });
+
+                return doc;
+            }
+        },
+        bb_wirefree_demo: {
+            title: 'Tinkercad Wire-Free Breadboard — SPDT + Pot + NPN + Buzzer + LEDs',
+            description: 'Every hardware component is scaled to exact 1U (0.1" = 36 px) Tinkercad breadboard pitch and plugs directly into the breadboard strips WITHOUT inter-component wires! Flip the SPDT switch, twist the Potentiometer, or toggle the Push Button.',
+            build() {
+                const doc = blankICDoc();
+                const bb = createICComponent('breadboard', 0, 0, { id: 'bb1', variant: 'half' });
+                const bat = createICComponent('battery', -756, -288, { id: 'bat1', cells: 3, label: '3×AA (4.5V)' });
+
+                // TOP HALF: SPDT Slide Switch (d8,d9,d10) -> 220Ω Resistor (c10..c14) -> 1U Emerald LED (d14..d15) — ZERO WIRES BETWEEN PARTS!
+                const spdt = createICComponent('spdt', -252, -144, { id: 'spdt1', positionThrow: 'right', label: 'MODE' });
+                const res1 = createICComponent('resistor', -144, -144, { id: 'res1', ohms: 220, label: '220Ω' });
+                const led1 = createICComponent('lamp', -54, -108, { id: 'led1', color: 'emerald', label: 'LED 1' });
+
+                // TOP RIGHT: Rotary Potentiometer (d20,d21,d22) -> 220Ω Resistor (c21..c25) -> 1U Cyan LED (d25..d26) — ZERO WIRES BETWEEN PARTS!
+                const pot = createICComponent('potentiometer', 180, -144, { id: 'pot1', ohms: 1000, wiper: 0.85, label: 'DIM' });
+                const res2 = createICComponent('resistor', 252, -144, { id: 'res2', ohms: 220, label: '220Ω' });
+                const led2 = createICComponent('lamp', 342, -108, { id: 'led2', color: 'cyan', label: 'DIM LED' });
+
+                // BOTTOM HALF: Push Button (g6..i8) -> 1kΩ Base Resistor (h8..h12) -> NPN 2N2222 (i11,i12,i13) -> Piezo Buzzer (g13..g15) — ZERO WIRES BETWEEN PARTS!
+                const btn = createICComponent('pushbutton', -324, 144, { id: 'btn1', latched: true, pressed: true, label: 'BEEP' });
+                const rBase = createICComponent('resistor', -216, 144, { id: 'rBase', ohms: 1000, label: '1kΩ' });
+                const q1 = createICComponent('npn', -144, 144, { id: 'q1', model: '2N2222', label: '2N2222' });
+                const buz = createICComponent('buzzer', -72, 144, { id: 'buz1', rotation: 180, freqHz: 880, label: 'Buzzer' });
+
+                doc.components.push(bb, bat, spdt, res1, led1, pot, res2, led2, btn, rBase, q1, buz);
+
+                // Only crisp straight power-rail taps (zero wires between the plugged-in components!)
+                connectICWire(doc, 'bat1:pos', 'bb1:tp1', [], { color: 'red', label: '+4.5V' });
+                connectICWire(doc, 'bat1:neg', 'bb1:tn1', [], { color: 'black', label: '0V' });
+                connectICWire(doc, 'bb1:tp2', 'bb1:bp2', [], { color: 'red' });
+                connectICWire(doc, 'bb1:tn2', 'bb1:bn2', [], { color: 'black' });
+
+                // Top-left SPDT COM (col 9) & LED1 cathode (col 15) rail taps
+                connectICWire(doc, 'bb1:tp7', 'bb1:a9', [], { color: 'red' });
+                connectICWire(doc, 'bb1:a15', 'bb1:tn12', [], { color: 'black' });
+
+                // Top-right Pot T1 (col 20) to −, T2 (col 22) to +, LED2 cathode (col 26) to −
+                connectICWire(doc, 'bb1:a20', 'bb1:tn16', [], { color: 'black' });
+                connectICWire(doc, 'bb1:tp18', 'bb1:a22', [], { color: 'red' });
+                connectICWire(doc, 'bb1:a26', 'bb1:tn21', [], { color: 'black' });
+
+                // Bottom-left Button feed (col 6), NPN Emitter GND (col 11), Buzzer + feed (col 15)
+                connectICWire(doc, 'bb1:bp5', 'bb1:j6', [], { color: 'red' });
+                connectICWire(doc, 'bb1:j11', 'bb1:bn9', [], { color: 'black' });
+                connectICWire(doc, 'bb1:bp12', 'bb1:j15', [], { color: 'red' });
+
+                return doc;
+            }
+        },
+        bb_button_led: {
+            title: '2D Breadboard — 3×AA Pack + Push Button + 220Ω + 2-Leg LED',
+            description: 'Half-size Breadboard powered by a 3×AA (4.5V) pack. The 6×6mm Push Button, 220Ω 1/4W Resistor, and 1U 5mm LED plug directly into vertical 0.1" breadboard strips with zero wires between them.',
+            build() {
+                const doc = blankICDoc();
+                const bb = createICComponent('breadboard', 0, 0, { id: 'bb1', variant: 'half' });
+                const bat = createICComponent('battery', -756, -288, { id: 'bat1', cells: 3, label: '3×AA (4.5V)' });
+                // btn1 spans cols 8 & 10 (rows b & d); res1 spans cols 10 & 14 (row c); led1 spans cols 14 & 15 (row d, exact 1U!)
+                const btn = createICComponent('pushbutton', -252, -144, { id: 'btn1', latched: true, pressed: true, label: 'BTN' });
+                const res = createICComponent('resistor', -144, -144, { id: 'res1', ohms: 220, label: '220Ω' });
+                const led = createICComponent('lamp', -54, -108, { id: 'led1', color: 'emerald', label: 'LED' });
+
+                doc.components.push(bb, bat, btn, res, led);
+
+                connectICWire(doc, 'bat1:pos', 'bb1:tp1', [], { color: 'red', label: 'V+' });
+                connectICWire(doc, 'bat1:neg', 'bb1:tn1', [], { color: 'black', label: '−' });
+                connectICWire(doc, 'bb1:tp6', 'bb1:a8', [], { color: 'red' });
+                connectICWire(doc, 'bb1:a15', 'bb1:tn12', [], { color: 'black' });
+
+                return doc;
+            }
+        },
+        motor_pot_rpm: {
+            title: 'DC Motor Speed Control — 9V Battery + Potentiometer + Multimeter',
+            description: '9V Battery feeds a 5W rotary Potentiometer controlling a spinning DC Motor (click the Motor to inspect live RPM!) while a Digital Multimeter displays live motor voltage.',
+            build() {
+                const doc = blankICDoc();
+                const bat9 = createICComponent('battery9v', -360, -72, { id: 'bat9', label: '9V PP3' });
+                const pot = createICComponent('potentiometer', -72, -72, { id: 'pot1', ohms: 100, wiper: 0.72, maxWatts: 5.0, label: 'SPEED' });
+                const mot = createICComponent('motor', 252, -72, { id: 'mot1', ratedV: 9, maxRpm: 3600, label: 'DC Motor' });
+                const dmm = createICComponent('multimeter', 234, 198, { id: 'dmm1', mode: 'V', label: 'DMM' });
+
+                doc.components.push(bat9, pot, mot, dmm);
+
+                connectICWire(doc, 'bat9:pos', 'pot1:t2', [], { color: 'red', label: '+9V' });
+                connectICWire(doc, 'bat9:neg', 'pot1:t1', [{ x: -468, y: 72 }, { x: -108, y: 72 }], { color: 'black' });
+                connectICWire(doc, 'pot1:wiper', 'mot1:pos', [], { color: 'orange', label: 'V_MOT' });
+                connectICWire(doc, 'mot1:neg', 'bat9:neg', [{ x: 108, y: 72 }, { x: -468, y: 72 }], { color: 'black' });
+                connectICWire(doc, 'dmm1:pos', 'mot1:pos', [], { color: 'yellow' });
+                connectICWire(doc, 'dmm1:neg', 'mot1:neg', [], { color: 'black' });
+
+                return doc;
+            }
+        },
+        overload_9v_demo: {
+            title: '9V Overload Protection Demo — SPDT Switch: Bare LED vs 330Ω Protected',
+            description: '9V Battery routed through a 3-terminal SPDT Switch (closed loop back to 9V −). Throw Right drives a bare LED directly (triggering 🔥 OVERLOAD!). Click the SPDT switch to throw Left through 330Ω and watch it recover.',
+            build() {
+                const doc = blankICDoc();
+                const bat9 = createICComponent('battery9v', -360, 0, { id: 'bat9', label: '9V PP3' });
+                const spdt = createICComponent('spdt', -108, 0, { id: 'spdt1', positionThrow: 'right', label: 'ROUTE' });
+                const res = createICComponent('resistor', 108, -108, { id: 'res1', ohms: 330, label: '330Ω' });
+                const ledSafe = createICComponent('lamp', 306, -108, { id: 'ledSafe', color: 'emerald', label: 'Safe LED' });
+                const ledBare = createICComponent('lamp', 252, 108, { id: 'ledBare', color: 'red', label: 'Bare 9V LED' });
+
+                doc.components.push(bat9, spdt, res, ledSafe, ledBare);
+
+                connectICWire(doc, 'bat9:pos', 'spdt1:com', [], { color: 'red', label: '+9V' });
+                connectICWire(doc, 'spdt1:t1', 'res1:a', [], { color: 'green' });
+                connectICWire(doc, 'res1:b', 'ledSafe:anode', [], { color: 'green' });
+                connectICWire(doc, 'ledSafe:cathode', 'bat9:neg', [], { color: 'black' });
+                connectICWire(doc, 'spdt1:t2', 'ledBare:anode', [], { color: 'orange', label: 'NO RES!' });
+                connectICWire(doc, 'ledBare:cathode', 'bat9:neg', [], { color: 'black' });
+
+                return doc;
+            }
+        },
+        npn_motor_buzzer: {
+            title: 'NPN 2N2222 Transistor Driver — 4.5V Button Switching 9V Motor & Buzzer',
+            description: 'Low-voltage 3×AA (4.5V) Push Button drives a 2N2222 NPN Transistor base through 1 kΩ, switching a 9V DC Motor and Piezo Buzzer simultaneously (common negative return to batteries −).',
+            build() {
+                const doc = blankICDoc();
+                const batCtrl = createICComponent('battery', -414, 144, { id: 'batCtrl', cells: 3, label: '3×AA Ctrl' });
+                const btn = createICComponent('pushbutton', -180, 144, { id: 'btn1', latched: true, pressed: true, label: 'RUN' });
+                const rBase = createICComponent('resistor', 18, 144, { id: 'rBase', ohms: 1000, label: '1kΩ' });
+                const q1 = createICComponent('npn', 216, 126, { id: 'q1', model: '2N2222', label: '2N2222' });
+                const bat9 = createICComponent('battery9v', -288, -162, { id: 'bat9', label: '9V Load' });
+                const mot = createICComponent('motor', 72, -162, { id: 'mot1', ratedV: 9, maxRpm: 3600, label: 'DC Motor' });
+                const buz = createICComponent('buzzer', 342, -162, { id: 'buz1', freqHz: 880, label: 'Buzzer' });
+
+                doc.components.push(batCtrl, btn, rBase, q1, bat9, mot, buz);
+
+                connectICWire(doc, 'batCtrl:pos', 'btn1:a1', [], { color: 'blue' });
+                connectICWire(doc, 'btn1:b1', 'rBase:a', [], { color: 'blue' });
+                connectICWire(doc, 'rBase:b', 'q1:b', [], { color: 'purple', label: 'BASE' });
+                connectICWire(doc, 'q1:e', 'batCtrl:neg', [], { color: 'black' });
+                connectICWire(doc, 'bat9:neg', 'batCtrl:neg', [], { color: 'black' });
+                connectICWire(doc, 'bat9:pos', 'mot1:pos', [], { color: 'red', label: '+9V' });
+                connectICWire(doc, 'bat9:pos', 'buz1:pos', [], { color: 'red' });
+                connectICWire(doc, 'mot1:neg', 'q1:c', [], { color: 'orange', label: 'SINK' });
+                connectICWire(doc, 'buz1:neg', 'q1:c', [], { color: 'orange' });
+
+                return doc;
+            }
+        }
+    };
+
     // =========================================================================
     // 6. CANVAS RENDERER (X-RAY DATASHEET IC OVERLAY & BENCH COMPONENTS)
     // =========================================================================
@@ -2014,6 +2962,9 @@
             this.height = 0;
             this.dpr = 1;
             this.xrayMode = true;
+            this.showFlow = true;
+            this.animTimeSec = 0;
+            this.motorAngles = new Map();
             this.onResize = () => {};
 
             if (typeof ResizeObserver !== 'undefined') {
@@ -2026,6 +2977,7 @@
         }
 
         resize() {
+            if (this.offscreen) return;
             const rect = this.canvas.getBoundingClientRect();
             const dpr = Math.min((typeof window !== 'undefined' && window.devicePixelRatio) || 1, 2);
             const w = Math.max(1, Math.round(rect.width || 700));
@@ -2067,7 +3019,7 @@
             maxX += 80;
             minY -= 70;
             maxY += 70;
-            const zoom = Math.max(0.4, Math.min(1.25, this.width / Math.max(240, maxX - minX), this.height / Math.max(200, maxY - minY)));
+            const zoom = Math.max(0.22, Math.min(1.25, this.width / Math.max(240, maxX - minX), this.height / Math.max(200, maxY - minY)));
             this.view = {
                 zoom,
                 panX: -((minX + maxX) / 2) * zoom,
@@ -2111,7 +3063,7 @@
                 const len1 = Math.hypot(points[i].x - points[i - 1].x, points[i].y - points[i - 1].y);
                 const len2 = Math.hypot(points[i + 1].x - points[i].x, points[i + 1].y - points[i].y);
                 if (len1 > 4 && len2 > 4) {
-                    rCorner[i] = Math.min(6, len1 * 0.35, len2 * 0.35);
+                    rCorner[i] = Math.min(14, len1 * 0.42, len2 * 0.42);
                 }
             }
 
@@ -2211,12 +3163,63 @@
         drawWire(points, state = {}) {
             if (!points || points.length < 2) return;
             const ctx = this.ctx;
-            const { value, conflict, selected, crossings = [], preview = false } = state;
+            const {
+                value,
+                conflict,
+                selected,
+                crossings = [],
+                preview = false,
+                color = null,
+                label = '',
+                dimmed = false,
+                focused = false,
+                voltage = null,
+                currentMa = 0,
+                flowDir = 0
+            } = state;
 
-            if (value === 1 && !preview && !conflict) {
+            const customHex = color && WIRE_COLOR_HEX[color] ? WIRE_COLOR_HEX[color] : null;
+
+            let strokeColor = customHex || COLORS.wireFloat;
+            if (preview) {
+                strokeColor = customHex || COLORS.cyan;
+            } else if (conflict) {
+                strokeColor = COLORS.wireShort;
+            } else if (selected) {
+                strokeColor = COLORS.selected;
+            } else if (!customHex) {
+                if (value === 1) strokeColor = COLORS.wire1;
+                else if (value === 0) strokeColor = COLORS.wire0;
+            }
+
+            const mainWidth = selected ? 5.2 : focused ? 4.8 : (customHex ? 4.3 : (value === 1 ? 4.0 : 3.4));
+            const hasActiveFlow = !preview && !conflict && currentMa >= 0.15 && flowDir !== 0;
+
+            ctx.save();
+            if (dimmed) ctx.globalAlpha = 0.28;
+
+            // Layer 1 (Glossy 3-Layer Jumper Wire): Offset physical drop shadow so wires float above breadboard & parts
+            if (!preview) {
                 ctx.save();
-                ctx.strokeStyle = COLORS.wire1Glow;
-                ctx.lineWidth = selected ? 9 : 6.5;
+                ctx.translate(0, 3.8);
+                ctx.strokeStyle = 'rgba(0, 0, 0, 0.44)';
+                ctx.lineWidth = mainWidth + 2.4;
+                ctx.lineCap = 'round';
+                ctx.lineJoin = 'round';
+                ctx.shadowColor = 'rgba(0, 0, 0, 0.45)';
+                ctx.shadowBlur = 5;
+                this.traceWireWithHops(points, crossings);
+                ctx.stroke();
+                ctx.restore();
+            }
+
+            // Soft live glow ONLY when wire carries real closed-loop current or is focused on hover
+            if (!preview && !conflict && (focused || hasActiveFlow)) {
+                ctx.save();
+                ctx.strokeStyle = focused
+                    ? 'rgba(56, 189, 248, 0.42)'
+                    : (customHex ? customHex + '44' : COLORS.wire1Glow);
+                ctx.lineWidth = mainWidth + 6.5;
                 ctx.lineCap = 'round';
                 ctx.lineJoin = 'round';
                 this.traceWireWithHops(points, crossings);
@@ -2224,25 +3227,25 @@
                 ctx.restore();
             }
 
-            let strokeColor = COLORS.wireFloat;
-            if (preview) {
-                strokeColor = COLORS.cyan;
-            } else if (conflict) {
-                strokeColor = COLORS.wireShort;
-            } else if (selected) {
-                strokeColor = COLORS.selected;
-            } else if (value === 1) {
-                strokeColor = COLORS.wire1;
-            } else if (value === 0) {
-                strokeColor = COLORS.wire0;
+            // Layer 2A: High-contrast outer dark insulation rim (keeps wires crisp on both white breadboards & dark bench!)
+            if (!preview) {
+                ctx.save();
+                if (value === null && !conflict && !selected && !customHex) {
+                    ctx.setLineDash([5, 4]);
+                }
+                ctx.strokeStyle = 'rgba(2, 6, 23, 0.90)';
+                ctx.lineWidth = mainWidth + 2.2;
+                ctx.lineCap = 'round';
+                ctx.lineJoin = 'round';
+                this.traceWireWithHops(points, crossings);
+                ctx.stroke();
+                ctx.restore();
             }
-            const mainWidth = selected ? 3.4 : value === 1 ? 2.6 : 2.1;
 
-            ctx.save();
+            // Layer 2B: Solid colored PVC jumper jacket
             if (preview) {
                 ctx.setLineDash([6, 5]);
-            } else if (value === null && !conflict && !selected) {
-                // Open / floating wire: clean dashed pattern to clearly distinguish open from grounded 0V
+            } else if (value === null && !conflict && !selected && !customHex) {
                 ctx.setLineDash([5, 4]);
             }
             ctx.strokeStyle = strokeColor;
@@ -2252,28 +3255,138 @@
             const arcs = this.traceWireWithHops(points, crossings);
             ctx.stroke();
 
+            // Layer 3: Thin semi-transparent white top highlight stripe for glossy 3D PVC tubing
+            if (!preview && !conflict && mainWidth >= 3.0) {
+                ctx.save();
+                ctx.translate(0, -0.75);
+                ctx.setLineDash([]);
+                ctx.strokeStyle = 'rgba(255, 255, 255, 0.40)';
+                ctx.lineWidth = 1.25;
+                ctx.lineCap = 'round';
+                ctx.lineJoin = 'round';
+                this.traceWireWithHops(points, crossings);
+                ctx.stroke();
+                ctx.restore();
+            }
+
+            // Molded DuPont Pin Header Boots at wire start & end terminals
+            if (!preview && points.length >= 2) {
+                const ends = [
+                    { a: points[0], b: points[1] },
+                    { a: points[points.length - 1], b: points[points.length - 2] }
+                ];
+                for (const { a, b } of ends) {
+                    if (Math.hypot(b.x - a.x, b.y - a.y) < 1) continue;
+                    const ang = Math.atan2(b.y - a.y, b.x - a.x);
+                    ctx.save();
+                    ctx.translate(a.x, a.y);
+                    ctx.rotate(ang);
+                    // Molded black polymer pin boot collar
+                    roundedRect(ctx, 2, -4.0, 9.5, 8.0, 2.5);
+                    ctx.fillStyle = '#0f172a';
+                    ctx.fill();
+                    ctx.strokeStyle = '#64748b';
+                    ctx.lineWidth = 1.0;
+                    ctx.stroke();
+                    // Shiny nickel contact pin tip inserting into socket
+                    ctx.beginPath();
+                    ctx.arc(0, 0, 2.5, 0, Math.PI * 2);
+                    ctx.fillStyle = '#e2e8f0';
+                    ctx.fill();
+                    ctx.restore();
+                }
+            }
+
+            // Animated current flow pulse dashes STRICTLY ONLY when real closed-loop current >= 0.15 mA flows!
+            if (hasActiveFlow && this.showFlow) {
+                const speed = Math.min(96, Math.max(26, 24 + Math.log10(1 + currentMa) * 26));
+                ctx.save();
+                ctx.setLineDash([5, 13]);
+                ctx.lineDashOffset = -(flowDir * this.animTimeSec * speed);
+                ctx.strokeStyle = 'rgba(255, 255, 255, 0.82)';
+                ctx.lineWidth = 1.7;
+                ctx.lineCap = 'round';
+                this.traceWireWithHops(points, crossings);
+                ctx.stroke();
+                ctx.restore();
+            }
+
+            // Crisp bridge arcs at crossings (uses thin dark insulation rim instead of heavy black blotch so white breadboards stay clean!)
             if (!preview && arcs && arcs.length) {
                 for (const a of arcs) {
+                    const startA = a.dirX > 0 ? Math.PI : 0;
+                    const endA = a.dirX > 0 ? 0 : Math.PI;
+                    const ccw = a.dirX < 0;
                     ctx.beginPath();
-                    ctx.arc(a.centerX, a.y, a.radius, a.dirX > 0 ? Math.PI : 0, a.dirX > 0 ? 0 : Math.PI, a.dirX < 0);
-                    ctx.strokeStyle = COLORS.bg;
-                    ctx.lineWidth = mainWidth + 4.0;
+                    ctx.arc(a.centerX, a.y, a.radius, startA, endA, ccw);
+                    ctx.strokeStyle = 'rgba(2, 6, 23, 0.88)';
+                    ctx.lineWidth = mainWidth + 2.2;
                     ctx.stroke();
 
                     ctx.beginPath();
-                    ctx.arc(a.centerX, a.y, a.radius, a.dirX > 0 ? Math.PI : 0, a.dirX > 0 ? 0 : Math.PI, a.dirX < 0);
+                    ctx.arc(a.centerX, a.y, a.radius, startA, endA, ccw);
                     ctx.strokeStyle = strokeColor;
                     ctx.lineWidth = mainWidth;
                     ctx.stroke();
+
+                    ctx.beginPath();
+                    ctx.arc(a.centerX, a.y - 0.7, a.radius, startA, endA, ccw);
+                    ctx.strokeStyle = 'rgba(255, 255, 255, 0.36)';
+                    ctx.lineWidth = 1.1;
+                    ctx.stroke();
                 }
             }
+
+            // Optional wire label pill — placed cleanly at the midpoint of the LONGEST straight segment (never colliding with bends or terminals!)
+            if (!preview && label && points.length >= 2) {
+                let bestLen = -1;
+                let pA = points[0];
+                let pB = points[1];
+                for (let i = 1; i < points.length; i++) {
+                    const segLen = Math.hypot(points[i].x - points[i - 1].x, points[i].y - points[i - 1].y);
+                    if (segLen > bestLen) {
+                        bestLen = segLen;
+                        pA = points[i - 1];
+                        pB = points[i];
+                    }
+                }
+                const mx = (pA.x + pB.x) / 2;
+                const my = (pA.y + pB.y) / 2;
+                const isVert = Math.abs(pA.x - pB.x) < 1;
+                const pillY = isVert ? my : my - 12;
+                ctx.save();
+                ctx.setLineDash([]);
+                ctx.font = '700 8.5px "JetBrains Mono", monospace';
+                const tw = ctx.measureText(label).width + 10;
+                roundedRect(ctx, mx - tw / 2, pillY - 7, tw, 14, 4);
+                ctx.fillStyle = 'rgba(10, 14, 24, 0.94)';
+                ctx.fill();
+                ctx.strokeStyle = strokeColor;
+                ctx.lineWidth = 1.1;
+                ctx.stroke();
+                ctx.fillStyle = '#f8fafc';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(label, mx, pillY + 0.5);
+                ctx.restore();
+            }
+
             ctx.restore();
         }
 
         drawICPackage(comp, evalData, isSelected, autoPower) {
-            const ctx = this.ctx;
+            const art = getArtMod();
             const spec = IC_CATALOG[comp.model];
             if (!spec) return;
+            if (art && typeof art.drawRealisticICPackage === 'function') {
+                art.drawRealisticICPackage(this.ctx, comp, spec, evalData, isSelected, this.xrayMode, autoPower, {
+                    getDipPinLocal,
+                    drawMiniGateShape,
+                    COLORS
+                });
+                return;
+            }
+            const ctx = this.ctx;
             const icState = evalData.icStates.get(comp.id);
             const powered = Boolean(icState && icState.powered);
             const reversePower = Boolean(icState && icState.reversePower);
@@ -2549,12 +3662,134 @@
             ctx.restore();
         }
 
-        drawBenchComponent(comp, evalData, isSelected) {
+        drawBenchComponent(comp, evalData, isSelected, uiState = {}) {
             const ctx = this.ctx;
+            const fritz = getFritzingMod();
+            const art = getArtMod();
+            const solverMod = getSolverMod();
             ctx.save();
             ctx.translate(comp.position.x, comp.position.y);
             if (comp.rotation) {
                 ctx.rotate((comp.rotation * Math.PI) / 180);
+            }
+
+            // 1. Primary Fritzing SVG Hardware Realism Pipeline (CC-BY-SA 3.0) with graceful fallback while preloading
+            if (fritz && !this.offscreen) {
+                let drawn = false;
+                if (comp.kind === 'breadboard') {
+                    const spec = solverMod ? solverMod.getBreadboardSpec(comp.variant || 'half') : null;
+                    if (spec) drawn = fritz.drawFritzingBreadboard(ctx, comp, spec, evalData, isSelected, uiState.hoverStripId || null);
+                } else if (comp.kind === 'lamp') {
+                    drawn = fritz.drawFritzingLed(ctx, comp, evalData, isSelected);
+                } else if (comp.kind === 'rgb_led') {
+                    drawn = fritz.drawFritzingRgbLed(ctx, comp, evalData, isSelected);
+                } else if (comp.kind === 'resistor') {
+                    drawn = fritz.drawFritzingResistor(ctx, comp, evalData, isSelected, solverMod);
+                } else if (comp.kind === 'motor') {
+                    drawn = fritz.drawFritzingMotor(ctx, comp, evalData, isSelected, this.motorAngles.get(comp.id) || 0);
+                } else if (comp.kind === 'battery9v') {
+                    drawn = fritz.drawFritzingBattery9V(ctx, comp, evalData, isSelected);
+                } else if (comp.kind === 'battery') {
+                    drawn = fritz.drawFritzingAAHolder(ctx, comp, evalData, isSelected);
+                } else if (comp.kind === 'pushbutton') {
+                    drawn = fritz.drawFritzingPushButton(ctx, comp, evalData, isSelected);
+                } else if (comp.kind === 'spdt') {
+                    drawn = fritz.drawFritzingSpdt(ctx, comp, evalData, isSelected);
+                } else if (comp.kind === 'potentiometer') {
+                    drawn = fritz.drawFritzingPotentiometer(ctx, comp, evalData, isSelected, solverMod);
+                } else if (comp.kind === 'buzzer') {
+                    drawn = fritz.drawFritzingBuzzer(ctx, comp, evalData, isSelected, this.animTimeSec);
+                } else if (comp.kind === 'npn') {
+                    drawn = fritz.drawFritzingNpn(ctx, comp, evalData, isSelected);
+                } else if (comp.kind === 'seg7_10') {
+                    drawn = fritz.drawFritzingSeg7TenPin(ctx, comp, evalData, isSelected);
+                }
+                if (drawn) {
+                    ctx.restore();
+                    return;
+                }
+            }
+
+            if (comp.kind === 'seg7_10' && fritz) {
+                fritz.drawFritzingSeg7TenPin(ctx, comp, evalData, isSelected);
+                ctx.restore();
+                return;
+            }
+
+            if (art) {
+                if (comp.kind === 'breadboard') {
+                    const spec = solverMod ? solverMod.getBreadboardSpec(comp.variant || 'half') : null;
+                    if (spec) {
+                        art.drawBreadboard2D(ctx, comp, spec, evalData, isSelected, uiState.hoverStripId || null);
+                    }
+                    ctx.restore();
+                    return;
+                }
+                if (comp.kind === 'battery') {
+                    art.drawAAHolder2D(ctx, comp, evalData, isSelected);
+                    ctx.restore();
+                    return;
+                }
+                if (comp.kind === 'battery9v') {
+                    art.drawBattery9V2D(ctx, comp, evalData, isSelected);
+                    ctx.restore();
+                    return;
+                }
+                if (comp.kind === 'psu') {
+                    art.drawBenchPSU2D(ctx, comp, evalData, isSelected);
+                    ctx.restore();
+                    return;
+                }
+                if (comp.kind === 'lamp') {
+                    art.drawLed2D(ctx, comp, evalData, isSelected);
+                    ctx.restore();
+                    return;
+                }
+                if (comp.kind === 'rgb_led') {
+                    art.drawRgbLed2D(ctx, comp, evalData, isSelected);
+                    ctx.restore();
+                    return;
+                }
+                if (comp.kind === 'resistor') {
+                    art.drawResistor2D(ctx, comp, evalData, isSelected, solverMod);
+                    ctx.restore();
+                    return;
+                }
+                if (comp.kind === 'potentiometer') {
+                    art.drawPotentiometer2D(ctx, comp, evalData, isSelected, solverMod);
+                    ctx.restore();
+                    return;
+                }
+                if (comp.kind === 'pushbutton') {
+                    art.drawPushButton2D(ctx, comp, evalData, isSelected);
+                    ctx.restore();
+                    return;
+                }
+                if (comp.kind === 'spdt') {
+                    art.drawSpdtSwitch2D(ctx, comp, evalData, isSelected);
+                    ctx.restore();
+                    return;
+                }
+                if (comp.kind === 'motor') {
+                    art.drawMotor2D(ctx, comp, evalData, isSelected, this.motorAngles.get(comp.id) || 0);
+                    ctx.restore();
+                    return;
+                }
+                if (comp.kind === 'buzzer') {
+                    art.drawBuzzer2D(ctx, comp, evalData, isSelected, this.animTimeSec);
+                    ctx.restore();
+                    return;
+                }
+                if (comp.kind === 'npn') {
+                    art.drawNpn2D(ctx, comp, evalData, isSelected);
+                    ctx.restore();
+                    return;
+                }
+                if (comp.kind === 'multimeter') {
+                    art.drawMultimeter2D(ctx, comp, evalData, isSelected);
+                    ctx.restore();
+                    return;
+                }
             }
 
             if (comp.kind === 'battery') {
@@ -3011,15 +4246,63 @@
             ctx.translate(this.width / 2 + this.view.panX, this.height / 2 + this.view.panY);
             ctx.scale(this.view.zoom, this.view.zoom);
 
-            // 1. Draw wires with smooth curved jump-overs at crossings
+            // Determine hovered breadboard strip ID and hovered wire net for net focus highlight
+            let hoverStripId = null;
+            if (uiState.hoverPinKey && evalData.pins.has(uiState.hoverPinKey)) {
+                const hp = evalData.pins.get(uiState.hoverPinKey);
+                if (hp.stripId) hoverStripId = hp.stripId;
+            }
+            const hoverNetId = uiState.hoverWireNetId !== undefined && uiState.hoverWireNetId !== null
+                ? uiState.hoverWireNetId
+                : (uiState.hoverPinKey ? evalData.pinToNet.get(uiState.hoverPinKey) : null);
+
+            // 1. Draw Breadboards FIRST (underneath all components & jumper wires)
+            for (const comp of doc.components) {
+                if (comp.kind !== 'breadboard') continue;
+                const isSelected = uiState.selected && uiState.selected.kind === 'comp' && uiState.selected.id === comp.id;
+                this.drawBenchComponent(comp, evalData, isSelected, { hoverStripId });
+            }
+
+            // 2. Draw non-breadboard 2D Fritzing components & realistic DIP ICs SECOND (underneath jumper wires!)
+            for (const comp of doc.components) {
+                if (comp.kind === 'breadboard') continue;
+                const isSelected = uiState.selected && uiState.selected.kind === 'comp' && uiState.selected.id === comp.id;
+                if (comp.kind === 'ic') {
+                    this.drawICPackage(comp, evalData, isSelected, doc.autoPower);
+                } else {
+                    this.drawBenchComponent(comp, evalData, isSelected, uiState);
+                }
+            }
+
+            // 3. Draw Glossy 3-Layer Jumper Wires ON TOP of breadboards & components so wires NEVER hide behind parts!
             const wireGeom = computeICWireGeometry(doc, evalData.pins, evalData.pinToNet);
+            const wiredPinSet = new Set();
             for (const w of doc.wires) {
+                wiredPinSet.add(w.from);
+                wiredPinSet.add(w.to);
                 const pts = wireGeom.routes.get(w.id);
                 const crossings = wireGeom.crossingsByWire.get(w.id) || [];
                 const val = evalData.pinValues.get(w.from);
+                const voltage = evalData.pinVoltages ? evalData.pinVoltages.get(w.from) : null;
                 const conflict = evalData.pinConflicts.get(w.from);
                 const isSelected = uiState.selected && uiState.selected.kind === 'wire' && uiState.selected.id === w.id;
-                this.drawWire(pts, { value: val, conflict, selected: isSelected, crossings });
+                const wNet = evalData.pinToNet.get(w.from);
+                const focused = uiState.hoverWireId === w.id || (hoverNetId !== null && hoverNetId !== undefined && wNet === hoverNetId);
+                const dimmed = (uiState.hoverWireId != null) && !focused && !isSelected;
+                const wc = evalData.wireCurrents ? evalData.wireCurrents.get(w.id) : null;
+                this.drawWire(pts, {
+                    value: val,
+                    voltage,
+                    conflict,
+                    selected: isSelected,
+                    crossings,
+                    color: w.color || null,
+                    label: w.label || '',
+                    focused,
+                    dimmed,
+                    currentMa: wc ? wc.currentMa : 0,
+                    flowDir: wc ? wc.dir : 0
+                });
             }
 
             // Draw T-junction dots where same-net wires branch
@@ -3027,10 +4310,10 @@
                 for (const j of wireGeom.junctions) {
                     ctx.save();
                     ctx.beginPath();
-                    ctx.arc(j.x, j.y, 4.0, 0, Math.PI * 2);
+                    ctx.arc(j.x, j.y, 4.4, 0, Math.PI * 2);
                     ctx.fillStyle = COLORS.cyan;
                     ctx.fill();
-                    ctx.lineWidth = 1.2;
+                    ctx.lineWidth = 1.5;
                     ctx.strokeStyle = COLORS.bg;
                     ctx.stroke();
                     ctx.restore();
@@ -3041,59 +4324,132 @@
             if (uiState.wireStartPin && uiState.cursorWorld) {
                 const endTarget = (uiState.hoverPinKey && evalData.pins.get(uiState.hoverPinKey)) || uiState.cursorWorld;
                 const previewPts = routeICWire(uiState.wireStartPin, endTarget, [], doc);
-                this.drawWire(previewPts, { preview: true });
-            }
-
-            // 2. Draw components
-            for (const comp of doc.components) {
-                const isSelected = uiState.selected && uiState.selected.kind === 'comp' && uiState.selected.id === comp.id;
-                if (comp.kind === 'ic') {
-                    this.drawICPackage(comp, evalData, isSelected, doc.autoPower);
-                } else {
-                    this.drawBenchComponent(comp, evalData, isSelected);
-                }
+                this.drawWire(previewPts, { preview: true, color: uiState.activeWireColor || null });
             }
 
             // Ghost placement preview when a component/IC tool is selected
             if (uiState.ghostComp) {
+                const gb = getComponentBounds(uiState.ghostComp);
                 ctx.save();
-                ctx.globalAlpha = 0.55;
+                // Subtle cyan placement reticle behind ghost component
+                roundedRect(ctx, gb.left - 8, gb.top - 8, gb.w + 16, gb.h + 16, 10);
+                ctx.fillStyle = 'rgba(56, 189, 248, 0.07)';
+                ctx.fill();
+                ctx.setLineDash([5, 4]);
+                ctx.strokeStyle = 'rgba(56, 189, 248, 0.65)';
+                ctx.lineWidth = 1.4;
+                ctx.stroke();
+                ctx.setLineDash([]);
+
+                ctx.globalAlpha = 0.78;
                 if (uiState.ghostComp.kind === 'ic') {
                     this.drawICPackage(uiState.ghostComp, evalData, false, doc.autoPower);
                 } else {
-                    this.drawBenchComponent(uiState.ghostComp, evalData, false);
+                    this.drawBenchComponent(uiState.ghostComp, evalData, false, uiState);
                 }
+                ctx.globalAlpha = 1;
+
+                // Crisp placement hint tag right below ghost preview
+                const hintTxt = uiState.ghostComp.kind === 'breadboard'
+                    ? 'Click to place breadboard'
+                    : 'Click to place · R to rotate';
+                ctx.font = '700 10px "Inter", sans-serif';
+                const hw = ctx.measureText(hintTxt).width + 14;
+                roundedRect(ctx, uiState.ghostComp.position.x - hw / 2, gb.bottom + 10, hw, 18, 9);
+                ctx.fillStyle = 'rgba(10, 15, 28, 0.92)';
+                ctx.fill();
+                ctx.strokeStyle = 'rgba(56, 189, 248, 0.55)';
+                ctx.lineWidth = 1;
+                ctx.stroke();
+                ctx.fillStyle = '#bae6fd';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(hintTxt, uiState.ghostComp.position.x, gb.bottom + 19);
                 ctx.restore();
             }
 
-            // 3. Draw pin connection pads
+            // Tinkercad-style glowing emerald target socket rings when snapping a component into breadboard holes!
+            if (Array.isArray(uiState.snapHoles) && uiState.snapHoles.length) {
+                for (const h of uiState.snapHoles) {
+                    ctx.save();
+                    ctx.beginPath();
+                    ctx.arc(h.x, h.y, 11, 0, Math.PI * 2);
+                    ctx.fillStyle = 'rgba(52, 211, 153, 0.34)';
+                    ctx.fill();
+                    ctx.strokeStyle = '#34d399';
+                    ctx.lineWidth = 2.4;
+                    ctx.stroke();
+                    ctx.restore();
+                }
+            }
+
+            // 4. Draw pin connection pads (skip idle/blocked breadboard holes & plugged-in pins hidden inside sockets)
             for (const [key, pin] of evalData.pins.entries()) {
-                const val = evalData.pinValues.get(key);
                 const isHovered = uiState.hoverPinKey === key;
                 const isStart = uiState.wireStartPin && uiState.wireStartPin.key === key;
+                if (pin.isBreadboardHole) {
+                    if (!isHovered && !isStart && !wiredPinSet.has(key)) continue;
+                    if (!isHovered && !isStart && !wiredPinSet.has(key) && isPointUnderComponent(doc, pin)) continue;
+                } else if (evalData.pluggedPinMap && evalData.pluggedPinMap.has(key) && !isHovered && !isStart) {
+                    // Plugged component legs sit cleanly inside breadboard sockets (shown by subtle cyan socket rings)
+                    continue;
+                }
+                const val = evalData.pinValues.get(key);
                 this.drawPinPad(pin, val, isHovered, isStart);
             }
 
-            // 4. Hover pin tooltip on canvas
+            // 5. Hover pin or wire tooltip on canvas (with live real voltage!)
             if (uiState.hoverPinKey && evalData.pins.has(uiState.hoverPinKey)) {
                 const hp = evalData.pins.get(uiState.hoverPinKey);
                 const v = evalData.pinValues.get(uiState.hoverPinKey);
-                const stateStr = v === 1 ? 'HIGH (+5V)' : v === 0 ? 'LOW (0V GND)' : 'OPEN (Floating)';
-                const label = `${hp.title} · ${stateStr}`;
+                const volts = evalData.pinVoltages ? evalData.pinVoltages.get(uiState.hoverPinKey) : null;
+                const vStr = (volts !== null && volts !== undefined && Number.isFinite(volts))
+                    ? `${volts.toFixed(2)} V`
+                    : (v === 1 ? 'HIGH' : v === 0 ? 'LOW (0V)' : 'OPEN');
+                const pluggedTag = evalData.pluggedPinMap && evalData.pluggedPinMap.has(uiState.hoverPinKey)
+                    ? ' · Plugged'
+                    : '';
+                const label = `${hp.title} · ${vStr}${pluggedTag}`;
                 ctx.font = '600 11px "Inter", sans-serif';
                 const tw = ctx.measureText(label).width + 14;
                 const tx = hp.x - tw / 2;
                 const ty = hp.y - 30;
-                roundedRect(ctx, tx, ty, tw, 20, 5);
-                ctx.fillStyle = 'rgba(10, 14, 24, 0.94)';
+                roundedRect(ctx, tx, ty, tw, 21, 5);
+                ctx.fillStyle = 'rgba(10, 14, 24, 0.95)';
                 ctx.fill();
-                ctx.strokeStyle = 'rgba(61, 217, 255, 0.55)';
+                ctx.strokeStyle = 'rgba(61, 217, 255, 0.6)';
                 ctx.lineWidth = 1;
                 ctx.stroke();
                 ctx.fillStyle = '#f4f7fb';
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';
-                ctx.fillText(label, hp.x, ty + 10);
+                ctx.fillText(label, hp.x, ty + 10.5);
+            } else if (uiState.hoverWireId && uiState.cursorWorld) {
+                const hw = doc.wires.find(x => x.id === uiState.hoverWireId);
+                if (hw) {
+                    const volts = evalData.pinVoltages ? evalData.pinVoltages.get(hw.from) : null;
+                    const wc = evalData.wireCurrents ? evalData.wireCurrents.get(hw.id) : null;
+                    const vStr = (volts !== null && volts !== undefined && Number.isFinite(volts))
+                        ? `${volts.toFixed(2)} V`
+                        : 'Floating';
+                    const iStr = wc && wc.currentMa >= 0.15 ? ` · ${wc.currentMa.toFixed(1)} mA` : ' · 0 mA (Open)';
+                    const tag = hw.label ? `[${hw.label}] ` : '';
+                    const label = `${tag}${vStr}${iStr} · Drag to route`;
+                    ctx.font = '600 10.5px "JetBrains Mono", monospace';
+                    const tw = ctx.measureText(label).width + 14;
+                    const tx = uiState.cursorWorld.x - tw / 2;
+                    const ty = uiState.cursorWorld.y - 26;
+                    roundedRect(ctx, tx, ty, tw, 20, 5);
+                    ctx.fillStyle = 'rgba(10, 14, 24, 0.94)';
+                    ctx.fill();
+                    ctx.strokeStyle = 'rgba(56, 189, 248, 0.55)';
+                    ctx.lineWidth = 1;
+                    ctx.stroke();
+                    ctx.fillStyle = '#e2e8f0';
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText(label, uiState.cursorWorld.x, ty + 10);
+                }
             }
 
             ctx.restore();
@@ -3119,6 +4475,10 @@
         const icTopControls = $('icTopControls');
 
         const renderer = new ICRenderer(canvas);
+        const fritzMod = getFritzingMod();
+        if (fritzMod && typeof fritzMod.preloadAll === 'function') {
+            fritzMod.preloadAll(() => scheduleRender());
+        }
         let currentDoc = blankICDoc();
         const undoStack = [];
         const redoStack = [];
@@ -3128,6 +4488,11 @@
         let selected = null; // { kind: 'comp' | 'wire', id }
         let wireStartPin = null;
         let hoverPinKey = null;
+        let hoverWireId = null;
+        let hoverWireNetId = null;
+        let activeWireColor = 'auto';
+        let soundEnabled = false;
+        let activePushBtnId = null;
         let cursorWorld = null;
         let dragState = null;
         let pinchState = null;
@@ -3135,12 +4500,54 @@
         let evalData = evaluateICBench(currentDoc);
         let frameScheduled = false;
 
+        // Optional Web Audio API synthesizer for Piezo Buzzer (opt-in via Sound toggle)
+        let audioCtx = null;
+        let buzzerOsc = null;
+        let buzzerGain = null;
+
+        function updateBuzzerAudio() {
+            const activeBuzzers = [];
+            if (evalData && evalData.buzzerStates) {
+                for (const c of currentDoc.components) {
+                    if (c.kind === 'buzzer') {
+                        const st = evalData.buzzerStates.get(c.id);
+                        if (st && st.sounding) activeBuzzers.push({ freq: st.freqHz || c.freqHz || 880, intensity: st.intensity || 0.7 });
+                    }
+                }
+            }
+            if (!soundEnabled || !activeBuzzers.length || (icMain && icMain.hidden)) {
+                if (buzzerGain && audioCtx) {
+                    try { buzzerGain.gain.setTargetAtTime(0, audioCtx.currentTime, 0.02); } catch (_) {}
+                }
+                return;
+            }
+            try {
+                const AudioCtx = window.AudioContext || window.webkitAudioContext;
+                if (!AudioCtx) return;
+                if (!audioCtx) audioCtx = new AudioCtx();
+                if (audioCtx.state === 'suspended') audioCtx.resume();
+                if (!buzzerOsc) {
+                    buzzerOsc = audioCtx.createOscillator();
+                    buzzerGain = audioCtx.createGain();
+                    buzzerOsc.type = 'square';
+                    buzzerGain.gain.value = 0;
+                    buzzerOsc.connect(buzzerGain);
+                    buzzerGain.connect(audioCtx.destination);
+                    buzzerOsc.start();
+                }
+                const b = activeBuzzers[0];
+                buzzerOsc.frequency.setTargetAtTime(b.freq, audioCtx.currentTime, 0.02);
+                buzzerGain.gain.setTargetAtTime(0.05 * Math.max(0.25, b.intensity), audioCtx.currentTime, 0.02);
+            } catch (_) {}
+        }
+
         function scheduleRender() {
             if (frameScheduled) return;
             frameScheduled = true;
             requestAnimationFrame(() => {
                 frameScheduled = false;
                 let ghostComp = null;
+                let snapHoles = null;
                 if (cursorWorld && isPlacementTool(tool)) {
                     const snap = $('icSnapToggle')?.checked;
                     const pos = snapICPoint(cursorWorld, snap);
@@ -3148,32 +4555,98 @@
                         id: '__ghost__',
                         rotation: placementRotation
                     });
+                    if (snap) {
+                        const bbSnap = snapCompToBreadboard(currentDoc, ghostComp);
+                        if (bbSnap) {
+                            ghostComp.position = { x: bbSnap.x, y: bbSnap.y };
+                            snapHoles = bbSnap.holes;
+                        }
+                    }
+                } else if (dragState && dragState.type === 'moveComp' && dragState.snapHoles) {
+                    snapHoles = dragState.snapHoles;
                 }
                 renderer.render(currentDoc, evalData, {
                     selected,
                     wireStartPin,
                     hoverPinKey,
+                    hoverWireId,
+                    hoverWireNetId,
+                    activeWireColor,
                     cursorWorld,
-                    ghostComp
+                    ghostComp,
+                    snapHoles
                 });
             });
         }
+
+        // Smooth animation loop for DC Motor rotor, Piezo Buzzer waves & live wire current pulses
+        let lastAnimTs = performance.now();
+        function animTick(ts) {
+            const dt = Math.min(0.05, Math.max(0.001, (ts - lastAnimTs) / 1000));
+            lastAnimTs = ts;
+            let needsDraw = false;
+            if (!icMain || !icMain.hidden) {
+                renderer.animTimeSec += dt;
+                if (evalData && evalData.motorStates) {
+                    for (const [mid, mst] of evalData.motorStates.entries()) {
+                        if (mst.spinning && mst.rpm > 1) {
+                            const radPerSec = (mst.rpm / 60) * Math.PI * 2 * 0.14; // visually crisp rotor speed
+                            const dir = mst.direction === 'CCW' ? -1 : 1;
+                            const prev = renderer.motorAngles.get(mid) || 0;
+                            renderer.motorAngles.set(mid, (prev + dir * radPerSec * dt) % (Math.PI * 2));
+                            needsDraw = true;
+                        }
+                    }
+                }
+                if (evalData && evalData.buzzerStates) {
+                    for (const bst of evalData.buzzerStates.values()) {
+                        if (bst.sounding) { needsDraw = true; break; }
+                    }
+                }
+                if (renderer.showFlow && evalData && evalData.wireCurrents) {
+                    for (const wc of evalData.wireCurrents.values()) {
+                        if (wc.currentMa >= 0.15) { needsDraw = true; break; }
+                    }
+                }
+            }
+            if (needsDraw) scheduleRender();
+            requestAnimationFrame(animTick);
+        }
+        requestAnimationFrame(animTick);
 
         function setHint(msg, isWarn = false) {
             const el = $('icToolHint');
             if (!el) return;
             el.textContent = msg;
+            el.title = msg;
             el.style.color = isWarn ? '#f6b944' : '#96a5ba';
         }
 
         function autoConnectDroppedComponent(doc, compId) {
             const comp = doc.components.find(c => c.id === compId);
-            if (!comp) return;
+            if (!comp || comp.kind === 'breadboard') return;
+            // Never auto-generate invisible point-to-point wires if this component is plugged into a breadboard!
+            // Breadboard strips already handle electrical continuity cleanly without hidden ghost wires.
+            const solverMod = getSolverMod();
+            const boards = doc.components.filter(c => c.kind === 'breadboard');
+            const bbHoleCoords = new Set();
+            if (solverMod && typeof solverMod.getBreadboardHoles === 'function') {
+                for (const bb of boards) {
+                    for (const h of solverMod.getBreadboardHoles(bb)) {
+                        bbHoleCoords.add(`${Math.round(h.x)},${Math.round(h.y)}`);
+                    }
+                }
+            }
             const myPins = getComponentPins(comp);
+            if (myPins.some(mp => bbHoleCoords.has(`${Math.round(mp.x)},${Math.round(mp.y)}`))) {
+                return;
+            }
             const all = allICPins(doc);
             for (const mp of myPins) {
+                if (mp.isBreadboardHole) continue;
                 for (const op of all.values()) {
-                    if (op.compId === compId) continue;
+                    if (op.compId === compId || op.isBreadboardHole) continue;
+                    if (bbHoleCoords.has(`${Math.round(op.x)},${Math.round(op.y)}`)) continue;
                     if (Math.hypot(mp.x - op.x, mp.y - op.y) <= 6) {
                         connectICWire(doc, mp.key, op.key);
                     }
@@ -3193,9 +4666,10 @@
             evalData = evaluateICBench(currentDoc);
             $('icUndoBtn').disabled = undoStack.length === 0;
             $('icRedoBtn').disabled = redoStack.length === 0;
-            $('icAutoPowerToggle').checked = Boolean(currentDoc.autoPower);
+            if ($('icAutoPowerToggle')) $('icAutoPowerToggle').checked = Boolean(currentDoc.autoPower);
             const rotBtn = $('icRotatePlacementBtn');
             if (rotBtn) rotBtn.hidden = !isPlacementTool(tool);
+            updateBuzzerAudio();
             syncInspector();
             syncSidebarSummary();
             syncFooter();
@@ -3212,45 +4686,83 @@
             if (rotBtn) rotBtn.hidden = !isPlacementTool(tool);
             if (IC_CATALOG[tool]) {
                 const sp = IC_CATALOG[tool];
-                setHint(`Click on the bench to place IC ${tool} (${sp.partNumber} · ${sp.pinCount || 14}-Pin DIP · Pin ${sp.vccPin || 14} = VCC, Pin ${sp.gndPin || 7} = GND).`);
+                setHint(`Click on the bench to place IC ${tool} (${sp.partNumber} · ${sp.pinCount || 14}-Pin DIP · Safe 4.0–5.5V · Pin ${sp.vccPin || 14}=VCC, Pin ${sp.gndPin || 7}=GND).`);
+            } else if (tool === 'breadboard') {
+                setHint('Click on the bench to place a Half-Size Breadboard (30 columns + power rails). Drag ICs, LEDs & resistors right onto holes to plug them in!');
+            } else if (tool === 'breadboard_mini') {
+                setHint('Click on the bench to place a Mini Breadboard (17 columns). Drag parts onto holes for automatic strip continuity.');
             } else if (tool === 'battery') {
-                setHint('Click on the bench to place a 5V DC Battery (+5V and GND terminals · Press R to rotate).');
+                setHint('Click on the bench to place a 1.5V–6.0V AA Battery Holder (1–4 AA cells, customizable in Inspector).');
+            } else if (tool === 'battery9v') {
+                setHint('Click on the bench to place a 9V PP3 Battery. Watch out: 9V will overload bare LEDs or 74xx ICs without protection!');
+            } else if (tool === 'psu') {
+                setHint('Click on the bench to place an Adjustable 0–12V Regulated Bench Power Supply.');
+            } else if (tool === 'potentiometer') {
+                setHint('Click on the bench to place a Rotary Potentiometer (3-terminal variable voltage divider).');
+            } else if (tool === 'pushbutton') {
+                setHint('Click on the bench to place a 4-Pin Tactile Push Button (press & hold, or switch to Latch mode in Inspector).');
+            } else if (tool === 'spdt') {
+                setHint('Click on the bench to place a 3-Terminal SPDT Slide Switch (click to route Common between Left & Right throws).');
+            } else if (tool === 'motor') {
+                setHint('Click on the bench to place a 2D DC Motor. Select it to view live RPM, direction & current telemetry!');
+            } else if (tool === 'buzzer') {
+                setHint('Click on the bench to place a Piezo Buzzer (enable Sound in the top bar to hear real audio tone).');
+            } else if (tool === 'rgb_led') {
+                setHint('Click on the bench to place a 4-Leg Common-Cathode RGB LED (R, GND, G, B).');
+            } else if (tool === 'npn') {
+                setHint('Click on the bench to place a 2N2222 NPN TO-92 Transistor (Emitter, Base, Collector).');
+            } else if (tool === 'multimeter') {
+                setHint('Click on the bench to place a Handheld Digital Multimeter (click its dial to cycle V / mA / Ω).');
             } else if (tool === 'switch') {
                 setHint('Click on the bench to place a Toggle Switch (Press R to rotate). Click any placed switch to flip it ON/OFF.');
             } else if (tool === 'dip4') {
                 setHint('Click on the bench to place a 4-Channel DIP Switch Bank (B0–B3). Click individual rockers on the bank to toggle bits.');
             } else if (tool === 'probe') {
-                setHint('Click on the bench to place a Digital Logic Probe (HI 5V / LO 0V / Hi-Z / SHORT).');
+                setHint('Click on the bench to place a Digital Logic Probe (HI / LO / Hi-Z / SHORT).');
             } else if (tool === 'resistor') {
-                setHint('Click on the bench to place a 220 Ω series resistor (Press R to rotate).');
+                setHint('Click on the bench to place a Variable Axial 4-Band Resistor (edit Ω value live in Inspector!).');
             } else if (tool === 'lamp') {
-                setHint('Click on the bench to place an Indicator Lamp / LED (Press R to rotate).');
+                setHint('Click on the bench to place a 2-Leg 5mm LED (use a series resistor to prevent overcurrent damage!).');
+            } else if (tool === 'seg7_10') {
+                setHint('Click on the bench to place a real 10-Pin Common-Cathode 7-Segment Display (g,f,COM,a,b top · e,d,COM,c,dp bottom — plugs directly across breadboard trough!).');
             } else if (tool === 'wire') {
-                setHint('Drag from any pin pad to another pin pad (or existing wire) to connect. Drag wire segments to adjust routing.');
+                setHint('Pick a jumper wire color above, then drag from any pin or breadboard hole to another to connect. Click Tidy Wires anytime!');
             } else {
-                setHint('Click any Switch or DIP rocker to toggle, drag from any pin to wire, drag wire segments to reroute, or press R to rotate.');
+                setHint('Drag parts onto breadboard holes to plug in · Click switches/buttons/DMM to operate · Drag from any pin to wire · Press R to rotate.');
             }
             scheduleRender();
         }
 
-        // Populate IC Presets dropdown
+        // Populate Presets dropdown with grouped 2D Hardware & 74xx IC sections
         const presetSelect = $('icExampleSelect');
         if (presetSelect) {
+            const allPresets = { ...BENCH_2D_PRESETS, ...IC_PRESETS };
+            const grp2d = document.createElement('optgroup');
+            grp2d.label = '⚡ 2D Hardware & Breadboard Demos';
+            for (const [id, p] of Object.entries(BENCH_2D_PRESETS)) {
+                const opt = document.createElement('option');
+                opt.value = id;
+                opt.textContent = p.title;
+                grp2d.appendChild(opt);
+            }
+            const grpIc = document.createElement('optgroup');
+            grpIc.label = '🔲 74xx Digital IC Presets';
             for (const [id, p] of Object.entries(IC_PRESETS)) {
                 const opt = document.createElement('option');
                 opt.value = id;
                 opt.textContent = p.title;
-                presetSelect.appendChild(opt);
+                grpIc.appendChild(opt);
             }
+            presetSelect.append(grp2d, grpIc);
             presetSelect.addEventListener('change', () => {
                 const id = presetSelect.value;
-                if (!id || !IC_PRESETS[id]) return;
-                commitDoc(IC_PRESETS[id].build());
+                if (!id || !allPresets[id]) return;
+                commitDoc(allPresets[id].build());
                 selected = null;
                 wireStartPin = null;
                 renderer.fit(currentDoc);
                 recompute();
-                setHint(IC_PRESETS[id].description);
+                setHint(allPresets[id].description);
             });
         }
 
@@ -3322,9 +4834,159 @@
             commitDoc(next);
         });
 
+        $('icSoundToggle')?.addEventListener('change', e => {
+            soundEnabled = e.target.checked;
+            updateBuzzerAudio();
+        });
+
+        $('icFlowToggle')?.addEventListener('change', e => {
+            renderer.showFlow = e.target.checked;
+            scheduleRender();
+        });
+
+        // Wire color swatch bar
+        function syncWireSwatchUI() {
+            document.querySelectorAll('#icWireColorBar button[data-wire-color]').forEach(btn => {
+                btn.classList.toggle('is-active', btn.dataset.wireColor === activeWireColor);
+            });
+        }
+        document.querySelectorAll('#icWireColorBar button[data-wire-color]').forEach(btn => {
+            btn.addEventListener('click', () => {
+                activeWireColor = btn.dataset.wireColor || 'auto';
+                syncWireSwatchUI();
+                if (selected && selected.kind === 'wire') {
+                    const next = cloneICDoc(currentDoc);
+                    const w = next.wires.find(x => x.id === selected.id);
+                    if (w) {
+                        if (activeWireColor === 'auto') delete w.color;
+                        else w.color = activeWireColor;
+                        commitDoc(next);
+                    }
+                }
+            });
+        });
+        syncWireSwatchUI();
+
+        // One-click Tidy Wires
+        $('icTidyWiresBtn')?.addEventListener('click', () => {
+            if (!currentDoc.wires.length) return;
+            const next = cloneICDoc(currentDoc);
+            tidyAllWires(next);
+            commitDoc(next);
+            setHint('✨ All jumper wires neatly routed into separated non-overlapping channels!');
+        });
+
+        // 3-Mode Save/Export + Open + Drag-and-Drop (JSON + 2D Bench PNG + IEEE B&W Schematic PNG)
+        const io = root.ElectricsimIO;
+        const expMod = getExportMod();
+
+        const validateDocErrors = docObj => {
+            if (!expMod || typeof expMod.validateElectronicsDoc !== 'function') {
+                return (docObj && Array.isArray(docObj.components) && Array.isArray(docObj.wires)) ? [] : ['Invalid Electronics Lab document'];
+            }
+            const res = expMod.validateElectronicsDoc(docObj);
+            if (Array.isArray(res)) return res;
+            return res && res.ok ? [] : [res?.error || 'Invalid Electronics Lab document'];
+        };
+
+        function applyLoadedElectronicsDoc(docObj, meta = {}) {
+            const loaded = cloneICDoc(docObj);
+            commitDoc(loaded);
+            selected = null;
+            wireStartPin = null;
+            if (presetSelect) presetSelect.value = '';
+            renderer.fit(currentDoc);
+            recompute();
+            const srcLabel = meta.sourceKind === 'png' ? 'PNG Image' : 'JSON';
+            const fname = meta.sourceFilename || 'circuit';
+            setHint(`✓ Loaded "${fname}" (${srcLabel}) — ${loaded.components.length} components, ${loaded.wires.length} wires.`);
+        }
+
+        async function loadElectronicsFile(file) {
+            if (!file || !io) return;
+            const res = await io.readImportedFile(file, 'electronics', validateDocErrors);
+            if (!res.ok) {
+                setHint(`⚠ ${res.error || 'Could not load file.'}`, true);
+                return;
+            }
+            applyLoadedElectronicsDoc(res.doc, res.meta);
+        }
+
+        $('icSaveJsonBtn')?.addEventListener('click', () => {
+            if (!io) return;
+            const fname = io.downloadSavedJson('electronics', currentDoc);
+            setHint(`💾 Saved ${fname} — drag & drop it back onto the Electronics Lab anytime to reload!`);
+        });
+
+        $('icExportBenchPngBtn')?.addEventListener('click', async () => {
+            if (!io || !expMod) return;
+            try {
+                const benchCanvas = expMod.renderBenchPictureCanvas(currentDoc, evalData, renderer, {
+                    getComponentBounds,
+                    allICPins,
+                    computeICWireGeometry
+                });
+                if (!benchCanvas) {
+                    setHint('⚠ Place at least one component before exporting Bench PNG.', true);
+                    return;
+                }
+                const fname = await io.downloadBWImage(benchCanvas, 'electronics', currentDoc, `electricsim-bench-2d-${io.formatTimestamp()}`);
+                setHint(`📷 Exported 2D Bench PNG (${fname}) — drag & drop this PNG back into Electronics Lab to edit!`);
+            } catch (err) {
+                setHint(`⚠ Bench PNG export failed: ${err?.message || err}`, true);
+            }
+        });
+
+        $('icExportSchematicPngBtn')?.addEventListener('click', async () => {
+            if (!io || !expMod) return;
+            try {
+                const schCanvas = expMod.renderTrueSchematicCanvas(currentDoc, evalData, {
+                    IC_CATALOG,
+                    getComponentBounds,
+                    getComponentPins,
+                    getDipPinLocal,
+                    allICPins,
+                    computeICWireGeometry,
+                    getBreadboardSpec: getSolverMod()?.getBreadboardSpec,
+                    formatOhms: getSolverMod()?.formatOhms
+                });
+                if (!schCanvas) {
+                    setHint('⚠ Place at least one component before exporting Schematic PNG.', true);
+                    return;
+                }
+                const fname = await io.downloadBWImage(schCanvas, 'electronics', currentDoc, `electricsim-schematic-bw-${io.formatTimestamp()}`);
+                setHint(`📐 Exported IEEE B&W Schematic (${fname}) — drag & drop this PNG back into Electronics Lab to edit!`);
+            } catch (err) {
+                setHint(`⚠ Schematic PNG export failed: ${err?.message || err}`, true);
+            }
+        });
+
+        $('icOpenBtn')?.addEventListener('click', () => {
+            $('icOpenFileInput')?.click();
+        });
+
+        $('icOpenFileInput')?.addEventListener('change', e => {
+            const file = e.target.files?.[0];
+            if (file) loadElectronicsFile(file);
+            e.target.value = '';
+        });
+
+        if (io && typeof io.attachDropZone === 'function') {
+            io.attachDropZone({
+                expectedLab: 'electronics',
+                labTitle: 'Electronics Lab',
+                validateFn: validateDocErrors,
+                onLoad: (docObj, meta) => {
+                    if (icMain && icMain.hidden) return;
+                    applyLoadedElectronicsDoc(docObj, meta);
+                },
+                onError: msg => setHint(`⚠ ${msg}`, true)
+            });
+        }
+
         // Zoom controls
         const zoomBy = factor => {
-            const nextZoom = Math.max(0.35, Math.min(2.2, renderer.view.zoom * factor));
+            const nextZoom = Math.max(0.22, Math.min(2.2, renderer.view.zoom * factor));
             const ratio = nextZoom / renderer.view.zoom;
             renderer.view.panX *= ratio;
             renderer.view.panY *= ratio;
@@ -3337,6 +4999,39 @@
             renderer.fit(currentDoc);
             scheduleRender();
         });
+
+        // Render crisp high-contrast IEEE standard schematic diagrams inside the Component Gallery!
+        function renderPaletteThumbnails() {
+            const fritz = getFritzingMod();
+            const thumbs = document.querySelectorAll('#icToolsNav canvas.ic-part-thumb[data-thumb-kind]');
+            if (!thumbs.length) return;
+            for (const c of thumbs) {
+                const kind = c.dataset.thumbKind;
+                if (fritz && typeof fritz.drawIEEESymbolPreview === 'function') {
+                    fritz.drawIEEESymbolPreview(c, kind);
+                }
+            }
+        }
+        renderPaletteThumbnails();
+
+        // Live Component Palette Search Filter
+        const paletteSearch = $('icPaletteSearch');
+        if (paletteSearch) {
+            paletteSearch.addEventListener('input', () => {
+                const q = paletteSearch.value.trim().toLowerCase();
+                document.querySelectorAll('#icToolsNav .palette-section').forEach(sec => {
+                    if (sec.dataset.keepVisible === 'true') return;
+                    let visibleCount = 0;
+                    sec.querySelectorAll('button[data-ic-tool]').forEach(btn => {
+                        const hay = `${btn.textContent} ${btn.title || ''} ${btn.dataset.icTool || ''} ${btn.dataset.keywords || ''}`.toLowerCase();
+                        const match = !q || hay.includes(q);
+                        btn.hidden = !match;
+                        if (match) visibleCount++;
+                    });
+                    sec.hidden = visibleCount === 0;
+                });
+            });
+        }
 
         // Tool buttons (support both click-to-select and drag-to-canvas)
         document.querySelectorAll('#icToolsNav button[data-ic-tool]').forEach(btn => {
@@ -3376,6 +5071,10 @@
                 const pos = snapICPoint(worldPt, snap);
                 const next = cloneICDoc(currentDoc);
                 const comp = createICComponent(activeTool, pos.x, pos.y, { rotation: placementRotation });
+                if (snap) {
+                    const bbSnap = snapCompToBreadboard(next, comp);
+                    if (bbSnap) comp.position = { x: bbSnap.x, y: bbSnap.y };
+                }
                 next.components.push(comp);
                 autoConnectDroppedComponent(next, comp.id);
                 commitDoc(next);
@@ -3425,11 +5124,17 @@
             if (comp.kind === 'switch') {
                 comp.closed = !comp.closed;
                 recompute();
+            } else if (comp.kind === 'spdt') {
+                comp.positionThrow = comp.positionThrow === 'right' ? 'left' : 'right';
+                recompute();
+            } else if (comp.kind === 'pushbutton') {
+                comp.pressed = !comp.pressed;
+                recompute();
             } else if (comp.kind === 'clock') {
                 comp.value = comp.value ? 0 : 1;
                 recompute();
             } else if (comp.kind === 'dip4') {
-                const cur = ((comp.bits?.[0] ? 1 : 0) | (comp.bits?.[1] ? 2 : 0) | (comp.bits?.[2] ? 4 : 0) | (comp.bits?.[3] ? 8 : 0) + 1) & 0x0f;
+                const cur = (((comp.bits?.[0] ? 1 : 0) | (comp.bits?.[1] ? 2 : 0) | (comp.bits?.[2] ? 4 : 0) | (comp.bits?.[3] ? 8 : 0)) + 1) & 0x0f;
                 comp.bits = [cur & 1, (cur >> 1) & 1, (cur >> 2) & 1, (cur >> 3) & 1];
                 recompute();
             }
@@ -3478,9 +5183,26 @@
         function syncInspector() {
             const card = $('icInspectorCard');
             if (!card) return;
+            const dynBox = $('icDynamicControls');
+            const faultBox = $('icFaultBox');
+            if (dynBox) dynBox.replaceChildren();
+            if (faultBox) {
+                faultBox.hidden = true;
+                faultBox.replaceChildren();
+            }
+
             if (!selected) {
                 card.hidden = true;
                 return;
+            }
+
+            const solverMod = getSolverMod();
+
+            function showFaultBanner(msg, severity = 'error') {
+                if (!faultBox || !msg) return;
+                faultBox.hidden = false;
+                faultBox.className = `ic-fault-box is-${severity}`;
+                faultBox.textContent = msg;
             }
 
             if (selected.kind === 'wire') {
@@ -3491,14 +5213,71 @@
                     return;
                 }
                 card.hidden = false;
-                $('icInspectorTitle').textContent = 'Selected Bench Wire';
+                $('icInspectorTitle').textContent = 'Selected Jumper Wire';
                 const v = evalData.pinValues.get(w.from);
-                $('icInspectorMeta').textContent = `Connects ${w.from} ↔ ${w.to} · Signal: ${v === 1 ? 'HIGH (+5V)' : v === 0 ? 'LOW (0V)' : 'OPEN'}. Drag any wire segment to reroute, or double-click the wire to reset routing.`;
+                const volts = evalData.pinVoltages ? evalData.pinVoltages.get(w.from) : null;
+                const vStr = (volts !== null && volts !== undefined && Number.isFinite(volts))
+                    ? `${volts.toFixed(2)} V`
+                    : (v === 1 ? 'HIGH' : v === 0 ? 'LOW (0V)' : 'OPEN');
+                $('icInspectorMeta').textContent = `${w.from} ↔ ${w.to} · Live Net Voltage: ${vStr}. Drag wire segments to route or double-click to reset.`;
                 $('icLampColorWrap').hidden = true;
                 $('icToggleSelectedBtn').hidden = true;
                 $('icPinTableWrap').hidden = true;
                 $('icDuplicateBtn').hidden = true;
                 if ($('icRotateBtn')) $('icRotateBtn').hidden = true;
+
+                if (dynBox) {
+                    const row1 = document.createElement('div');
+                    row1.className = 'ic-dyn-row';
+                    const lbl = document.createElement('span');
+                    lbl.className = 'ic-dyn-label';
+                    lbl.textContent = 'Wire Color:';
+                    row1.appendChild(lbl);
+
+                    const swWrap = document.createElement('div');
+                    swWrap.className = 'ic-wire-swatches';
+                    for (const p of WIRE_PALETTE) {
+                        const b = document.createElement('button');
+                        b.type = 'button';
+                        b.className = 'ic-wire-swatch' + ((w.color || 'auto') === p.id ? ' is-active' : '');
+                        b.title = p.label;
+                        if (p.hex) b.style.background = p.hex;
+                        else b.textContent = 'A';
+                        b.addEventListener('click', () => {
+                            const next = cloneICDoc(currentDoc);
+                            const tw = next.wires.find(x => x.id === w.id);
+                            if (tw) {
+                                if (p.id === 'auto') delete tw.color;
+                                else tw.color = p.id;
+                                commitDoc(next);
+                            }
+                        });
+                        swWrap.appendChild(b);
+                    }
+                    row1.appendChild(swWrap);
+                    dynBox.appendChild(row1);
+
+                    const row2 = document.createElement('div');
+                    row2.className = 'ic-dyn-row';
+                    const lbl2 = document.createElement('span');
+                    lbl2.className = 'ic-dyn-label';
+                    lbl2.textContent = 'Net Tag:';
+                    const inp = document.createElement('input');
+                    inp.type = 'text';
+                    inp.className = 'ic-dyn-input';
+                    inp.placeholder = 'e.g. +9V, CLK, MOTOR';
+                    inp.value = w.label || '';
+                    inp.addEventListener('change', () => {
+                        const next = cloneICDoc(currentDoc);
+                        const tw = next.wires.find(x => x.id === w.id);
+                        if (tw) {
+                            tw.label = inp.value.trim().slice(0, 14);
+                            commitDoc(next);
+                        }
+                    });
+                    row2.append(lbl2, inp);
+                    dynBox.appendChild(row2);
+                }
                 return;
             }
 
@@ -3511,9 +5290,9 @@
 
             card.hidden = false;
             $('icDuplicateBtn').hidden = false;
-            if ($('icRotateBtn')) $('icRotateBtn').hidden = false;
+            if ($('icRotateBtn')) $('icRotateBtn').hidden = comp.kind === 'breadboard';
             $('icLampColorWrap').hidden = comp.kind !== 'lamp';
-            $('icToggleSelectedBtn').hidden = comp.kind !== 'switch' && comp.kind !== 'clock' && comp.kind !== 'dip4';
+            $('icToggleSelectedBtn').hidden = comp.kind !== 'switch' && comp.kind !== 'clock' && comp.kind !== 'dip4' && comp.kind !== 'spdt' && comp.kind !== 'pushbutton';
             $('icPinTableWrap').hidden = comp.kind !== 'ic';
 
             if (comp.kind === 'ic') {
@@ -3523,15 +5302,24 @@
                 const gndPin = spec.gndPin || 7;
                 const pinCount = spec.pinCount || 14;
                 $('icInspectorTitle').textContent = `IC ${spec.model} (${spec.partNumber} · ${pinCount}-Pin DIP)`;
-                $('icInspectorMeta').textContent = `${spec.description} · Pin ${vccPin} = VCC (+5V), Pin ${gndPin} = GND (0V) · Icc ≈ ${spec.iccMa || 8} mA, tpd ≈ ${spec.tpdNs || 10} ns.`;
+                $('icInspectorMeta').textContent = `${spec.description} · Safe VCC: 4.0V–5.5V (Pin ${vccPin}=VCC, Pin ${gndPin}=GND) · Icc ≈ ${spec.iccMa || 8} mA, tpd ≈ ${spec.tpdNs || 10} ns.`;
 
                 const badge = $('icPowerBadge');
-                if (st?.reversePower) {
-                    badge.textContent = '⚠ REVERSE POWER';
+                if (st?.corrupted) {
+                    badge.textContent = st.reversePower ? '🔥 CORRUPTED (REVERSE)' : `🔥 CORRUPTED (${st.supplyV?.toFixed(1)}V)`;
                     badge.style.color = '#ff5a52';
+                    showFaultBanner(st.faultText || 'IC damaged due to supply voltage violation! Lower supply to 4.0–5.5V to recover.', 'error');
+                } else if (st?.overVoltageWarn) {
+                    badge.textContent = `⚠ OVER-V WARN (${st.supplyV?.toFixed(1)}V)`;
+                    badge.style.color = '#f6b944';
+                    showFaultBanner(st.faultText || `Supply ${st.supplyV?.toFixed(1)}V exceeds 5.5V spec. Use 3×AA (4.5V) or 5.0V Bench PSU.`, 'warn');
                 } else if (st?.powered) {
-                    badge.textContent = '✓ POWERED (5V)';
+                    badge.textContent = `✓ POWERED (${(st.supplyV || 5).toFixed(1)}V)`;
                     badge.style.color = '#37e0a1';
+                } else if (st?.underVoltage) {
+                    badge.textContent = `⚠ LOW V (${st.supplyV?.toFixed(1)}V < 4.0V)`;
+                    badge.style.color = '#f6b944';
+                    showFaultBanner(`Supply ${st.supplyV?.toFixed(1)}V is below 74xx minimum 4.0V threshold.`, 'warn');
                 } else {
                     badge.textContent = `UNPOWERED (Wire ${vccPin} & ${gndPin})`;
                     badge.style.color = '#f6b944';
@@ -3542,6 +5330,7 @@
                 const pins = getComponentPins(comp);
                 for (const p of pins) {
                     const v = evalData.pinValues.get(p.key);
+                    const volts = evalData.pinVoltages ? evalData.pinVoltages.get(p.key) : null;
                     const pill = document.createElement('div');
                     pill.className = 'ic-pin-pill'
                         + (v === 1 ? ' is-high' : v === 0 ? ' is-low' : ' is-open')
@@ -3551,21 +5340,370 @@
                     const pinLbl = spec.pinLabels && spec.pinLabels[p.pinNumber];
                     left.textContent = pinLbl ? `Pin ${p.pinNumber} (${pinLbl})` : `Pin ${p.pinNumber}`;
                     const right = document.createElement('strong');
+                    const vDisp = (volts !== null && volts !== undefined) ? `${volts.toFixed(1)}V` : 'OPEN';
                     right.textContent = p.pinNumber === vccPin
-                        ? `VCC (${v === 1 ? '5V' : v === 0 ? '0V' : 'OPEN'})`
+                        ? `VCC (${vDisp})`
                         : p.pinNumber === gndPin
-                        ? `GND (${v === 0 ? '0V' : v === 1 ? '5V' : 'OPEN'})`
+                        ? `GND (${vDisp})`
                         : v === 1
-                        ? '1 (5V)'
+                        ? `1 (${vDisp})`
                         : v === 0
-                        ? '0 (0V)'
+                        ? `0 (${vDisp})`
                         : 'OPEN';
                     pill.append(left, right);
                     grid.appendChild(pill);
                 }
             } else if (comp.kind === 'battery') {
-                $('icInspectorTitle').textContent = '5V DC Bench Battery';
-                $('icInspectorMeta').textContent = 'Supplies +5V (Logic 1) on the right red (+) terminal and 0V GND (Logic 0) on the left (−) terminal. Connect (+) to IC Pin 14/16 and (−) to IC Pin 7/8.';
+                const cells = Math.max(1, Math.min(4, Math.round(comp.cells || (comp.voltage ? comp.voltage / 1.5 : 3))));
+                const v = (cells * 1.5).toFixed(1);
+                const src = evalData.sourceStates?.get(comp.id);
+                $('icInspectorTitle').textContent = `AA Battery Pack (${cells}×AA · ${v}V DC)`;
+                $('icInspectorMeta').textContent = `Each AA cell delivers 1.5V (max 4×AA = 6.0V). Current draw: ${(src?.currentMa || 0).toFixed(1)} mA · 3×AA (4.5V) is safe for 74xx ICs; 4×AA (6.0V) triggers IC overvoltage warning.`;
+                if (dynBox) {
+                    const row = document.createElement('div');
+                    row.className = 'ic-dyn-row';
+                    const lbl = document.createElement('span');
+                    lbl.className = 'ic-dyn-label';
+                    lbl.textContent = 'AA Cells:';
+                    const btnGroup = document.createElement('div');
+                    btnGroup.className = 'ic-chip-group';
+                    for (let c = 1; c <= 4; c++) {
+                        const b = document.createElement('button');
+                        b.type = 'button';
+                        b.className = 'ic-dyn-chip' + (c === cells ? ' is-active' : '');
+                        b.textContent = `${c}×AA (${(c * 1.5).toFixed(1)}V)`;
+                        b.addEventListener('click', () => {
+                            const next = cloneICDoc(currentDoc);
+                            const tc = next.components.find(x => x.id === comp.id);
+                            if (tc) {
+                                tc.cells = c;
+                                tc.voltage = Math.round(c * 1.5 * 10) / 10;
+                                tc.label = `${c}×AA (${tc.voltage.toFixed(1)}V)`;
+                                commitDoc(next);
+                            }
+                        });
+                        btnGroup.appendChild(b);
+                    }
+                    row.append(lbl, btnGroup);
+                    dynBox.appendChild(row);
+                }
+            } else if (comp.kind === 'battery9v') {
+                const src = evalData.sourceStates?.get(comp.id);
+                $('icInspectorTitle').textContent = '9V PP3 Alkaline Battery (9.0V DC)';
+                $('icInspectorMeta').textContent = `Fixed 9.0V supply · Live draw: ${(src?.currentMa || 0).toFixed(1)} mA. Ideal for 9V DC Motors & Buzzers. Warning: Direct 9V will overload bare LEDs (>30mA) and damage 74xx ICs (>6.5V)!`;
+            } else if (comp.kind === 'psu') {
+                const v = Number(comp.voltage !== undefined ? comp.voltage : 5);
+                const on = comp.enabled !== false;
+                const src = evalData.sourceStates?.get(comp.id);
+                $('icInspectorTitle').textContent = `Bench Power Supply (${on ? `${v.toFixed(1)}V ON` : 'STANDBY OFF'})`;
+                $('icInspectorMeta').textContent = `Regulated 0.0–12.0V laboratory supply · Output: ${(src?.currentMa || 0).toFixed(1)} mA (${((src?.currentMa || 0) * v).toFixed(0)} mW).`;
+                if (dynBox) {
+                    const rowTop = document.createElement('div');
+                    rowTop.className = 'ic-dyn-row';
+                    const pwrBtn = document.createElement('button');
+                    pwrBtn.type = 'button';
+                    pwrBtn.className = 'ic-dyn-chip' + (on ? ' is-active' : '');
+                    pwrBtn.textContent = on ? '⚡ Output: ON (Click to Turn OFF)' : '⏻ Output: OFF (Click to Turn ON)';
+                    pwrBtn.addEventListener('click', () => {
+                        const next = cloneICDoc(currentDoc);
+                        const tc = next.components.find(x => x.id === comp.id);
+                        if (tc) { tc.enabled = !(tc.enabled !== false); commitDoc(next); }
+                    });
+                    rowTop.appendChild(pwrBtn);
+                    dynBox.appendChild(rowTop);
+
+                    const rowSl = document.createElement('div');
+                    rowSl.className = 'ic-dyn-row';
+                    const lbl = document.createElement('span');
+                    lbl.className = 'ic-dyn-label';
+                    lbl.textContent = `Voltage: ${v.toFixed(1)} V`;
+                    const sl = document.createElement('input');
+                    sl.type = 'range';
+                    sl.min = '0';
+                    sl.max = '12';
+                    sl.step = '0.1';
+                    sl.value = String(v);
+                    sl.className = 'ic-dyn-slider';
+                    sl.addEventListener('input', () => {
+                        const nv = Math.round(parseFloat(sl.value) * 10) / 10;
+                        comp.voltage = nv;
+                        lbl.textContent = `Voltage: ${nv.toFixed(1)} V`;
+                        recompute();
+                    });
+                    rowSl.append(lbl, sl);
+                    dynBox.appendChild(rowSl);
+
+                    const presetsRow = document.createElement('div');
+                    presetsRow.className = 'ic-chip-group';
+                    for (const pv of [3.3, 5.0, 6.0, 9.0, 12.0]) {
+                        const b = document.createElement('button');
+                        b.type = 'button';
+                        b.className = 'ic-dyn-chip' + (Math.abs(v - pv) < 0.05 ? ' is-active' : '');
+                        b.textContent = `${pv.toFixed(1)}V`;
+                        b.addEventListener('click', () => {
+                            const next = cloneICDoc(currentDoc);
+                            const tc = next.components.find(x => x.id === comp.id);
+                            if (tc) { tc.voltage = pv; tc.enabled = true; commitDoc(next); }
+                        });
+                        presetsRow.appendChild(b);
+                    }
+                    dynBox.appendChild(presetsRow);
+                }
+            } else if (comp.kind === 'resistor') {
+                const ohms = comp.ohms || 220;
+                const rst = evalData.resistorStates?.get(comp.id);
+                const fmt = solverMod ? solverMod.formatOhms(ohms) : `${ohms}Ω`;
+                $('icInspectorTitle').textContent = `Variable Resistor (${fmt} · 1/4W)`;
+                $('icInspectorMeta').textContent = `Drop: ${(rst?.voltageDrop || 0).toFixed(2)} V · Current: ${(rst?.currentMa || 0).toFixed(1)} mA · Power: ${(rst?.powerMw || 0).toFixed(0)} mW / 250 mW max.`;
+                if (rst?.overloaded) {
+                    showFaultBanner(rst.faultText || 'Resistor overheating (> 250 mW)! Increase resistance.', 'error');
+                }
+                if (dynBox) {
+                    // Live 4-band EIA color stripe preview
+                    if (solverMod) {
+                        const bands = solverMod.getResistorBands(ohms);
+                        const bandRow = document.createElement('div');
+                        bandRow.className = 'ic-res-band-preview';
+                        for (const c of bands) {
+                            const dot = document.createElement('span');
+                            dot.className = 'ic-res-band-dot';
+                            dot.style.background = c;
+                            bandRow.appendChild(dot);
+                        }
+                        const txt = document.createElement('small');
+                        txt.textContent = `EIA 4-Band · ${fmt} ±5%`;
+                        bandRow.appendChild(txt);
+                        dynBox.appendChild(bandRow);
+                    }
+
+                    // Custom numeric Ω input + unit selector
+                    const rowInp = document.createElement('div');
+                    rowInp.className = 'ic-dyn-row';
+                    let unitMult = 1;
+                    let dispVal = ohms;
+                    if (ohms >= 1e6) { unitMult = 1e6; dispVal = +(ohms / 1e6).toFixed(2); }
+                    else if (ohms >= 1e3) { unitMult = 1e3; dispVal = +(ohms / 1e3).toFixed(2); }
+
+                    const numInp = document.createElement('input');
+                    numInp.type = 'number';
+                    numInp.min = '1';
+                    numInp.max = '9999';
+                    numInp.step = 'any';
+                    numInp.className = 'ic-dyn-input';
+                    numInp.value = String(dispVal);
+
+                    const unitSel = document.createElement('select');
+                    unitSel.className = 'ic-dyn-select';
+                    [['1', 'Ω'], ['1000', 'kΩ'], ['1000000', 'MΩ']].forEach(([val, txt]) => {
+                        const o = document.createElement('option');
+                        o.value = val;
+                        o.textContent = txt;
+                        if (Number(val) === unitMult) o.selected = true;
+                        unitSel.appendChild(o);
+                    });
+
+                    const applyRes = () => {
+                        const vNum = Math.max(1, parseFloat(numInp.value) || 1);
+                        const mult = Number(unitSel.value) || 1;
+                        const newOhms = Math.min(10e6, Math.max(1, Math.round(vNum * mult)));
+                        const next = cloneICDoc(currentDoc);
+                        const tc = next.components.find(x => x.id === comp.id);
+                        if (tc) {
+                            tc.ohms = newOhms;
+                            tc.label = solverMod ? solverMod.formatOhms(newOhms) : `${newOhms}Ω`;
+                            commitDoc(next);
+                        }
+                    };
+                    numInp.addEventListener('change', applyRes);
+                    unitSel.addEventListener('change', applyRes);
+                    rowInp.append(numInp, unitSel);
+                    dynBox.appendChild(rowInp);
+
+                    // Quick E12 resistance chips
+                    const chips = document.createElement('div');
+                    chips.className = 'ic-chip-group';
+                    for (const val of [100, 220, 330, 470, 1000, 4700, 10000, 100000]) {
+                        const b = document.createElement('button');
+                        b.type = 'button';
+                        b.className = 'ic-dyn-chip' + (ohms === val ? ' is-active' : '');
+                        b.textContent = solverMod ? solverMod.formatOhms(val) : `${val}Ω`;
+                        b.addEventListener('click', () => {
+                            const next = cloneICDoc(currentDoc);
+                            const tc = next.components.find(x => x.id === comp.id);
+                            if (tc) {
+                                tc.ohms = val;
+                                tc.label = solverMod ? solverMod.formatOhms(val) : `${val}Ω`;
+                                commitDoc(next);
+                            }
+                        });
+                        chips.appendChild(b);
+                    }
+                    dynBox.appendChild(chips);
+                }
+            } else if (comp.kind === 'potentiometer') {
+                const pst = evalData.potStates?.get(comp.id);
+                const wiper = comp.wiper !== undefined ? comp.wiper : 0.5;
+                const totalOhms = comp.ohms || 10000;
+                const fmt = solverMod ? solverMod.formatOhms(totalOhms) : `${totalOhms}Ω`;
+                $('icInspectorTitle').textContent = `Rotary Potentiometer (${fmt} · ${Math.round(wiper * 100)}%)`;
+                $('icInspectorMeta').textContent = `Wiper Voltage: ${(pst?.vWiper || 0).toFixed(2)} V · T1–Wiper: ${solverMod ? solverMod.formatOhms(pst?.r1 || 0) : ''} · Wiper–T2: ${solverMod ? solverMod.formatOhms(pst?.r2 || 0) : ''}.`;
+                if (dynBox) {
+                    const rowSl = document.createElement('div');
+                    rowSl.className = 'ic-dyn-row';
+                    const lbl = document.createElement('span');
+                    lbl.className = 'ic-dyn-label';
+                    lbl.textContent = `Knob Position: ${Math.round(wiper * 100)}%`;
+                    const sl = document.createElement('input');
+                    sl.type = 'range';
+                    sl.min = '0';
+                    sl.max = '100';
+                    sl.step = '1';
+                    sl.value = String(Math.round(wiper * 100));
+                    sl.className = 'ic-dyn-slider';
+                    sl.addEventListener('input', () => {
+                        comp.wiper = Number(sl.value) / 100;
+                        lbl.textContent = `Knob Position: ${sl.value}%`;
+                        recompute();
+                    });
+                    rowSl.append(lbl, sl);
+                    dynBox.appendChild(rowSl);
+
+                    const chips = document.createElement('div');
+                    chips.className = 'ic-chip-group';
+                    for (const val of [100, 1000, 10000, 100000]) {
+                        const b = document.createElement('button');
+                        b.type = 'button';
+                        b.className = 'ic-dyn-chip' + (totalOhms === val ? ' is-active' : '');
+                        b.textContent = solverMod ? solverMod.formatOhms(val) : `${val}Ω`;
+                        b.addEventListener('click', () => {
+                            const next = cloneICDoc(currentDoc);
+                            const tc = next.components.find(x => x.id === comp.id);
+                            if (tc) { tc.ohms = val; commitDoc(next); }
+                        });
+                        chips.appendChild(b);
+                    }
+                    dynBox.appendChild(chips);
+                }
+            } else if (comp.kind === 'motor') {
+                const mst = evalData.motorStates?.get(comp.id) || { rpm: 0, direction: 'IDLE', voltage: 0, currentMa: 0, powerMw: 0 };
+                $('icInspectorTitle').textContent = `DC Motor (${mst.rpm} RPM · ${mst.direction})`;
+                $('icInspectorMeta').textContent = `Rated ${comp.ratedV || 9}V (Max ${comp.maxRpm || 3600} RPM). Swap +/− polarity to reverse rotation direction (CW ↔ CCW).`;
+                if (mst.overloaded) {
+                    showFaultBanner(mst.faultText || 'DC Motor over-voltage fault (>12V)! Reduce supply voltage.', 'error');
+                }
+                if (dynBox) {
+                    const cardEl = document.createElement('div');
+                    cardEl.className = 'ic-motor-telemetry';
+                    cardEl.innerHTML = `
+                        <div class="ic-motor-rpm-big">${mst.rpm.toLocaleString()} <span>RPM</span></div>
+                        <div class="ic-motor-stats-row">
+                            <span>Dir: <strong>${mst.direction}</strong></span>
+                            <span>Volt: <strong>${mst.voltage.toFixed(2)} V</strong></span>
+                            <span>Draw: <strong>${mst.currentMa.toFixed(0)} mA</strong></span>
+                        </div>`;
+                    dynBox.appendChild(cardEl);
+                }
+            } else if (comp.kind === 'pushbutton') {
+                $('icInspectorTitle').textContent = `Tactile Push Button (${comp.pressed ? 'PRESSED / CLOSED' : 'RELEASED / OPEN'})`;
+                $('icInspectorMeta').textContent = comp.latched
+                    ? 'Latched Mode: Click the button cap on the bench (or Space) to toggle CLOSED ↔ OPEN.'
+                    : 'Momentary Mode: Press and hold the button cap on the bench to close contacts A1-A2 ↔ B1-B2.';
+                $('icToggleSelectedBtn').textContent = comp.pressed ? 'Release Button' : 'Press Button';
+                if (dynBox) {
+                    const group = document.createElement('div');
+                    group.className = 'ic-chip-group';
+                    const bMom = document.createElement('button');
+                    bMom.type = 'button';
+                    bMom.className = 'ic-dyn-chip' + (!comp.latched ? ' is-active' : '');
+                    bMom.textContent = 'Momentary (Hold)';
+                    bMom.addEventListener('click', () => {
+                        const next = cloneICDoc(currentDoc);
+                        const tc = next.components.find(x => x.id === comp.id);
+                        if (tc) { tc.latched = false; tc.pressed = false; commitDoc(next); }
+                    });
+                    const bLat = document.createElement('button');
+                    bLat.type = 'button';
+                    bLat.className = 'ic-dyn-chip' + (comp.latched ? ' is-active' : '');
+                    bLat.textContent = 'Latched (Toggle)';
+                    bLat.addEventListener('click', () => {
+                        const next = cloneICDoc(currentDoc);
+                        const tc = next.components.find(x => x.id === comp.id);
+                        if (tc) { tc.latched = true; commitDoc(next); }
+                    });
+                    group.append(bMom, bLat);
+                    dynBox.appendChild(group);
+                }
+            } else if (comp.kind === 'spdt') {
+                const isRight = comp.positionThrow === 'right';
+                $('icInspectorTitle').textContent = `3-Terminal SPDT Switch (COM → ${isRight ? 'T2 Right' : 'T1 Left'})`;
+                $('icInspectorMeta').textContent = 'Single-Pole Double-Throw switch routes center Common (COM) to either Throw 1 (Left) or Throw 2 (Right). Click switch on bench or press Space.';
+                $('icToggleSelectedBtn').textContent = isRight ? 'Slide Left (COM → T1)' : 'Slide Right (COM → T2)';
+            } else if (comp.kind === 'multimeter') {
+                const mst = evalData.meterStates?.get(comp.id) || { mode: comp.mode || 'V', display: '0.00 V' };
+                $('icInspectorTitle').textContent = `Digital Multimeter (${mst.display})`;
+                $('icInspectorMeta').textContent = 'Connect Red (+) and Black (COM) probes in parallel for Volts (V), in series for Current (mA), or across unpowered parts for Resistance (Ω).';
+                if (dynBox) {
+                    const group = document.createElement('div');
+                    group.className = 'ic-chip-group';
+                    [['V', 'V (Volts)'], ['mA', 'mA (Current)'], ['ohm', 'Ω (Ohms)']].forEach(([m, label]) => {
+                        const b = document.createElement('button');
+                        b.type = 'button';
+                        b.className = 'ic-dyn-chip' + ((comp.mode || 'V') === m ? ' is-active' : '');
+                        b.textContent = label;
+                        b.addEventListener('click', () => {
+                            const next = cloneICDoc(currentDoc);
+                            const tc = next.components.find(x => x.id === comp.id);
+                            if (tc) { tc.mode = m; commitDoc(next); }
+                        });
+                        group.appendChild(b);
+                    });
+                    dynBox.appendChild(group);
+                }
+            } else if (comp.kind === 'buzzer') {
+                const bst = evalData.buzzerStates?.get(comp.id) || { sounding: false, voltage: 0, freqHz: comp.freqHz || 880 };
+                $('icInspectorTitle').textContent = `Piezo Buzzer (${bst.sounding ? `SOUNDING · ${bst.freqHz} Hz` : 'SILENT'})`;
+                $('icInspectorMeta').textContent = `Voltage: ${bst.voltage.toFixed(2)} V · Turn on "🔊 Sound" in the subbar to hear the live piezo tone.`;
+                if (dynBox) {
+                    const rowSl = document.createElement('div');
+                    rowSl.className = 'ic-dyn-row';
+                    const lbl = document.createElement('span');
+                    lbl.className = 'ic-dyn-label';
+                    lbl.textContent = `Pitch: ${comp.freqHz || 880} Hz`;
+                    const sl = document.createElement('input');
+                    sl.type = 'range';
+                    sl.min = '220';
+                    sl.max = '2400';
+                    sl.step = '20';
+                    sl.value = String(comp.freqHz || 880);
+                    sl.className = 'ic-dyn-slider';
+                    sl.addEventListener('input', () => {
+                        comp.freqHz = Number(sl.value);
+                        lbl.textContent = `Pitch: ${comp.freqHz} Hz`;
+                        recompute();
+                    });
+                    rowSl.append(lbl, sl);
+                    dynBox.appendChild(rowSl);
+                }
+            } else if (comp.kind === 'npn') {
+                const qst = evalData.npnStates?.get(comp.id) || { mode: 'CUTOFF', ibMa: 0, icMa: 0, vbe: 0, vce: 0 };
+                $('icInspectorTitle').textContent = `NPN 2N2222 Transistor (${qst.mode})`;
+                $('icInspectorMeta').textContent = `Pinout (flat face): E (Left) · B (Center) · C (Right) · Ib = ${qst.ibMa.toFixed(2)} mA · Ic = ${qst.icMa.toFixed(1)} mA · Vbe = ${qst.vbe.toFixed(2)}V · Vce = ${qst.vce.toFixed(2)}V.`;
+                if (qst.overloaded) {
+                    showFaultBanner(qst.faultText || 'Transistor overcurrent! Add a base resistor (≥ 1 kΩ).', 'error');
+                }
+            } else if (comp.kind === 'rgb_led') {
+                const rst = evalData.rgbStates?.get(comp.id);
+                $('icInspectorTitle').textContent = `4-Leg RGB LED (${rst?.lit ? 'ILLUMINATED' : 'OFF'})`;
+                $('icInspectorMeta').textContent = `Common Cathode (2nd leg) · R: ${(rst?.channels?.r?.currentMa || 0).toFixed(1)} mA · G: ${(rst?.channels?.g?.currentMa || 0).toFixed(1)} mA · B: ${(rst?.channels?.b?.currentMa || 0).toFixed(1)} mA.`;
+                if (rst?.overloaded) {
+                    showFaultBanner(rst.faultText || 'RGB LED channel overcurrent (>30 mA)! Add series resistors.', 'error');
+                }
+            } else if (comp.kind === 'breadboard') {
+                const pluggedCount = evalData.pluggedPinMap
+                    ? [...evalData.pluggedPinMap.values()].filter(h => h.startsWith(comp.id + ':')).length
+                    : 0;
+                $('icInspectorTitle').textContent = comp.variant === 'mini' ? 'Mini Breadboard (17 Columns)' : 'Half-Size Breadboard (30 Cols + Rails)';
+                $('icInspectorMeta').textContent = `${pluggedCount} component lead(s) currently plugged into internal spring clips. Hover any hole to highlight its connected copper strip in green! Dragging this breadboard moves plugged-in parts with it.`;
             } else if (comp.kind === 'switch') {
                 $('icInspectorTitle').textContent = `Toggle Switch (${comp.closed ? 'CLOSED / ON' : 'OPEN / OFF'})`;
                 $('icInspectorMeta').textContent = 'Click directly on the switch on the bench (or press Space) to flip between HIGH (1) and LOW (0).';
@@ -3578,44 +5716,54 @@
                 $('icToggleSelectedBtn').textContent = `Increment 4-Bit Word (${val} → ${(val + 1) & 15})`;
             } else if (comp.kind === 'probe') {
                 const pst = evalData.probeStates?.get(comp.id);
-                const status = pst?.conflict ? 'SHORT CONFLICT' : pst?.val === 1 ? 'HIGH (+5V)' : pst?.val === 0 ? 'LOW (0V GND)' : 'Hi-Z (Floating)';
+                const status = pst?.conflict ? 'SHORT CONFLICT' : pst?.val === 1 ? 'HIGH' : pst?.val === 0 ? 'LOW (0V GND)' : 'Hi-Z (Floating)';
                 $('icInspectorTitle').textContent = `Digital Logic Probe (${status})`;
                 $('icInspectorMeta').textContent = 'High-impedance logic test probe that measures live TTL voltage levels without loading the circuit.';
-            } else if (comp.kind === 'resistor') {
-                $('icInspectorTitle').textContent = '220 Ω Series Resistor';
-                $('icInspectorMeta').textContent = 'Current-limiting series resistor (Red-Red-Brown-Gold) used between IC output pins and LED / Lamp indicators.';
             } else if (comp.kind === 'lamp') {
                 const lst = evalData.lampStates.get(comp.id);
-                if (lst?.lit) {
-                    $('icInspectorTitle').textContent = `Indicator Lamp (${comp.label || 'LED'} — ILLUMINATED · 5V → GND)`;
-                    $('icInspectorMeta').textContent = '✓ Closed Circuit Conducting: Anode (+) receives +5V (Logic 1) and Cathode (−) is connected to 0V GND.';
+                const ma = lst?.currentMa !== undefined ? ` · ${lst.currentMa.toFixed(1)} mA` : '';
+                if (lst?.overloaded) {
+                    $('icInspectorTitle').textContent = `5mm LED (${comp.label || 'LED'} — 🔥 OVERCURRENT${ma})`;
+                    $('icInspectorMeta').textContent = 'Too much current is flowing through this LED (> 30 mA max). Insert a 220 Ω–330 Ω series resistor to protect it!';
+                    showFaultBanner(lst.faultText || 'LED damaged by excessive current (>30 mA)! Add a series resistor.', 'error');
+                } else if (lst?.lit) {
+                    $('icInspectorTitle').textContent = `5mm LED (${comp.label || 'LED'} — ILLUMINATED${ma})`;
+                    $('icInspectorMeta').textContent = `✓ Conducting safely at ${(lst.voltageDrop || 2.2).toFixed(2)} V forward drop (${(lst.currentMa || 12).toFixed(1)} mA).`;
                 } else if (lst?.reason === 'open_cathode') {
-                    $('icInspectorTitle').textContent = `Indicator Lamp (${comp.label || 'LED'} — OFF: OPEN GND)`;
-                    $('icInspectorMeta').textContent = '⚠ Open Circuit: Anode (+) is HIGH (+5V), but Cathode (−) is NOT grounded! A lamp cannot work without connecting its negative terminal to GND (0V) or Battery (−).';
+                    $('icInspectorTitle').textContent = `5mm LED (${comp.label || 'LED'} — OFF: OPEN GND)`;
+                    $('icInspectorMeta').textContent = '⚠ Open Circuit: Anode (+) is energized, but Cathode (−) is NOT grounded! Connect Cathode (−) to GND (0V) or Battery (−).';
                 } else if (lst?.reason === 'open_anode') {
-                    $('icInspectorTitle').textContent = `Indicator Lamp (${comp.label || 'LED'} — OFF: OPEN ANODE)`;
-                    $('icInspectorMeta').textContent = '⚠ Open Circuit: Cathode (−) is connected to GND, but Anode (+) is left floating. Connect Anode (+) to an IC output pin or +5V.';
+                    $('icInspectorTitle').textContent = `5mm LED (${comp.label || 'LED'} — OFF: OPEN ANODE)`;
+                    $('icInspectorMeta').textContent = '⚠ Open Circuit: Cathode (−) is grounded, but Anode (+) is floating.';
                 } else if (lst?.reason === 'reverse_bias') {
-                    $('icInspectorTitle').textContent = `Indicator Lamp (${comp.label || 'LED'} — OFF: REVERSED)`;
-                    $('icInspectorMeta').textContent = '⚠ Reverse Polarity: Cathode (−) is at +5V while Anode (+) is at 0V. The diode blocks reverse current.';
+                    $('icInspectorTitle').textContent = `5mm LED (${comp.label || 'LED'} — OFF: REVERSED)`;
+                    $('icInspectorMeta').textContent = '⚠ Reverse Polarity: Cathode (−) is at higher voltage than Anode (+). The LED blocks reverse current.';
+                } else if (lst?.reason === 'under_vf') {
+                    $('icInspectorTitle').textContent = `5mm LED (${comp.label || 'LED'} — OFF: BELOW Vf)`;
+                    $('icInspectorMeta').textContent = `Forward voltage (${(lst.voltageDrop || 0).toFixed(2)} V) is below this LED's threshold (~2.0–3.0 V). Increase battery cells or voltage.`;
                 } else if (lst?.reason === 'no_diff_high') {
-                    $('icInspectorTitle').textContent = `Indicator Lamp (${comp.label || 'LED'} — OFF: 0V DROP)`;
-                    $('icInspectorMeta').textContent = 'Both Anode (+) and Cathode (−) are at +5V. Current requires a potential difference to flow.';
-                } else if (lst?.reason === 'low_input') {
-                    $('icInspectorTitle').textContent = `Indicator Lamp (${comp.label || 'LED'} — OFF: LOGIC 0)`;
-                    $('icInspectorMeta').textContent = 'Cathode (−) is grounded, but Anode (+) is driven LOW (0V). The lamp will turn ON when the driving gate outputs HIGH (+5V).';
+                    $('icInspectorTitle').textContent = `5mm LED (${comp.label || 'LED'} — OFF: 0V DROP)`;
+                    $('icInspectorMeta').textContent = 'Both Anode (+) and Cathode (−) are at the same voltage. Current requires a potential difference.';
                 } else {
-                    $('icInspectorTitle').textContent = `Indicator Lamp (${comp.label || 'LED'} — OFF)`;
-                    $('icInspectorMeta').textContent = 'Lights up when Anode (+) is driven HIGH (5V) and Cathode (−) returns to GND (0V) or Battery (−).';
+                    $('icInspectorTitle').textContent = `5mm LED (${comp.label || 'LED'} — OFF)`;
+                    $('icInspectorMeta').textContent = 'Lights up when Anode (+ long leg) exceeds Cathode (− flat edge) by ~2.0–3.0 V through a current-limiting resistor.';
                 }
                 $('icLampColorSelect').value = comp.color || 'emerald';
             } else if (comp.kind === 'gnd') {
                 $('icInspectorTitle').textContent = 'Ground Terminal (0V)';
-                $('icInspectorMeta').textContent = 'Provides a 0V (Logic 0) ground return path for IC Pin 7 and Lamp cathodes.';
+                $('icInspectorMeta').textContent = 'Provides a 0V ground return path for ICs, LEDs, Motors, and power supplies.';
             } else if (comp.kind === 'clock') {
                 $('icInspectorTitle').textContent = '1 Hz Clock Pulse Generator';
                 $('icInspectorMeta').textContent = 'Automatically oscillates between LOW (0V) and HIGH (+5V) every 0.5 seconds.';
                 $('icToggleSelectedBtn').textContent = 'Step Clock Pulse (0 ↔ 1)';
+            } else if (comp.kind === 'seg7_10') {
+                const st = evalData.seg7TenStates?.get(comp.id);
+                const litList = st ? Object.entries(st.segs).filter(([, v]) => v.lit).map(([k]) => k.toUpperCase()) : [];
+                $('icInspectorTitle').textContent = `10-Pin 7-Segment Display (5161AS · ${litList.length}/8 Lit)`;
+                $('icInspectorMeta').textContent = `Authentic 10-pin Common Cathode pinout (Top: g, f, COM, a, b · Bottom: e, d, COM, c, dp). Connect COM (Pin 3 or 8) to 0V and drive segments via 220Ω resistors. Active: ${litList.length ? litList.join(', ') : 'None'}.`;
+                if (st?.overloaded) {
+                    showFaultBanner('Segment connected directly to >3.6V without a 220Ω series resistor!', 'error');
+                }
             } else if (comp.kind === 'seg7') {
                 const sst = evalData.segStates.get(comp.id);
                 const hex = sst?.value !== null && sst?.value !== undefined ? sst.value.toString(16).toUpperCase() : '—';
@@ -3632,13 +5780,22 @@
 
             const ics = currentDoc.components.filter(c => c.kind === 'ic');
             const lamps = currentDoc.components.filter(c => c.kind === 'lamp');
+            const motors = currentDoc.components.filter(c => c.kind === 'motor');
+            const faults = evalData.faults || [];
+            const warnings = evalData.warnings || [];
 
-            if (evalData.anyReverse) {
+            if (faults.length > 0) {
+                badge.textContent = `🔥 ${faults.length} Fault${faults.length > 1 ? 's' : ''}!`;
+                badge.style.color = '#ff5a52';
+            } else if (evalData.anyReverse) {
                 badge.textContent = '⚠ Reverse Polarity';
                 badge.style.color = '#ff5a52';
             } else if (evalData.anyShort) {
-                badge.textContent = '⚠ +5V/GND Short';
+                badge.textContent = '⚠ Power/GND Short';
                 badge.style.color = '#ff5a52';
+            } else if (warnings.length > 0) {
+                badge.textContent = `⚠ ${warnings.length} Warning${warnings.length > 1 ? 's' : ''}`;
+                badge.style.color = '#f6b944';
             } else if (ics.length > 0 && ics.every(c => evalData.icStates.get(c.id)?.powered)) {
                 badge.textContent = '✓ All ICs Powered';
                 badge.style.color = '#37e0a1';
@@ -3646,16 +5803,49 @@
                 badge.textContent = '⚡ Unpowered IC';
                 badge.style.color = '#f6b944';
             } else {
-                badge.textContent = 'Bench Ready';
+                badge.textContent = '✓ Bench Ready';
                 badge.style.color = '#3dd9ff';
             }
 
-            if (!ics.length && !lamps.length) {
+            // Show active component faults right at the top of the sidebar summary!
+            for (const f of faults) {
+                const row = document.createElement('div');
+                row.className = 'ic-summary-item is-fault';
+                row.innerHTML = `<span style="color:#fca5a5;"><strong>🔥 ${f.label || f.compId}</strong></span><strong style="color:#ff5a52;font-size:11px;">${f.message}</strong>`;
+                row.style.cursor = 'pointer';
+                row.addEventListener('click', () => {
+                    selected = { kind: 'comp', id: f.compId };
+                    syncInspector();
+                    scheduleRender();
+                });
+                wrap.appendChild(row);
+            }
+
+            if (!ics.length && !lamps.length && !motors.length && !faults.length) {
                 const empty = document.createElement('div');
                 empty.className = 'ic-summary-item';
-                empty.innerHTML = '<span>No ICs placed yet</span><small style="color:#8fa0b5;">Pick a 74xx IC or Preset above</small>';
+                empty.innerHTML = '<span>Empty Workbench</span><small style="color:#8fa0b5;">Place a Breadboard, 2D Part, IC, or Preset above</small>';
                 wrap.appendChild(empty);
                 return;
+            }
+
+            for (const mot of motors) {
+                const mst = evalData.motorStates?.get(mot.id);
+                const row = document.createElement('div');
+                row.className = 'ic-summary-item';
+                const statusHtml = mst?.overloaded
+                    ? `<strong style="color:#ff5a52;">🔥 OVER-V (${mst.voltage.toFixed(1)}V)</strong>`
+                    : mst?.spinning
+                    ? `<strong style="color:#38bdf8;">⚙ ${mst.rpm} RPM (${mst.direction})</strong>`
+                    : '<strong style="color:#8fa0b5;">0 RPM (IDLE)</strong>';
+                row.innerHTML = `<span><strong>${mot.label || 'DC Motor'}</strong> · <small style="color:#96a5ba;">Actuator</small></span>${statusHtml}`;
+                row.style.cursor = 'pointer';
+                row.addEventListener('click', () => {
+                    selected = { kind: 'comp', id: mot.id };
+                    syncInspector();
+                    scheduleRender();
+                });
+                wrap.appendChild(row);
             }
 
             for (const ic of ics) {
@@ -3663,10 +5853,12 @@
                 const st = evalData.icStates.get(ic.id);
                 const row = document.createElement('div');
                 row.className = 'ic-summary-item';
-                const statusText = st?.reversePower
-                    ? '<strong style="color:#ff5a52;">⚠ Reverse VCC/GND</strong>'
+                const statusText = st?.corrupted
+                    ? `<strong style="color:#ff5a52;">🔥 ${st.reversePower ? 'Reverse Power' : `${st.supplyV?.toFixed(1)}V Fried`}</strong>`
+                    : st?.overVoltageWarn
+                    ? `<strong style="color:#f6b944;">⚠ ${st.supplyV?.toFixed(1)}V (>5.5V)</strong>`
                     : st?.powered
-                    ? `<strong style="color:#37e0a1;">✓ ${st.msiSummary || 'Powered (5V)'}</strong>`
+                    ? `<strong style="color:#37e0a1;">✓ ${st.msiSummary || `Powered (${(st.supplyV || 5).toFixed(1)}V)`}</strong>`
                     : `<strong style="color:#f6b944;">Unpowered (Pin ${spec.vccPin || 14}/${spec.gndPin || 7})</strong>`;
                 const metaTag = spec.msi ? spec.gateType : `${spec.gateType} (${spec.fanIn}-in)`;
                 row.innerHTML = `<span><strong>${ic.model}</strong> · <small style="color:#96a5ba;">${metaTag}</small></span>${statusText}`;
@@ -3683,14 +5875,16 @@
                 const lst = evalData.lampStates.get(lamp.id);
                 const row = document.createElement('div');
                 row.className = 'ic-summary-item';
-                const statusHtml = lst?.lit
-                    ? '<strong style="color:#37e0a1;">✓ ON (5V → GND)</strong>'
+                const statusHtml = lst?.overloaded
+                    ? `<strong style="color:#ff5a52;">🔥 POP (${lst.currentMa?.toFixed(0)}mA)</strong>`
+                    : lst?.lit
+                    ? `<strong style="color:#37e0a1;">✓ ON (${(lst.currentMa || 12).toFixed(1)}mA)</strong>`
                     : lst?.reason === 'open_cathode'
-                    ? '<strong style="color:#f6b944;">⚠ Open Cathode (No GND)</strong>'
+                    ? '<strong style="color:#f6b944;">⚠ Open Cathode</strong>'
                     : lst?.reason === 'reverse_bias'
-                    ? '<strong style="color:#ff5a52;">⚠ Reverse Bias</strong>'
-                    : '<strong style="color:#8fa0b5;">OFF (0V)</strong>';
-                row.innerHTML = `<span><strong>${lamp.label || 'LED'}</strong> · <small style="color:#96a5ba;">Indicator</small></span>${statusHtml}`;
+                    ? '<strong style="color:#ff5a52;">⚠ Reversed</strong>'
+                    : '<strong style="color:#8fa0b5;">OFF</strong>';
+                row.innerHTML = `<span><strong>${lamp.label || 'LED'}</strong> · <small style="color:#96a5ba;">5mm LED</small></span>${statusHtml}`;
                 row.style.cursor = 'pointer';
                 row.addEventListener('click', () => {
                     selected = { kind: 'comp', id: lamp.id };
@@ -3704,14 +5898,14 @@
         function syncFooter() {
             const ics = currentDoc.components.filter(c => c.kind === 'ic');
             const poweredCount = ics.filter(c => evalData.icStates.get(c.id)?.powered).length;
-            const switches = currentDoc.components.filter(c => c.kind === 'switch' || c.kind === 'dip4');
-            const lampsLit = currentDoc.components.filter(c => c.kind === 'lamp' && evalData.lampStates.get(c.id)?.lit).length;
+            const switches = currentDoc.components.filter(c => ['switch', 'dip4', 'pushbutton', 'spdt'].includes(c.kind));
+            const lampsLit = currentDoc.components.filter(c => (c.kind === 'lamp' && evalData.lampStates.get(c.id)?.lit) || (c.kind === 'rgb_led' && evalData.rgbStates?.get(c.id)?.lit)).length;
 
-            $('icStatChips').textContent = String(ics.length);
-            $('icStatPowered').textContent = `${poweredCount}/${ics.length}`;
-            $('icStatSwitches').textContent = String(switches.length);
-            $('icStatLamps').textContent = String(lampsLit);
-            $('icStatWires').textContent = String(currentDoc.wires.length);
+            if ($('icStatChips')) $('icStatChips').textContent = String(ics.length);
+            if ($('icStatPowered')) $('icStatPowered').textContent = `${poweredCount}/${ics.length}`;
+            if ($('icStatSwitches')) $('icStatSwitches').textContent = String(switches.length);
+            if ($('icStatLamps')) $('icStatLamps').textContent = String(lampsLit);
+            if ($('icStatWires')) $('icStatWires').textContent = String(currentDoc.wires.length);
             if ($('icStatCurrent') && evalData.telemetry) {
                 $('icStatCurrent').textContent = `${evalData.telemetry.iccMa.toFixed(1)} mA`;
             }
@@ -3723,38 +5917,86 @@
             }
 
             const statusEl = $('icStatStatus');
-            if (evalData.anyReverse) {
+            const faults = evalData.faults || [];
+            const warnings = evalData.warnings || [];
+            if (faults.length > 0) {
+                statusEl.className = 'logic-status-err';
+                statusEl.textContent = `🔥 Fault: ${faults[0].message}`;
+            } else if (evalData.anyReverse) {
                 statusEl.className = 'logic-status-err';
                 statusEl.textContent = '⚠ Fault: VCC/GND Reverse Polarity';
             } else if (evalData.anyShort) {
                 statusEl.className = 'logic-status-err';
-                statusEl.textContent = '⚠ Fault: +5V shorted to GND';
+                statusEl.textContent = '⚠ Fault: Power rail shorted to GND';
+            } else if (warnings.length > 0) {
+                statusEl.className = 'logic-status-warn';
+                statusEl.textContent = `⚠ ${warnings[0].message}`;
             } else if (ics.length > 0 && poweredCount < ics.length) {
                 statusEl.className = 'logic-status-warn';
-                statusEl.textContent = '⚡ Connect VCC → +5V & GND → 0V (or enable Auto-Power)';
+                statusEl.textContent = '⚡ Connect VCC (4.0–5.5V) & GND (or enable Auto-Power)';
             } else {
                 statusEl.className = 'logic-status-ok';
-                statusEl.textContent = '✓ Bench Ready';
+                statusEl.textContent = '✓ Bench Healthy';
             }
         }
 
-        // Hit-testing helpers
-        function findNearestPin(worldPt, maxDist = 16 / renderer.view.zoom) {
-            let best = null;
-            let bestDist = maxDist;
-            for (const p of evalData.pins.values()) {
-                const d = Math.hypot(p.x - worldPt.x, p.y - worldPt.y);
-                if (d < bestDist) {
-                    bestDist = d;
-                    best = p;
+        // Hit-testing helpers — strictly blocks breadboard holes covered by components or occupied by plugged legs!
+        function findNearestPin(worldPt, maxDist = 14 / renderer.view.zoom) {
+            // Build fast set of holes currently occupied by plugged-in component legs
+            const occupiedHoles = new Set();
+            if (evalData && evalData.pluggedPinMap) {
+                for (const holeKey of evalData.pluggedPinMap.values()) {
+                    occupiedHoles.add(holeKey);
                 }
             }
-            return best;
+
+            // Clamp world-space radii strictly below half of breadboard pitch (18px) so adjacent holes NEVER overlap!
+            const pinMaxDist = Math.min(maxDist, 14);
+            const bbMaxDist = Math.min(maxDist, (tool === 'wire' || wireStartPin) ? 12.5 : 10.5);
+
+            // If cursor is directly over a non-breadboard component's body, NEVER grab a hidden breadboard hole underneath it!
+            const cursorOverComp = isPointUnderComponent(currentDoc, worldPt);
+
+            let bestNonBB = null;
+            let bestNonBBDist = pinMaxDist;
+            let bestBB = null;
+            let bestBBDist = bbMaxDist;
+
+            for (const p of evalData.pins.values()) {
+                const d = Math.hypot(p.x - worldPt.x, p.y - worldPt.y);
+                if (p.isBreadboardHole) {
+                    if (cursorOverComp) continue;
+                    if (d >= bestBBDist) continue;
+                    if (occupiedHoles.has(p.key)) continue;
+                    if (isPointUnderComponent(currentDoc, p)) continue;
+                    bestBBDist = d;
+                    bestBB = p;
+                } else {
+                    if (d >= bestNonBBDist) continue;
+                    // Once a component pin is plugged into a breadboard socket, wire via the open holes of its strip!
+                    // Prevents accidental wire grabs when trying to click/toggle/drag components on a breadboard.
+                    if (evalData.pluggedPinMap && evalData.pluggedPinMap.has(p.key)) continue;
+                    bestNonBBDist = d;
+                    bestNonBB = p;
+                }
+            }
+            return bestNonBB || bestBB;
         }
 
         function findHitComponent(worldPt) {
+            // Check non-breadboard components FIRST so parts plugged into a breadboard are always selected/dragged cleanly!
             for (let i = currentDoc.components.length - 1; i >= 0; i--) {
                 const c = currentDoc.components[i];
+                if (c.kind === 'breadboard') continue;
+                const b = getComponentBounds(c);
+                if (worldPt.x >= b.x && worldPt.x <= b.x + b.w && worldPt.y >= b.y && worldPt.y <= b.y + b.h) {
+                    return c;
+                }
+            }
+            // Then check breadboards underneath
+            for (let i = currentDoc.components.length - 1; i >= 0; i--) {
+                const c = currentDoc.components[i];
+                if (c.kind !== 'breadboard') continue;
                 const b = getComponentBounds(c);
                 if (worldPt.x >= b.x && worldPt.x <= b.x + b.w && worldPt.y >= b.y && worldPt.y <= b.y + b.h) {
                     return c;
@@ -3793,7 +6035,15 @@
             return null;
         }
 
-        const isPlacementTool = t => Boolean(IC_CATALOG[t] || ['battery', 'switch', 'dip4', 'probe', 'resistor', 'lamp', 'gnd', 'clock', 'seg7'].includes(t));
+        const isPlacementTool = t => Boolean(
+            IC_CATALOG[t] || [
+                'battery', 'battery9v', 'psu', 'breadboard', 'breadboard_mini',
+                'switch', 'pushbutton', 'spdt', 'dip4', 'probe',
+                'resistor', 'potentiometer', 'lamp', 'rgb_led',
+                'motor', 'buzzer', 'npn', 'multimeter',
+                'gnd', 'clock', 'seg7', 'seg7_10'
+            ].includes(t)
+        );
 
         // Canvas Pointer Interactions
         canvas.addEventListener('pointerdown', e => {
@@ -3844,6 +6094,10 @@
                 const pos = snapICPoint(worldPt, snap);
                 const next = cloneICDoc(currentDoc);
                 const comp = createICComponent(tool, pos.x, pos.y, { rotation: placementRotation });
+                if (snap) {
+                    const bbSnap = snapCompToBreadboard(next, comp);
+                    if (bbSnap) comp.position = { x: bbSnap.x, y: bbSnap.y };
+                }
                 next.components.push(comp);
                 autoConnectDroppedComponent(next, comp.id);
                 commitDoc(next);
@@ -3864,7 +6118,7 @@
             if (hitPin) {
                 if (wireStartPin && wireStartPin.key !== hitPin.key) {
                     const next = cloneICDoc(currentDoc);
-                    if (connectICWire(next, wireStartPin.key, hitPin.key)) {
+                    if (connectICWire(next, wireStartPin.key, hitPin.key, [], { color: activeWireColor })) {
                         commitDoc(next);
                     }
                     wireStartPin = null;
@@ -3891,7 +6145,7 @@
                     const jPt = hitW.verticalSegment
                         ? { x: hitW.segA.x, y: Math.round(worldPt.y / GRID) * GRID }
                         : { x: Math.round(worldPt.x / GRID) * GRID, y: hitW.segA.y };
-                    if (connectICWire(next, wireStartPin.key, targetKey, [jPt])) {
+                    if (connectICWire(next, wireStartPin.key, targetKey, [jPt], { color: activeWireColor })) {
                         commitDoc(next);
                     }
                     wireStartPin = null;
@@ -3902,16 +6156,48 @@
 
             wireStartPin = null;
 
+            // In Wire mode, clicking empty space or a blocked hole under a component cancels wire drawing
+            // instead of accidentally dragging the breadboard or toggling switches underneath!
+            if (tool === 'wire') {
+                scheduleRender();
+                return;
+            }
+
             // Check component hit
             const hitComp = findHitComponent(worldPt);
             if (hitComp) {
                 selected = { kind: 'comp', id: hitComp.id };
+
+                // Momentary Push Button press-and-hold!
+                if (hitComp.kind === 'pushbutton' && !hitComp.latched) {
+                    hitComp.pressed = true;
+                    activePushBtnId = hitComp.id;
+                    recompute();
+                }
+
+                // If dragging a breadboard, capture plugged-in child components so they travel smoothly with it!
+                let pluggedChildren = [];
+                if (hitComp.kind === 'breadboard' && evalData.pluggedPinMap) {
+                    const childIds = new Set();
+                    for (const [compPinKey, bbHoleKey] of evalData.pluggedPinMap.entries()) {
+                        if (bbHoleKey.startsWith(hitComp.id + ':')) {
+                            const cid = compPinKey.split(':')[0];
+                            if (cid && cid !== hitComp.id) childIds.add(cid);
+                        }
+                    }
+                    pluggedChildren = [...childIds]
+                        .map(cid => currentDoc.components.find(c => c.id === cid))
+                        .filter(Boolean)
+                        .map(c => ({ id: c.id, origPos: { ...c.position } }));
+                }
+
                 dragState = {
                     type: 'moveComp',
                     id: hitComp.id,
                     startClientX: e.clientX,
                     startClientY: e.clientY,
                     origPos: { ...hitComp.position },
+                    pluggedChildren,
                     baseDoc: cloneICDoc(currentDoc),
                     moved: false
                 };
@@ -3961,7 +6247,7 @@
                 const dist = Math.hypot(pts[1].x - pts[0].x, pts[1].y - pts[0].y) || 1;
                 const midX = (pts[0].x + pts[1].x) / 2;
                 const midY = (pts[0].y + pts[1].y) / 2;
-                const nextZoom = Math.max(0.35, Math.min(2.2, pinchState.zoom * (dist / pinchState.dist)));
+                const nextZoom = Math.max(0.22, Math.min(2.2, pinchState.zoom * (dist / pinchState.dist)));
                 const ratio = nextZoom / pinchState.zoom;
                 const rect = canvas.getBoundingClientRect();
                 const cx = pinchState.midX - rect.left - renderer.width / 2;
@@ -3980,15 +6266,19 @@
                 const hp = findNearestPin(worldPt);
                 const nextKey = hp ? hp.key : null;
                 const hitW = !hp ? findHitWire(worldPt) : null;
+                const nextWireId = hitW ? hitW.wire.id : null;
+                const nextWireNet = hitW ? evalData.pinToNet.get(hitW.wire.from) : null;
                 canvas.style.cursor = hp
                     ? 'crosshair'
                     : hitW
                     ? (hitW.verticalSegment ? 'ew-resize' : 'ns-resize')
                     : 'default';
-                if (nextKey !== hoverPinKey) {
+                if (nextKey !== hoverPinKey || nextWireId !== hoverWireId) {
                     hoverPinKey = nextKey;
+                    hoverWireId = nextWireId;
+                    hoverWireNetId = nextWireNet !== undefined ? nextWireNet : null;
                     scheduleRender();
-                } else if (wireStartPin || isPlacementTool(tool)) {
+                } else if (wireStartPin || isPlacementTool(tool) || hoverWireId) {
                     scheduleRender();
                 }
                 return;
@@ -4010,7 +6300,14 @@
 
             if (dragState.type === 'moveComp') {
                 const distPx = Math.hypot(e.clientX - dragState.startClientX, e.clientY - dragState.startClientY);
-                if (distPx > 4) dragState.moved = true;
+                if (distPx > 4) {
+                    dragState.moved = true;
+                    if (activePushBtnId) {
+                        const pb = currentDoc.components.find(c => c.id === activePushBtnId);
+                        if (pb && !pb.latched) pb.pressed = false;
+                        activePushBtnId = null;
+                    }
+                }
                 if (!dragState.moved) return;
 
                 const dx = (e.clientX - dragState.startClientX) / renderer.view.zoom;
@@ -4020,6 +6317,27 @@
                 const comp = currentDoc.components.find(c => c.id === dragState.id);
                 if (comp) {
                     comp.position = nextPos;
+                    dragState.snapHoles = null;
+                    if (snap && comp.kind !== 'breadboard') {
+                        const bbSnap = snapCompToBreadboard(currentDoc, comp);
+                        if (bbSnap) {
+                            comp.position = { x: bbSnap.x, y: bbSnap.y };
+                            dragState.snapHoles = bbSnap.holes;
+                        }
+                    }
+                    const deltaX = comp.position.x - dragState.origPos.x;
+                    const deltaY = comp.position.y - dragState.origPos.y;
+                    if (dragState.pluggedChildren && dragState.pluggedChildren.length) {
+                        for (const ch of dragState.pluggedChildren) {
+                            const childComp = currentDoc.components.find(c => c.id === ch.id);
+                            if (childComp) {
+                                childComp.position = {
+                                    x: ch.origPos.x + deltaX,
+                                    y: ch.origPos.y + deltaY
+                                };
+                            }
+                        }
+                    }
                     evalData = evaluateICBench(currentDoc);
                     scheduleRender();
                 }
@@ -4053,6 +6371,16 @@
         function finishPointer(e) {
             activePointers.delete(e.pointerId);
             if (activePointers.size < 2) pinchState = null;
+
+            if (activePushBtnId) {
+                const pb = currentDoc.components.find(c => c.id === activePushBtnId);
+                activePushBtnId = null;
+                if (pb && !pb.latched && pb.pressed) {
+                    pb.pressed = false;
+                    recompute();
+                }
+            }
+
             if (!dragState) return;
             const action = dragState;
             dragState = null;
@@ -4064,7 +6392,7 @@
                 const endPin = findNearestPin(worldPt, pinRadius);
                 if (endPin && endPin.key !== action.startPin.key) {
                     const next = cloneICDoc(currentDoc);
-                    if (connectICWire(next, action.startPin.key, endPin.key)) {
+                    if (connectICWire(next, action.startPin.key, endPin.key, [], { color: activeWireColor })) {
                         commitDoc(next);
                         wireStartPin = null;
                         recompute();
@@ -4080,7 +6408,7 @@
                         const jPt = hitW.verticalSegment
                             ? { x: hitW.segA.x, y: Math.round(worldPt.y / GRID) * GRID }
                             : { x: Math.round(worldPt.x / GRID) * GRID, y: hitW.segA.y };
-                        if (connectICWire(next, action.startPin.key, targetKey, [jPt])) {
+                        if (connectICWire(next, action.startPin.key, targetKey, [jPt], { color: activeWireColor })) {
                             commitDoc(next);
                             wireStartPin = null;
                             recompute();
@@ -4106,6 +6434,16 @@
                     const comp = currentDoc.components.find(c => c.id === action.id);
                     if (comp && comp.kind === 'switch') {
                         comp.closed = !comp.closed;
+                        recompute();
+                    } else if (comp && comp.kind === 'spdt') {
+                        comp.positionThrow = comp.positionThrow === 'right' ? 'left' : 'right';
+                        recompute();
+                    } else if (comp && comp.kind === 'pushbutton' && comp.latched) {
+                        comp.pressed = !comp.pressed;
+                        recompute();
+                    } else if (comp && comp.kind === 'multimeter') {
+                        const modes = ['V', 'mA', 'ohm'];
+                        comp.mode = modes[(modes.indexOf(comp.mode || 'V') + 1) % modes.length];
                         recompute();
                     } else if (comp && comp.kind === 'clock') {
                         comp.value = comp.value ? 0 : 1;
@@ -4158,6 +6496,8 @@
             if (!dragState) {
                 cursorWorld = null;
                 hoverPinKey = null;
+                hoverWireId = null;
+                hoverWireNetId = null;
                 scheduleRender();
             }
         });
@@ -4166,7 +6506,7 @@
         canvas.addEventListener('wheel', e => {
             e.preventDefault();
             const factor = e.deltaY < 0 ? 1.12 : 1 / 1.12;
-            const nextZoom = Math.max(0.35, Math.min(2.2, renderer.view.zoom * factor));
+            const nextZoom = Math.max(0.22, Math.min(2.2, renderer.view.zoom * factor));
             const ratio = nextZoom / renderer.view.zoom;
             const rect = canvas.getBoundingClientRect();
             const cx = e.clientX - rect.left - renderer.width / 2;
@@ -4183,6 +6523,11 @@
             const tag = document.activeElement?.tagName;
             if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA') return;
 
+            if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
+                e.preventDefault();
+                $('icSaveJsonBtn')?.click();
+                return;
+            }
             if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
                 e.preventDefault();
                 if (e.shiftKey) {
@@ -4290,7 +6635,10 @@
             recompute();
         }, 500);
 
-        renderer.onResize = () => scheduleRender();
+        renderer.onResize = () => {
+            renderPaletteThumbnails();
+            scheduleRender();
+        };
         recompute();
     }
 
@@ -4306,12 +6654,19 @@
         GRID,
         IC_CATALOG,
         IC_PRESETS,
+        BENCH_2D_PRESETS,
+        WIRE_PALETTE,
         blankICDoc,
         cloneICDoc,
         createICComponent,
         getComponentPins,
         getComponentBounds,
+        getComponentOcclusionLocalRect,
+        isPointUnderComponent,
+        isBreadboardHoleAccessible,
+        snapCompToBreadboard,
         connectICWire,
+        tidyAllWires,
         routeICWire,
         computeICWireGeometry,
         evaluateICBench

@@ -312,6 +312,7 @@
         #noResults { padding: 24px 0; color: #aab7c8; line-height: 1.6; }
         #card-dc-circuit { --hover-color: #8b9dff; }
         #card-logic { --hover-color: #37e0a1; }
+        #card-logic-ic { --hover-color: #c084fc; }
         #card-electronics { --hover-color: #f6b944; }
         #card-cap-networks { --hover-color: #3dd9ff; }
         .hub-section { margin-top: 10px; }
@@ -336,7 +337,7 @@
             <p class="hub-subtitle">Turn equations into observable systems. Change one variable, watch the field respond, and connect microscopic behavior to measurable results.</p>
             <div class="hub-metrics" aria-label="Platform features">
                 <span class="hub-metric">5 physics simulations</span>
-                <span class="hub-metric">4 virtual labs</span>
+                <span class="hub-metric">5 virtual labs</span>
                 <span class="hub-metric">Live SI measurements</span>
                 <span class="hub-metric">Cause → effect learning</span>
             </div>
@@ -345,7 +346,7 @@
         <form class="hub-search" role="search" aria-label="Find a simulation or lab">
             <label for="labSearch">Find a simulation or lab</label>
             <div class="search-row"><input id="labSearch" type="search" placeholder="Search by name or topic…" autocomplete="off" aria-controls="labCards"><button id="clearSearch" type="button" hidden>Clear</button></div>
-            <output id="searchCount" role="status" aria-live="polite">9 modules</output>
+            <output id="searchCount" role="status" aria-live="polite">10 modules</output>
         </form>
         <p id="noResults" hidden>No simulations or labs match your search. Try another name or topic.</p>
         <div id="labCards">
@@ -385,7 +386,7 @@
             <section class="hub-section" aria-labelledby="labsSectionTitle">
                 <div class="hub-section-header">
                     <h2 id="labsSectionTitle" class="hub-section-title">Virtual Labs</h2>
-                    <span class="hub-section-count">4 Interactive Labs</span>
+                    <span class="hub-section-count">5 Interactive Labs</span>
                 </div>
                 <div class="cards-wrapper" aria-label="Virtual engineering labs">
                     <a href="pages/capacitor-networks.html" class="nav-card glass-panel" id="card-cap-networks">
@@ -398,9 +399,14 @@
                         <span class="card-desc" hidden>Build digital logic gate circuits, watch live Boolean equations and truth tables update, simplify expressions with Karnaugh maps, and convert to universal NAND or NOR gates.</span>
                     </a>
 
+                    <a href="pages/logic-ic.html" class="nav-card glass-panel" id="card-logic-ic">
+                        <h3 class="card-title">Logic IC Lab</h3>
+                        <span class="card-desc" hidden>Wire authentic 74xx Series DIP integrated circuits on a classic digital logic bench with X-ray gate internals, DIP-4 switches, 7-segment display, clock generator, and logic probe.</span>
+                    </a>
+
                     <a href="pages/electronics.html" class="nav-card glass-panel" id="card-electronics">
                         <h3 class="card-title">Electronics Lab</h3>
-                        <span class="card-desc" hidden>Wire authentic 74xx DIP integrated circuits on an interactive bench with X-ray internals, DIP switches, 7-segment display, clock generator, and logic probe.</span>
+                        <span class="card-desc" hidden>Build realistic 2D hardware circuits on breadboards with AA/9V batteries, Bench PSU, spinning DC motors with live RPM, variable 4-band resistors, potentiometers, NPN transistors, multimeters, overload warnings, and 74xx ICs.</span>
                     </a>
 
                     <a href="pages/dc-circuit.html" class="nav-card glass-panel" id="card-dc-circuit">
