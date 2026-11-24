@@ -192,24 +192,44 @@
                 : (comp.voltage && !comp.cells ? Number(comp.voltage) : cells * 1.5);
 
             if (isPsu) {
-                // Bench PSU: circle DC voltage source between (-54, 90) and (+54, 90)
-                strokePts(ctx, [{ x: -54, y: 90 }, { x: -54, y: 0 }, { x: -24, y: 0 }], 2);
-                strokePts(ctx, [{ x: 24, y: 0 }, { x: 54, y: 0 }, { x: 54, y: 90 }], 2);
+                // Bench PSU: circle DC voltage source between (-180, 324) and (+180, 324)
+                strokePts(ctx, [{ x: -180, y: 324 }, { x: -180, y: 0 }, { x: -34, y: 0 }], 2);
+                strokePts(ctx, [{ x: 34, y: 0 }, { x: 180, y: 0 }, { x: 180, y: 324 }], 2);
                 ctx.beginPath();
-                ctx.arc(0, 0, 24, 0, Math.PI * 2);
+                ctx.arc(0, 0, 34, 0, Math.PI * 2);
                 ctx.fillStyle = '#ffffff';
                 ctx.fill();
                 ctx.lineWidth = 2;
                 ctx.stroke();
-                ctx.font = '700 12px "Inter", sans-serif';
+                ctx.font = '700 13px "Inter", sans-serif';
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';
                 ctx.fillStyle = '#000000';
                 ctx.fillText('−   +', 0, 0);
-                drawText(`PSU · ${vNom.toFixed(1)} V`, 0, -36, 10.5);
+                drawText(`PSU · ${vNom.toFixed(1)} V`, 0, -42, 11);
+            } else if (comp.kind === 'battery9v') {
+                // Wire-free 9V PP3 Battery IEEE symbol with top terminal leads at (-36, -180) and (+36, -180)
+                const drawCells = 2;
+                const span = drawCells * 12;
+                strokePts(ctx, [{ x: -36, y: -180 }, { x: -36, y: 0 }, { x: -span / 2, y: 0 }], 2);
+                strokePts(ctx, [{ x: span / 2, y: 0 }, { x: 36, y: 0 }, { x: 36, y: -180 }], 2);
+                for (let i = 0; i < drawCells; i++) {
+                    const xNeg = -span / 2 + i * 12;
+                    const xPos = xNeg + 6;
+                    strokePts(ctx, [{ x: xNeg, y: -11 }, { x: xNeg, y: 11 }], 3.4);
+                    strokePts(ctx, [{ x: xPos, y: -22 }, { x: xPos, y: 22 }], 1.8);
+                    if (i < drawCells - 1) {
+                        strokePts(ctx, [{ x: xPos, y: 0 }, { x: xPos + 6, y: 0 }], 1.6);
+                    }
+                }
+                ctx.font = '700 11px "JetBrains Mono", monospace';
+                ctx.textAlign = 'center';
+                ctx.fillText('−', -48, -160);
+                ctx.fillText('+', 48, -160);
+                drawText('9 V', 0, 34, 11);
             } else {
-                // Standard IEEE Multi-Cell Battery Symbol (AA: ±108,0 | 9V: ±90,0)
-                const pinX = comp.kind === 'battery9v' ? 90 : 108;
+                // Standard IEEE Multi-Cell Battery Symbol (AA Pack: ±216, 0)
+                const pinX = 216;
                 const drawCells = Math.min(4, Math.max(1, cells));
                 const span = drawCells * 12;
                 strokePts(ctx, [{ x: -pinX, y: 0 }, { x: -span / 2, y: 0 }], 2);
@@ -376,11 +396,11 @@
             drawText('B', 0, 48, 9);
             drawText('C', 36, 48, 9);
         } else if (comp.kind === 'multimeter') {
-            // Digital Multimeter symbol (pins at ±36, 126)
-            strokePts(ctx, [{ x: -36, y: 126 }, { x: -36, y: 40 }, { x: -18, y: 26 }], 2);
-            strokePts(ctx, [{ x: 36, y: 126 }, { x: 36, y: 40 }, { x: 18, y: 26 }], 2);
+            // Digital Multimeter symbol (pins at ±72, 252)
+            strokePts(ctx, [{ x: -72, y: 252 }, { x: -72, y: 48 }, { x: -24, y: 32 }], 2);
+            strokePts(ctx, [{ x: 72, y: 252 }, { x: 72, y: 48 }, { x: 24, y: 32 }], 2);
             ctx.beginPath();
-            ctx.arc(0, 0, 30, 0, Math.PI * 2);
+            ctx.arc(0, 0, 34, 0, Math.PI * 2);
             ctx.fillStyle = '#ffffff';
             ctx.fill();
             ctx.lineWidth = 2.2;

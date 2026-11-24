@@ -8,7 +8,7 @@
   <meta name="description" content="Realistic 2D interactive hardware electronics workbench with breadboards, AA/9V batteries, Bench PSU, spinning DC motors with live RPM, variable 4-band resistors, potentiometers, NPN transistors, multimeters, overload warnings, 74xx DIP ICs with X-ray internals, and 3-mode drag-and-drop save/export.">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="../css/research-theme.css?v=5">
-  <link rel="stylesheet" href="../css/logic.css?v=20">
+  <link rel="stylesheet" href="../css/logic.css?v=21">
 </head>
 <body>
   <canvas id="bgCanvas" aria-hidden="true"></canvas>
@@ -43,9 +43,6 @@
         <div class="logic-placement-opts">
           <label title="Show semi-transparent datasheet gate symbols and internal pin routing inside every 74xx IC package">
             <input id="icXrayToggle" type="checkbox" checked> 🔬 X-Ray ICs
-          </label>
-          <label title="Automatically supply +5V to Pin 14/16 (VCC) and 0V to Pin 7/8 (GND) on all ICs without manual power wires">
-            <input id="icAutoPowerToggle" type="checkbox"> ⚡ Auto-Power
           </label>
           <label title="Show animated current flow pulses ONLY along active closed conducting loops">
             <input id="icFlowToggle" type="checkbox" checked> 〰 Loop Flow
@@ -151,11 +148,6 @@
                 <canvas class="ic-part-thumb" data-thumb-kind="spdt" width="112" height="68"></canvas>
                 <span class="ic-part-name">Slide Switch</span>
                 <span class="ic-part-spec">3-Pin SPDT</span>
-              </button>
-              <button type="button" data-ic-tool="dip4" class="ic-part-card palette-span-2" aria-pressed="false" data-keywords="dip switch 4 bit binary input" title="4-Channel DIP Switch Bank (B0..B3)">
-                <canvas class="ic-part-thumb" data-thumb-kind="dip4" width="112" height="68"></canvas>
-                <span class="ic-part-name">DIP-4 Switch Bank</span>
-                <span class="ic-part-spec">4-Bit Rocker · B0–B3</span>
               </button>
             </div>
           </div>
@@ -294,10 +286,10 @@
 
   <script src="../js/electronics-solver.js?v=5"></script>
   <script src="../js/electronics-components.js?v=5"></script>
-  <script src="../js/hardware-renderer.js?v=2"></script>
+  <script src="../js/hardware-renderer.js?v=6"></script>
   <script src="../js/schematic-io.js?v=2"></script>
-  <script src="../js/electronics-export.js?v=7"></script>
-  <script src="../js/logic-ic-lab.js?v=25"></script>
+  <script src="../js/electronics-export.js?v=10"></script>
+  <script src="../js/logic-ic-lab.js?v=29"></script>
   <script src="../js/shared-bg.js"></script>
 </body>
 </html>

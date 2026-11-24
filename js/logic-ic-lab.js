@@ -884,21 +884,21 @@
             const cells = Math.max(1, Math.min(4, Math.round(comp.cells || (comp.voltage ? comp.voltage / 1.5 : 3))));
             const v = (cells * 1.5).toFixed(1);
             return [
-                buildPin(comp, 'neg', -108, 0, -1, 0, 'gnd', `AA Pack − (0V Return)`),
-                buildPin(comp, 'pos', 108, 0, 1, 0, 'vcc', `AA Pack + (+${v}V · ${cells}×AA)`)
+                buildPin(comp, 'neg', -216, 0, -1, 0, 'gnd', `AA Pack − (0V Return)`),
+                buildPin(comp, 'pos', 216, 0, 1, 0, 'vcc', `AA Pack + (+${v}V · ${cells}×AA)`)
             ];
         }
         if (comp.kind === 'battery9v') {
             return [
-                buildPin(comp, 'neg', -90, 0, -1, 0, 'gnd', '9V Battery − (0V Return)'),
-                buildPin(comp, 'pos', 90, 0, 1, 0, 'vcc', '9V Battery + (+9.0V)')
+                buildPin(comp, 'neg', -36, -180, 0, -1, 'gnd', '9V Battery − Hex Snap Terminal (0V)'),
+                buildPin(comp, 'pos', 36, -180, 0, -1, 'vcc', '9V Battery + Round Snap Terminal (+9.0V)')
             ];
         }
         if (comp.kind === 'psu') {
             const v = Number(comp.voltage !== undefined ? comp.voltage : 5).toFixed(1);
             return [
-                buildPin(comp, 'neg', -54, 90, 0, 1, 'gnd', 'Bench PSU − (0V Return)'),
-                buildPin(comp, 'pos', 54, 90, 0, 1, 'vcc', `Bench PSU + (+${v}V ${comp.enabled === false ? 'OFF' : 'ON'})`)
+                buildPin(comp, 'neg', -180, 324, 0, 1, 'gnd', 'Bench PSU − (0V Return)'),
+                buildPin(comp, 'pos', 180, 324, 0, 1, 'vcc', `Bench PSU + (+${v}V ${comp.enabled === false ? 'OFF' : 'ON'})`)
             ];
         }
         if (comp.kind === 'breadboard') {
@@ -987,8 +987,8 @@
         }
         if (comp.kind === 'multimeter') {
             return [
-                buildPin(comp, 'neg', -36, 126, 0, 1, 'gnd', 'Multimeter COM (− Black Probe)'),
-                buildPin(comp, 'pos', 36, 126, 0, 1, 'in', 'Multimeter VΩmA (+ Red Probe)')
+                buildPin(comp, 'neg', -72, 252, 0, 1, 'gnd', 'Multimeter COM (− Black Probe)'),
+                buildPin(comp, 'pos', 72, 252, 0, 1, 'in', 'Multimeter VΩmA (+ Red Probe)')
             ];
         }
         if (comp.kind === 'gnd') {
@@ -1055,14 +1055,14 @@
             h = spec.height;
         } else if (comp.kind === 'battery') {
             const cells = Math.max(1, Math.min(4, Math.round(comp.cells || (comp.voltage ? comp.voltage / 1.5 : 3))));
-            w = 224;
-            h = Math.max(90, cells * 44 + 44);
+            w = 456;
+            h = Math.max(124, cells * 66 + 48);
         } else if (comp.kind === 'battery9v') {
-            w = 192;
-            h = 204;
+            w = 204;
+            h = 368;
         } else if (comp.kind === 'psu') {
-            w = 248;
-            h = 196;
+            w = 900;
+            h = 668;
         } else if (comp.kind === 'resistor') {
             w = 148;
             h = 40;
@@ -1070,11 +1070,11 @@
             w = 244;
             h = 152;
         } else if (comp.kind === 'multimeter') {
-            w = 196;
-            h = 266;
+            w = 316;
+            h = 524;
         } else if (comp.kind === 'potentiometer') {
-            w = 108;
-            h = 128;
+            w = 104;
+            h = 132;
         } else if (comp.kind === 'pushbutton') {
             w = 82;
             h = 82;
@@ -2713,7 +2713,7 @@
             build() {
                 const doc = blankICDoc();
                 const bb = createICComponent('breadboard', 0, 0, { id: 'bb1', variant: 'half' });
-                const bat = createICComponent('battery', -756, -288, { id: 'bat1', cells: 3, label: '3×AA (4.5V)' });
+                const bat = createICComponent('battery', -864, -216, { id: 'bat1', cells: 3, label: '3×AA (4.5V)' });
                 // 7408 at (36, 0): Top pins 8..14 land in Row e (cols 14..20), Bottom pins 1..7 land in Row f (cols 14..20)!
                 const ic = createICComponent('7408', 36, 0, { id: 'ic1', label: '7408' });
                 const btnA = createICComponent('pushbutton', -324, 144, { id: 'btnA', latched: true, pressed: true, label: 'IN A' });
@@ -2725,7 +2725,7 @@
 
                 // Supply 3×AA (4.5V) into Top Rails & bridge to Bottom Rails (route negative cleanly below AA pack!)
                 connectICWire(doc, 'bat1:pos', 'bb1:tp1', [], { color: 'red', label: '+4.5V' });
-                connectICWire(doc, 'bat1:neg', 'bb1:tn1', [{ x: -882, y: -198 }, { x: -504, y: -198 }], { color: 'black', label: '0V' });
+                connectICWire(doc, 'bat1:neg', 'bb1:tn1', [{ x: -1080, y: -72 }, { x: -630, y: -72 }, { x: -630, y: -288 }], { color: 'black', label: '0V' });
                 connectICWire(doc, 'bb1:tp2', 'bb1:bp2', [], { color: 'red' });
                 connectICWire(doc, 'bb1:tn2', 'bb1:bn2', [], { color: 'black' });
 
@@ -2752,7 +2752,7 @@
             build() {
                 const doc = blankICDoc();
                 const bb = createICComponent('breadboard', 0, 0, { id: 'bb1', variant: 'half' });
-                const bat = createICComponent('battery', -756, -288, { id: 'bat1', cells: 3, label: '3×AA (4.5V)' });
+                const bat = createICComponent('battery', -864, -216, { id: 'bat1', cells: 3, label: '3×AA (4.5V)' });
 
                 // TOP HALF: SPDT Slide Switch (d8,d9,d10) -> 220Ω Resistor (c10..c14) -> 1U Emerald LED (d14..d15) — ZERO WIRES BETWEEN PARTS!
                 const spdt = createICComponent('spdt', -252, -144, { id: 'spdt1', positionThrow: 'right', label: 'MODE' });
@@ -2774,7 +2774,7 @@
 
                 // Only crisp straight power-rail taps (zero wires between the plugged-in components!)
                 connectICWire(doc, 'bat1:pos', 'bb1:tp1', [], { color: 'red', label: '+4.5V' });
-                connectICWire(doc, 'bat1:neg', 'bb1:tn1', [], { color: 'black', label: '0V' });
+                connectICWire(doc, 'bat1:neg', 'bb1:tn1', [{ x: -1080, y: -72 }, { x: -630, y: -72 }, { x: -630, y: -288 }], { color: 'black', label: '0V' });
                 connectICWire(doc, 'bb1:tp2', 'bb1:bp2', [], { color: 'red' });
                 connectICWire(doc, 'bb1:tn2', 'bb1:bn2', [], { color: 'black' });
 
@@ -2801,7 +2801,7 @@
             build() {
                 const doc = blankICDoc();
                 const bb = createICComponent('breadboard', 0, 0, { id: 'bb1', variant: 'half' });
-                const bat = createICComponent('battery', -756, -288, { id: 'bat1', cells: 3, label: '3×AA (4.5V)' });
+                const bat = createICComponent('battery', -864, -216, { id: 'bat1', cells: 3, label: '3×AA (4.5V)' });
                 // btn1 spans cols 8 & 10 (rows b & d); res1 spans cols 10 & 14 (row c); led1 spans cols 14 & 15 (row d, exact 1U!)
                 const btn = createICComponent('pushbutton', -252, -144, { id: 'btn1', latched: true, pressed: true, label: 'BTN' });
                 const res = createICComponent('resistor', -144, -144, { id: 'res1', ohms: 220, label: '220Ω' });
@@ -2810,7 +2810,7 @@
                 doc.components.push(bb, bat, btn, res, led);
 
                 connectICWire(doc, 'bat1:pos', 'bb1:tp1', [], { color: 'red', label: 'V+' });
-                connectICWire(doc, 'bat1:neg', 'bb1:tn1', [], { color: 'black', label: '−' });
+                connectICWire(doc, 'bat1:neg', 'bb1:tn1', [{ x: -1080, y: -72 }, { x: -630, y: -72 }, { x: -630, y: -288 }], { color: 'black', label: '−' });
                 connectICWire(doc, 'bb1:tp6', 'bb1:a8', [], { color: 'red' });
                 connectICWire(doc, 'bb1:a15', 'bb1:tn12', [], { color: 'black' });
 
@@ -2822,19 +2822,19 @@
             description: '9V Battery feeds a 5W rotary Potentiometer controlling a spinning DC Motor (click the Motor to inspect live RPM!) while a Digital Multimeter displays live motor voltage.',
             build() {
                 const doc = blankICDoc();
-                const bat9 = createICComponent('battery9v', -360, -72, { id: 'bat9', label: '9V PP3' });
-                const pot = createICComponent('potentiometer', -72, -72, { id: 'pot1', ohms: 100, wiper: 0.72, maxWatts: 5.0, label: 'SPEED' });
-                const mot = createICComponent('motor', 252, -72, { id: 'mot1', ratedV: 9, maxRpm: 3600, label: 'DC Motor' });
-                const dmm = createICComponent('multimeter', 234, 198, { id: 'dmm1', mode: 'V', label: 'DMM' });
+                const bat9 = createICComponent('battery9v', -432, 0, { id: 'bat9', label: '9V PP3' });
+                const pot = createICComponent('potentiometer', -108, -72, { id: 'pot1', ohms: 100, wiper: 0.72, maxWatts: 5.0, label: 'SPEED' });
+                const mot = createICComponent('motor', 180, -72, { id: 'mot1', ratedV: 9, maxRpm: 3600, label: 'DC Motor' });
+                const dmm = createICComponent('multimeter', 540, -36, { id: 'dmm1', mode: 'V', label: 'DMM' });
 
                 doc.components.push(bat9, pot, mot, dmm);
 
-                connectICWire(doc, 'bat9:pos', 'pot1:t2', [], { color: 'red', label: '+9V' });
-                connectICWire(doc, 'bat9:neg', 'pot1:t1', [{ x: -468, y: 72 }, { x: -108, y: 72 }], { color: 'black' });
-                connectICWire(doc, 'pot1:wiper', 'mot1:pos', [], { color: 'orange', label: 'V_MOT' });
-                connectICWire(doc, 'mot1:neg', 'bat9:neg', [{ x: 108, y: 72 }, { x: -468, y: 72 }], { color: 'black' });
-                connectICWire(doc, 'dmm1:pos', 'mot1:pos', [], { color: 'yellow' });
-                connectICWire(doc, 'dmm1:neg', 'mot1:neg', [], { color: 'black' });
+                connectICWire(doc, 'bat9:pos', 'pot1:t2', [{ x: -396, y: -216 }, { x: -18, y: -216 }, { x: -18, y: 36 }, { x: -72, y: 36 }], { color: 'red', label: '+9V' });
+                connectICWire(doc, 'bat9:neg', 'pot1:t1', [{ x: -468, y: -252 }, { x: -252, y: -252 }, { x: -252, y: 108 }, { x: -144, y: 108 }], { color: 'black' });
+                connectICWire(doc, 'pot1:wiper', 'mot1:pos', [{ x: -108, y: 0 }, { x: 18, y: 0 }, { x: 18, y: -90 }], { color: 'orange', label: 'V_MOT' });
+                connectICWire(doc, 'mot1:neg', 'bat9:neg', [{ x: 72, y: 108 }, { x: -252, y: 108 }, { x: -252, y: -252 }, { x: -468, y: -252 }], { color: 'black' });
+                connectICWire(doc, 'dmm1:pos', 'mot1:pos', [{ x: 612, y: 270 }, { x: 36, y: 270 }, { x: 36, y: -90 }], { color: 'yellow' });
+                connectICWire(doc, 'dmm1:neg', 'mot1:neg', [{ x: 468, y: 216 }, { x: 72, y: 216 }], { color: 'black' });
 
                 return doc;
             }
@@ -2844,7 +2844,7 @@
             description: '9V Battery routed through a 3-terminal SPDT Switch (closed loop back to 9V −). Throw Right drives a bare LED directly (triggering 🔥 OVERLOAD!). Click the SPDT switch to throw Left through 330Ω and watch it recover.',
             build() {
                 const doc = blankICDoc();
-                const bat9 = createICComponent('battery9v', -360, 0, { id: 'bat9', label: '9V PP3' });
+                const bat9 = createICComponent('battery9v', -432, 36, { id: 'bat9', label: '9V PP3' });
                 const spdt = createICComponent('spdt', -108, 0, { id: 'spdt1', positionThrow: 'right', label: 'ROUTE' });
                 const res = createICComponent('resistor', 108, -108, { id: 'res1', ohms: 330, label: '330Ω' });
                 const ledSafe = createICComponent('lamp', 306, -108, { id: 'ledSafe', color: 'emerald', label: 'Safe LED' });
@@ -2852,12 +2852,12 @@
 
                 doc.components.push(bat9, spdt, res, ledSafe, ledBare);
 
-                connectICWire(doc, 'bat9:pos', 'spdt1:com', [], { color: 'red', label: '+9V' });
+                connectICWire(doc, 'bat9:pos', 'spdt1:com', [{ x: -396, y: -180 }, { x: -216, y: -180 }, { x: -216, y: 90 }, { x: -108, y: 90 }], { color: 'red', label: '+9V' });
                 connectICWire(doc, 'spdt1:t1', 'res1:a', [], { color: 'green' });
                 connectICWire(doc, 'res1:b', 'ledSafe:anode', [], { color: 'green' });
-                connectICWire(doc, 'ledSafe:cathode', 'bat9:neg', [], { color: 'black' });
+                connectICWire(doc, 'ledSafe:cathode', 'bat9:neg', [{ x: 324, y: -216 }, { x: -468, y: -216 }], { color: 'black' });
                 connectICWire(doc, 'spdt1:t2', 'ledBare:anode', [], { color: 'orange', label: 'NO RES!' });
-                connectICWire(doc, 'ledBare:cathode', 'bat9:neg', [], { color: 'black' });
+                connectICWire(doc, 'ledBare:cathode', 'bat9:neg', [{ x: 396, y: 108 }, { x: 396, y: -216 }, { x: -468, y: -216 }], { color: 'black' });
 
                 return doc;
             }
@@ -2867,13 +2867,13 @@
             description: 'Low-voltage 3×AA (4.5V) Push Button drives a 2N2222 NPN Transistor base through 1 kΩ, switching a 9V DC Motor and Piezo Buzzer simultaneously (common negative return to batteries −).',
             build() {
                 const doc = blankICDoc();
-                const batCtrl = createICComponent('battery', -414, 144, { id: 'batCtrl', cells: 3, label: '3×AA Ctrl' });
-                const btn = createICComponent('pushbutton', -180, 144, { id: 'btn1', latched: true, pressed: true, label: 'RUN' });
-                const rBase = createICComponent('resistor', 18, 144, { id: 'rBase', ohms: 1000, label: '1kΩ' });
-                const q1 = createICComponent('npn', 216, 126, { id: 'q1', model: '2N2222', label: '2N2222' });
-                const bat9 = createICComponent('battery9v', -288, -162, { id: 'bat9', label: '9V Load' });
-                const mot = createICComponent('motor', 72, -162, { id: 'mot1', ratedV: 9, maxRpm: 3600, label: 'DC Motor' });
-                const buz = createICComponent('buzzer', 342, -162, { id: 'buz1', freqHz: 880, label: 'Buzzer' });
+                const batCtrl = createICComponent('battery', -540, 198, { id: 'batCtrl', cells: 3, label: '3×AA Ctrl' });
+                const btn = createICComponent('pushbutton', -180, 198, { id: 'btn1', latched: true, pressed: true, label: 'RUN' });
+                const rBase = createICComponent('resistor', 18, 198, { id: 'rBase', ohms: 1000, label: '1kΩ' });
+                const q1 = createICComponent('npn', 216, 180, { id: 'q1', model: '2N2222', label: '2N2222' });
+                const bat9 = createICComponent('battery9v', -432, -162, { id: 'bat9', label: '9V Load' });
+                const mot = createICComponent('motor', 72, -198, { id: 'mot1', ratedV: 9, maxRpm: 3600, label: 'DC Motor' });
+                const buz = createICComponent('buzzer', 342, -198, { id: 'buz1', freqHz: 880, label: 'Buzzer' });
 
                 doc.components.push(batCtrl, btn, rBase, q1, bat9, mot, buz);
 
@@ -2881,9 +2881,9 @@
                 connectICWire(doc, 'btn1:b1', 'rBase:a', [], { color: 'blue' });
                 connectICWire(doc, 'rBase:b', 'q1:b', [], { color: 'purple', label: 'BASE' });
                 connectICWire(doc, 'q1:e', 'batCtrl:neg', [], { color: 'black' });
-                connectICWire(doc, 'bat9:neg', 'batCtrl:neg', [], { color: 'black' });
-                connectICWire(doc, 'bat9:pos', 'mot1:pos', [], { color: 'red', label: '+9V' });
-                connectICWire(doc, 'bat9:pos', 'buz1:pos', [], { color: 'red' });
+                connectICWire(doc, 'bat9:neg', 'batCtrl:neg', [{ x: -468, y: -378 }, { x: -792, y: -378 }, { x: -792, y: 198 }], { color: 'black' });
+                connectICWire(doc, 'bat9:pos', 'mot1:pos', [{ x: -396, y: -342 }, { x: -108, y: -342 }, { x: -108, y: -216 }], { color: 'red', label: '+9V' });
+                connectICWire(doc, 'bat9:pos', 'buz1:pos', [{ x: -396, y: -342 }, { x: 306, y: -342 }], { color: 'red' });
                 connectICWire(doc, 'mot1:neg', 'q1:c', [], { color: 'orange', label: 'SINK' });
                 connectICWire(doc, 'buz1:neg', 'q1:c', [], { color: 'orange' });
 
@@ -3691,6 +3691,10 @@
                     drawn = hw.drawBattery9V(ctx, comp, evalData, isSelected);
                 } else if (comp.kind === 'battery') {
                     drawn = hw.drawAAHolder(ctx, comp, evalData, isSelected);
+                } else if (comp.kind === 'psu' && typeof hw.drawBenchPSU === 'function') {
+                    drawn = hw.drawBenchPSU(ctx, comp, evalData, isSelected);
+                } else if (comp.kind === 'multimeter' && typeof hw.drawMultimeter === 'function') {
+                    drawn = hw.drawMultimeter(ctx, comp, evalData, isSelected);
                 } else if (comp.kind === 'pushbutton') {
                     drawn = hw.drawPushButton(ctx, comp, evalData, isSelected);
                 } else if (comp.kind === 'spdt') {
@@ -4392,7 +4396,12 @@
                 this.drawPinPad(pin, val, isHovered, isStart);
             }
 
-            // 5. Hover pin or wire tooltip on canvas (with live real voltage!)
+            // 5. Viewport-clamped hover pin or wire tooltip on canvas (with live real voltage, never clips off-edge!)
+            const vMinX = (-this.width / 2 - this.view.panX) / this.view.zoom + 10;
+            const vMaxX = (this.width / 2 - this.view.panX) / this.view.zoom - 10;
+            const vMinY = (-this.height / 2 - this.view.panY) / this.view.zoom + 10;
+            const vMaxY = (this.height / 2 - this.view.panY) / this.view.zoom - 10;
+
             if (uiState.hoverPinKey && evalData.pins.has(uiState.hoverPinKey)) {
                 const hp = evalData.pins.get(uiState.hoverPinKey);
                 const v = evalData.pinValues.get(uiState.hoverPinKey);
@@ -4406,9 +4415,11 @@
                 const label = `${hp.title} · ${vStr}${pluggedTag}`;
                 ctx.font = '600 11px "Inter", sans-serif';
                 const tw = ctx.measureText(label).width + 14;
-                const tx = hp.x - tw / 2;
-                const ty = hp.y - 30;
-                roundedRect(ctx, tx, ty, tw, 21, 5);
+                const th = 21;
+                const tx = Math.max(vMinX, Math.min(vMaxX - tw, hp.x - tw / 2));
+                const rawTy = hp.y - 30;
+                const ty = rawTy < vMinY ? Math.min(vMaxY - th, hp.y + 14) : Math.min(vMaxY - th, rawTy);
+                roundedRect(ctx, tx, ty, tw, th, 5);
                 ctx.fillStyle = 'rgba(10, 14, 24, 0.95)';
                 ctx.fill();
                 ctx.strokeStyle = 'rgba(61, 217, 255, 0.6)';
@@ -4417,7 +4428,7 @@
                 ctx.fillStyle = '#f4f7fb';
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';
-                ctx.fillText(label, hp.x, ty + 10.5);
+                ctx.fillText(label, tx + tw / 2, ty + th / 2);
             } else if (uiState.hoverWireId && uiState.cursorWorld) {
                 const hw = doc.wires.find(x => x.id === uiState.hoverWireId);
                 if (hw) {
@@ -4431,9 +4442,11 @@
                     const label = `${tag}${vStr}${iStr} · Drag to route`;
                     ctx.font = '600 10.5px "JetBrains Mono", monospace';
                     const tw = ctx.measureText(label).width + 14;
-                    const tx = uiState.cursorWorld.x - tw / 2;
-                    const ty = uiState.cursorWorld.y - 26;
-                    roundedRect(ctx, tx, ty, tw, 20, 5);
+                    const th = 20;
+                    const tx = Math.max(vMinX, Math.min(vMaxX - tw, uiState.cursorWorld.x - tw / 2));
+                    const rawTy = uiState.cursorWorld.y - 26;
+                    const ty = rawTy < vMinY ? Math.min(vMaxY - th, uiState.cursorWorld.y + 14) : Math.min(vMaxY - th, rawTy);
+                    roundedRect(ctx, tx, ty, tw, th, 5);
                     ctx.fillStyle = 'rgba(10, 14, 24, 0.94)';
                     ctx.fill();
                     ctx.strokeStyle = 'rgba(56, 189, 248, 0.55)';
@@ -4442,7 +4455,7 @@
                     ctx.fillStyle = '#e2e8f0';
                     ctx.textAlign = 'center';
                     ctx.textBaseline = 'middle';
-                    ctx.fillText(label, uiState.cursorWorld.x, ty + 10);
+                    ctx.fillText(label, tx + tw / 2, ty + th / 2);
                 }
             }
 
@@ -4531,7 +4544,15 @@
             } catch (_) {}
         }
 
+        function syncZoomBadge() {
+            const fitBtn = $('icFitBtn');
+            if (!fitBtn) return;
+            const pct = Math.round((renderer.view.zoom || 1) * 100);
+            fitBtn.textContent = `Fit (${pct}%)`;
+        }
+
         function scheduleRender() {
+            syncZoomBadge();
             if (frameScheduled) return;
             frameScheduled = true;
             requestAnimationFrame(() => {
@@ -4652,7 +4673,7 @@
             recompute();
         }
 
-        function recompute() {
+        function recompute(opts = {}) {
             evalData = evaluateICBench(currentDoc);
             $('icUndoBtn').disabled = undoStack.length === 0;
             $('icRedoBtn').disabled = redoStack.length === 0;
@@ -4660,7 +4681,9 @@
             const rotBtn = $('icRotatePlacementBtn');
             if (rotBtn) rotBtn.hidden = !isPlacementTool(tool);
             updateBuzzerAudio();
-            syncInspector();
+            if (!opts.skipInspectorRebuild) {
+                syncInspector();
+            }
             syncSidebarSummary();
             syncFooter();
             scheduleRender();
@@ -4809,7 +4832,7 @@
             if (presetSelect) presetSelect.value = '';
             renderer.fit(currentDoc);
             recompute();
-            setHint('IC Bench cleared. Place a 74xx IC, 5V Battery, Switches, Resistor, and Lamp.');
+            setHint('Workbench cleared. Drag or click any hardware component from the left gallery to start building.');
         });
 
         // Subbar toggles
@@ -5109,24 +5132,32 @@
 
         $('icToggleSelectedBtn')?.addEventListener('click', () => {
             if (!selected || selected.kind !== 'comp') return;
-            const comp = currentDoc.components.find(c => c.id === selected.id);
+            const next = cloneICDoc(currentDoc);
+            const comp = next.components.find(c => c.id === selected.id);
             if (!comp) return;
             if (comp.kind === 'switch') {
                 comp.closed = !comp.closed;
-                recompute();
+                commitDoc(next);
             } else if (comp.kind === 'spdt') {
                 comp.positionThrow = comp.positionThrow === 'right' ? 'left' : 'right';
-                recompute();
+                commitDoc(next);
             } else if (comp.kind === 'pushbutton') {
                 comp.pressed = !comp.pressed;
-                recompute();
+                commitDoc(next);
+            } else if (comp.kind === 'psu') {
+                comp.enabled = !(comp.enabled !== false);
+                commitDoc(next);
+            } else if (comp.kind === 'multimeter') {
+                const modes = ['V', 'mA', 'ohm'];
+                comp.mode = modes[(modes.indexOf(comp.mode || 'V') + 1) % modes.length];
+                commitDoc(next);
             } else if (comp.kind === 'clock') {
                 comp.value = comp.value ? 0 : 1;
-                recompute();
+                commitDoc(next);
             } else if (comp.kind === 'dip4') {
                 const cur = (((comp.bits?.[0] ? 1 : 0) | (comp.bits?.[1] ? 2 : 0) | (comp.bits?.[2] ? 4 : 0) | (comp.bits?.[3] ? 8 : 0)) + 1) & 0x0f;
                 comp.bits = [cur & 1, (cur >> 1) & 1, (cur >> 2) & 1, (cur >> 3) & 1];
-                recompute();
+                commitDoc(next);
             }
         });
 
@@ -5411,13 +5442,35 @@
                     sl.type = 'range';
                     sl.min = '0';
                     sl.max = '12';
-                    sl.step = '0.1';
+                    sl.step = '0.05';
                     sl.value = String(v);
                     sl.className = 'ic-dyn-slider';
+                    let preDragDoc = null;
+                    sl.addEventListener('pointerdown', e => {
+                        e.stopPropagation();
+                        preDragDoc = cloneICDoc(currentDoc);
+                    });
                     sl.addEventListener('input', () => {
-                        const nv = Math.round(parseFloat(sl.value) * 10) / 10;
+                        const nv = Math.round(parseFloat(sl.value) * 20) / 20;
                         comp.voltage = nv;
-                        lbl.textContent = `Voltage: ${nv.toFixed(1)} V`;
+                        lbl.textContent = `Voltage: ${nv.toFixed(2)} V`;
+                        recompute({ skipInspectorRebuild: true });
+                        const liveSrc = evalData.sourceStates?.get(comp.id);
+                        const isOn = comp.enabled !== false;
+                        $('icInspectorTitle').textContent = `Bench Power Supply (${isOn ? `${nv.toFixed(2)}V ON` : 'STANDBY OFF'})`;
+                        $('icInspectorMeta').textContent = `Regulated 0.0–12.0V laboratory supply · Output: ${(liveSrc?.currentMa || 0).toFixed(1)} mA (${((liveSrc?.currentMa || 0) * nv).toFixed(0)} mW).`;
+                        presetsRow.querySelectorAll('.ic-dyn-chip').forEach(btn => {
+                            const pv = parseFloat(btn.dataset.pv);
+                            btn.classList.toggle('is-active', Math.abs(nv - pv) < 0.08);
+                        });
+                    });
+                    sl.addEventListener('change', () => {
+                        if (preDragDoc) {
+                            undoStack.push(preDragDoc);
+                            if (undoStack.length > 60) undoStack.shift();
+                            redoStack.length = 0;
+                            preDragDoc = null;
+                        }
                         recompute();
                     });
                     rowSl.append(lbl, sl);
@@ -5428,7 +5481,8 @@
                     for (const pv of [3.3, 5.0, 6.0, 9.0, 12.0]) {
                         const b = document.createElement('button');
                         b.type = 'button';
-                        b.className = 'ic-dyn-chip' + (Math.abs(v - pv) < 0.05 ? ' is-active' : '');
+                        b.dataset.pv = String(pv);
+                        b.className = 'ic-dyn-chip' + (Math.abs(v - pv) < 0.08 ? ' is-active' : '');
                         b.textContent = `${pv.toFixed(1)}V`;
                         b.addEventListener('click', () => {
                             const next = cloneICDoc(currentDoc);
@@ -5547,16 +5601,54 @@
                     sl.type = 'range';
                     sl.min = '0';
                     sl.max = '100';
-                    sl.step = '1';
-                    sl.value = String(Math.round(wiper * 100));
+                    sl.step = '0.5';
+                    sl.value = String(Math.round(wiper * 1000) / 10);
                     sl.className = 'ic-dyn-slider';
+                    let preDragDoc = null;
+                    sl.addEventListener('pointerdown', e => {
+                        e.stopPropagation();
+                        preDragDoc = cloneICDoc(currentDoc);
+                    });
                     sl.addEventListener('input', () => {
-                        comp.wiper = Number(sl.value) / 100;
-                        lbl.textContent = `Knob Position: ${sl.value}%`;
+                        const pct = parseFloat(sl.value);
+                        comp.wiper = Math.max(0, Math.min(1, pct / 100));
+                        lbl.textContent = `Knob Position: ${Math.round(pct)}%`;
+                        recompute({ skipInspectorRebuild: true });
+                        const livePst = evalData.potStates?.get(comp.id);
+                        $('icInspectorTitle').textContent = `Rotary Potentiometer (${fmt} · ${Math.round(pct)}%)`;
+                        $('icInspectorMeta').textContent = `Wiper Voltage: ${(livePst?.vWiper || 0).toFixed(2)} V · T1–Wiper: ${solverMod ? solverMod.formatOhms(livePst?.r1 || 0) : ''} · Wiper–T2: ${solverMod ? solverMod.formatOhms(livePst?.r2 || 0) : ''}.`;
+                        pctChips.querySelectorAll('.ic-dyn-chip').forEach(btn => {
+                            btn.classList.toggle('is-active', Math.abs(pct - Number(btn.dataset.pct)) < 2);
+                        });
+                    });
+                    sl.addEventListener('change', () => {
+                        if (preDragDoc) {
+                            undoStack.push(preDragDoc);
+                            if (undoStack.length > 60) undoStack.shift();
+                            redoStack.length = 0;
+                            preDragDoc = null;
+                        }
                         recompute();
                     });
                     rowSl.append(lbl, sl);
                     dynBox.appendChild(rowSl);
+
+                    const pctChips = document.createElement('div');
+                    pctChips.className = 'ic-chip-group';
+                    for (const pVal of [0, 25, 50, 75, 100]) {
+                        const b = document.createElement('button');
+                        b.type = 'button';
+                        b.dataset.pct = String(pVal);
+                        b.className = 'ic-dyn-chip' + (Math.abs(Math.round(wiper * 100) - pVal) < 2 ? ' is-active' : '');
+                        b.textContent = `${pVal}%`;
+                        b.addEventListener('click', () => {
+                            const next = cloneICDoc(currentDoc);
+                            const tc = next.components.find(x => x.id === comp.id);
+                            if (tc) { tc.wiper = pVal / 100; commitDoc(next); }
+                        });
+                        pctChips.appendChild(b);
+                    }
+                    dynBox.appendChild(pctChips);
 
                     const chips = document.createElement('div');
                     chips.className = 'ic-chip-group';
@@ -5663,12 +5755,28 @@
                     sl.type = 'range';
                     sl.min = '220';
                     sl.max = '2400';
-                    sl.step = '20';
+                    sl.step = '10';
                     sl.value = String(comp.freqHz || 880);
                     sl.className = 'ic-dyn-slider';
+                    let preDragDoc = null;
+                    sl.addEventListener('pointerdown', e => {
+                        e.stopPropagation();
+                        preDragDoc = cloneICDoc(currentDoc);
+                    });
                     sl.addEventListener('input', () => {
                         comp.freqHz = Number(sl.value);
                         lbl.textContent = `Pitch: ${comp.freqHz} Hz`;
+                        recompute({ skipInspectorRebuild: true });
+                        const liveBst = evalData.buzzerStates?.get(comp.id) || { sounding: false, voltage: 0, freqHz: comp.freqHz };
+                        $('icInspectorTitle').textContent = `Piezo Buzzer (${liveBst.sounding ? `SOUNDING · ${comp.freqHz} Hz` : 'SILENT'})`;
+                    });
+                    sl.addEventListener('change', () => {
+                        if (preDragDoc) {
+                            undoStack.push(preDragDoc);
+                            if (undoStack.length > 60) undoStack.shift();
+                            redoStack.length = 0;
+                            preDragDoc = null;
+                        }
                         recompute();
                     });
                     rowSl.append(lbl, sl);
@@ -6423,31 +6531,68 @@
                 } else {
                     const comp = currentDoc.components.find(c => c.id === action.id);
                     if (comp && comp.kind === 'switch') {
-                        comp.closed = !comp.closed;
-                        recompute();
+                        const next = cloneICDoc(currentDoc);
+                        const tc = next.components.find(c => c.id === action.id);
+                        if (tc) { tc.closed = !tc.closed; commitDoc(next); }
                     } else if (comp && comp.kind === 'spdt') {
-                        comp.positionThrow = comp.positionThrow === 'right' ? 'left' : 'right';
-                        recompute();
+                        const next = cloneICDoc(currentDoc);
+                        const tc = next.components.find(c => c.id === action.id);
+                        if (tc) { tc.positionThrow = tc.positionThrow === 'right' ? 'left' : 'right'; commitDoc(next); }
                     } else if (comp && comp.kind === 'pushbutton' && comp.latched) {
-                        comp.pressed = !comp.pressed;
-                        recompute();
+                        const next = cloneICDoc(currentDoc);
+                        const tc = next.components.find(c => c.id === action.id);
+                        if (tc) { tc.pressed = !tc.pressed; commitDoc(next); }
                     } else if (comp && comp.kind === 'multimeter') {
-                        const modes = ['V', 'mA', 'ohm'];
-                        comp.mode = modes[(modes.indexOf(comp.mode || 'V') + 1) % modes.length];
-                        recompute();
-                    } else if (comp && comp.kind === 'clock') {
-                        comp.value = comp.value ? 0 : 1;
-                        recompute();
-                    } else if (comp && comp.kind === 'dip4') {
-                        if (!Array.isArray(comp.bits) || comp.bits.length !== 4) comp.bits = [0, 0, 0, 0];
+                        const next = cloneICDoc(currentDoc);
+                        const tc = next.components.find(c => c.id === action.id);
+                        if (tc) {
+                            const modes = ['V', 'mA', 'ohm'];
+                            tc.mode = modes[(modes.indexOf(tc.mode || 'V') + 1) % modes.length];
+                            commitDoc(next);
+                        }
+                    } else if (comp && comp.kind === 'psu') {
+                        // Direct on-bench clicks on the PSU front panel:
+                        //   • OUTPUT ON / STANDBY switch (x=136..364, y=-3..+59)
+                        //   • M1 (3.3V), M2 (5.0V), M3 (9.0V), M4 (12.0V) preset memory keys (y=-54..-18)
                         const dx = worldPt.x - comp.position.x;
                         const dy = worldPt.y - comp.position.y;
                         const rot = ((comp.rotation || 0) % 360 + 360) % 360;
                         const rad = (-rot * Math.PI) / 180;
-                        const localY = dx * Math.sin(rad) + dy * Math.cos(rad);
-                        const idx = localY < -36 ? 0 : localY < 0 ? 1 : localY < 36 ? 2 : 3;
-                        comp.bits[idx] = comp.bits[idx] ? 0 : 1;
-                        recompute();
+                        const lx = dx * Math.cos(rad) - dy * Math.sin(rad);
+                        const ly = dx * Math.sin(rad) + dy * Math.cos(rad);
+                        if (lx >= 136 && lx <= 364 && ly >= -3 && ly <= 59) {
+                            const next = cloneICDoc(currentDoc);
+                            const tc = next.components.find(c => c.id === action.id);
+                            if (tc) { tc.enabled = !(tc.enabled !== false); commitDoc(next); }
+                        } else if (ly >= -54 && ly <= -18) {
+                            const memKeys = [[151, 3.3], [217, 5.0], [283, 9.0], [349, 12.0]];
+                            for (const [mx, mv] of memKeys) {
+                                if (Math.abs(lx - mx) <= 29) {
+                                    const next = cloneICDoc(currentDoc);
+                                    const tc = next.components.find(c => c.id === action.id);
+                                    if (tc) { tc.voltage = mv; tc.enabled = true; commitDoc(next); }
+                                    break;
+                                }
+                            }
+                        }
+                    } else if (comp && comp.kind === 'clock') {
+                        const next = cloneICDoc(currentDoc);
+                        const tc = next.components.find(c => c.id === action.id);
+                        if (tc) { tc.value = tc.value ? 0 : 1; commitDoc(next); }
+                    } else if (comp && comp.kind === 'dip4') {
+                        const next = cloneICDoc(currentDoc);
+                        const tc = next.components.find(c => c.id === action.id);
+                        if (tc) {
+                            if (!Array.isArray(tc.bits) || tc.bits.length !== 4) tc.bits = [0, 0, 0, 0];
+                            const dx = worldPt.x - comp.position.x;
+                            const dy = worldPt.y - comp.position.y;
+                            const rot = ((comp.rotation || 0) % 360 + 360) % 360;
+                            const rad = (-rot * Math.PI) / 180;
+                            const localY = dx * Math.sin(rad) + dy * Math.cos(rad);
+                            const idx = localY < -36 ? 0 : localY < 0 ? 1 : localY < 36 ? 2 : 3;
+                            tc.bits[idx] = tc.bits[idx] ? 0 : 1;
+                            commitDoc(next);
+                        }
                     }
                 }
                 return;

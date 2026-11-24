@@ -43,45 +43,40 @@
         ctx.restore();
     }
 
-    // Unified single-piece tinned-copper / brushed-nickel lead shader
+    // Unified single-piece matte tinned-copper / brushed-nickel lead shader (lightweight, zero harsh glare)
     function drawMetallicLead(ctx, pts, width = 3.4) {
         if (!pts || pts.length < 2) return;
         ctx.save();
         ctx.lineCap = 'round';
         ctx.lineJoin = 'round';
 
-        // Contact shadow beneath lead
+        // Subtle contact shadow beneath lead
         ctx.save();
-        ctx.translate(0.8, 2.0);
+        ctx.translate(0.7, 1.8);
         ctx.beginPath();
         pts.forEach((p, i) => (i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y)));
-        ctx.strokeStyle = 'rgba(0, 0, 0, 0.34)';
-        ctx.lineWidth = width + 1.4;
+        ctx.strokeStyle = 'rgba(0, 0, 0, 0.30)';
+        ctx.lineWidth = width + 1.2;
         ctx.stroke();
         ctx.restore();
 
-        // Dark oxidized hairline rim
+        // Crisp dark oxidized rim
         ctx.beginPath();
         pts.forEach((p, i) => (i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y)));
         ctx.strokeStyle = '#334155';
-        ctx.lineWidth = width + 1.4;
+        ctx.lineWidth = width + 1.3;
         ctx.stroke();
 
-        // Brushed nickel-silver core
-        ctx.strokeStyle = '#cbd5e1';
+        // Clean matte brushed nickel-silver core (no harsh reflection stripe)
+        ctx.strokeStyle = '#c5ceda';
         ctx.lineWidth = width;
-        ctx.stroke();
-
-        // Top specular highlight spine
-        ctx.strokeStyle = 'rgba(255, 255, 255, 0.88)';
-        ctx.lineWidth = Math.max(1.0, width * 0.34);
         ctx.stroke();
 
         // Crisp rounded solder tip at final pin endpoint
         const tip = pts[pts.length - 1];
         ctx.beginPath();
-        ctx.arc(tip.x, tip.y, width * 0.52, 0, Math.PI * 2);
-        ctx.fillStyle = '#e2e8f0';
+        ctx.arc(tip.x, tip.y, width * 0.50, 0, Math.PI * 2);
+        ctx.fillStyle = '#d3dce6';
         ctx.fill();
         ctx.strokeStyle = '#475569';
         ctx.lineWidth = 0.9;
@@ -89,18 +84,18 @@
         ctx.restore();
     }
 
-    // Curved glossy insulated jumper/exit wire (for batteries & DC motor)
-    function drawInsulatedLead(ctx, p0, c1, c2, p1, outerCol, mainCol, width = 4.4) {
+    // Curved matte insulated jumper/exit wire (for batteries & DC motor)
+    function drawInsulatedLead(ctx, p0, c1, c2, p1, outerCol, mainCol, width = 4.6) {
         ctx.save();
         ctx.lineCap = 'round';
         // Soft drop shadow
         ctx.save();
-        ctx.translate(0, 2.8);
+        ctx.translate(0, 2.6);
         ctx.beginPath();
         ctx.moveTo(p0.x, p0.y);
         ctx.bezierCurveTo(c1.x, c1.y, c2.x, c2.y, p1.x, p1.y);
-        ctx.strokeStyle = 'rgba(0, 0, 0, 0.42)';
-        ctx.lineWidth = width + 2.2;
+        ctx.strokeStyle = 'rgba(0, 0, 0, 0.38)';
+        ctx.lineWidth = width + 2.0;
         ctx.stroke();
         ctx.restore();
 
@@ -112,23 +107,15 @@
         ctx.lineWidth = width + 1.8;
         ctx.stroke();
 
-        // Main colored PVC jacket
+        // Clean matte colored PVC jacket
         ctx.strokeStyle = mainCol;
         ctx.lineWidth = width;
         ctx.stroke();
 
-        // Glossy top specular line
-        ctx.save();
-        ctx.translate(0, -0.7);
-        ctx.strokeStyle = 'rgba(255, 255, 255, 0.35)';
-        ctx.lineWidth = 1.2;
-        ctx.stroke();
-        ctx.restore();
-
         // Exposed tinned wire tip at p1
         ctx.beginPath();
-        ctx.arc(p1.x, p1.y, 2.7, 0, Math.PI * 2);
-        ctx.fillStyle = '#e2e8f0';
+        ctx.arc(p1.x, p1.y, 2.8, 0, Math.PI * 2);
+        ctx.fillStyle = '#cbd5e1';
         ctx.fill();
         ctx.strokeStyle = '#334155';
         ctx.lineWidth = 0.9;
@@ -461,21 +448,16 @@
         ctx.fillStyle = '#0f172a';
         ctx.fill();
 
-        // Brushed steel upper housing plate
-        const steelGrad = ctx.createLinearGradient(-52, -34, 52, 10);
-        steelGrad.addColorStop(0, '#cbd5e1');
-        steelGrad.addColorStop(0.28, '#94a3b8');
-        steelGrad.addColorStop(0.62, '#64748b');
-        steelGrad.addColorStop(1, '#475569');
+        // Clean matte brushed steel upper housing plate (no shiny reflections)
         rRect(ctx, -52, -34, 104, 44, 5.5);
-        ctx.fillStyle = steelGrad;
+        ctx.fillStyle = '#9aa7b8';
         ctx.fill();
-        ctx.strokeStyle = '#e2e8f0';
-        ctx.lineWidth = 1.2;
+        ctx.strokeStyle = '#334155';
+        ctx.lineWidth = 1.4;
         ctx.stroke();
 
         // 4 folded stainless steel crimp ears along top & bottom edges
-        ctx.fillStyle = '#334155';
+        ctx.fillStyle = '#475569';
         for (const cx of [-38, 30]) {
             rRect(ctx, cx, -34, 8, 4.5, 1); ctx.fill();
             rRect(ctx, cx, 5.5, 8, 4.5, 1); ctx.fill();
@@ -491,11 +473,7 @@
 
         // Deep recessed slide track slot
         rRect(ctx, -34, -21, 68, 18, 2.5);
-        const slotGrad = ctx.createLinearGradient(0, -21, 0, -3);
-        slotGrad.addColorStop(0, '#04060a');
-        slotGrad.addColorStop(0.55, '#0b101b');
-        slotGrad.addColorStop(1, '#1e293b');
-        ctx.fillStyle = slotGrad;
+        ctx.fillStyle = '#090d16';
         ctx.fill();
 
         // Subtle exposed copper contact trace on active side inside slot
@@ -503,45 +481,34 @@
         rRect(ctx, right ? -31 : 7, -15, 24, 6, 1.5);
         ctx.fill();
 
-        // 3. Physically Sliding Ridged Matte-Black Tactile Actuator Knob
+        // 3. Physically Sliding Ridged Matte-Black Tactile Actuator Knob (zero shiny glare)
         const kx = right ? 16 : -16;
         // Directional shadow inside slot
         ctx.save();
         rRect(ctx, kx - 13.5, -22, 27, 23, 3.5);
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.62)';
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.58)';
         ctx.fill();
         ctx.restore();
 
-        // Molded ridged black slider block
-        const knobGrad = ctx.createLinearGradient(kx - 14, -25, kx + 14, -1);
-        knobGrad.addColorStop(0, '#475569');
-        knobGrad.addColorStop(0.25, '#272f3d');
-        knobGrad.addColorStop(0.75, '#111622');
-        knobGrad.addColorStop(1, '#090c14');
+        // Matte molded black slider block
         rRect(ctx, kx - 14, -24.5, 28, 24, 3.5);
-        ctx.fillStyle = knobGrad;
+        ctx.fillStyle = '#1f2734';
         ctx.fill();
-        ctx.strokeStyle = 'rgba(148, 163, 184, 0.55)';
+        ctx.strokeStyle = '#475569';
         ctx.lineWidth = 1.1;
         ctx.stroke();
 
-        // Tactile vertical grip ribs on slider thumb
+        // Tactile vertical grip grooves on slider thumb (clean matte)
         for (const rx of [-7.5, -2.5, 2.5, 7.5]) {
             ctx.beginPath();
             ctx.moveTo(kx + rx, -21);
             ctx.lineTo(kx + rx, -4);
-            ctx.strokeStyle = 'rgba(255, 255, 255, 0.24)';
-            ctx.lineWidth = 1.2;
-            ctx.stroke();
-            ctx.beginPath();
-            ctx.moveTo(kx + rx + 1.2, -21);
-            ctx.lineTo(kx + rx + 1.2, -4);
-            ctx.strokeStyle = 'rgba(0, 0, 0, 0.58)';
-            ctx.lineWidth = 1.0;
+            ctx.strokeStyle = '#0b1019';
+            ctx.lineWidth = 1.6;
             ctx.stroke();
         }
 
-        // Tiny glowing direction indicator pip on top of steel rim
+        // Tiny direction indicator pip on top of steel rim
         ctx.beginPath();
         ctx.arc(right ? 46 : -46, -12, 2.4, 0, Math.PI * 2);
         ctx.fillStyle = right ? '#34d399' : '#38bdf8';
@@ -553,7 +520,7 @@
     }
 
     // =========================================================================
-    // 3. ROTARY POTENTIOMETER — TRUE TOP-DOWN 2.5D BLUE TRIMPOT DIAL
+    // 3. CLASSIC SILVER ROTARY POTENTIOMETER (ALPHA RV16 / TINKERCAD STYLE)
     // =========================================================================
     // Exact 1U pins: T1 (-36, +36), Wiper (0, +36), T2 (+36, +36)
     function drawPotentiometer(ctx, comp, evalData, isSelected, solverMod) {
@@ -561,164 +528,212 @@
         const ohms = Number(comp.ohms) || 10000;
         const st = evalData?.potStates?.get(comp.id);
         const fmt = solverMod ? solverMod.formatOhms(ohms) : `${ohms}Ω`;
+        const shortCode = ohms >= 1e6 ? `B${Math.round(ohms / 1e6)}M`
+            : ohms >= 1e3 ? `B${Math.round(ohms / 1e3)}K`
+            : `B${Math.round(ohms)}`;
 
-        // 1. Three single-piece native tinned leads exiting cleanly into (-36, 36), (0, 36), (+36, 36)
-        drawMetallicLead(ctx, [{ x: -36, y: 12 }, { x: -36, y: 36 }], 3.8);
-        drawMetallicLead(ctx, [{ x: 0, y: 12 }, { x: 0, y: 36 }], 3.8);
-        drawMetallicLead(ctx, [{ x: 36, y: 12 }, { x: 36, y: 36 }], 3.8);
+        // 1. Three matte tinned solder-lug leads exiting cleanly into exact 1U holes (-36, 0, +36 @ y=+36)
+        drawMetallicLead(ctx, [{ x: -36, y: 8 }, { x: -36, y: 36 }], 3.8);
+        drawMetallicLead(ctx, [{ x: 0, y: 8 }, { x: 0, y: 36 }], 3.8);
+        drawMetallicLead(ctx, [{ x: 36, y: 8 }, { x: 36, y: 36 }], 3.8);
 
-        // 2. Molded Cobalt-Blue Square Housing (82 x 74px, y=-58..+16) with 2.5D thickness
+        const cx = 0, cy = -30;
+
+        // 2. Phenolic Brown-Amber Terminal Wafer Base projecting under the silver metal shell
         withPhysicalShadow(ctx, () => {
-            rRect(ctx, -41, -56, 82, 74, 8);
-            ctx.fillStyle = '#172554';
+            rRect(ctx, -43, -10, 86, 24, 4);
+            ctx.fillStyle = '#5c3317';
+            ctx.fill();
+            ctx.beginPath();
+            ctx.arc(cx, cy, 41, 0, Math.PI * 2);
+            ctx.fillStyle = '#64748b';
             ctx.fill();
         }, 12, 5, 3.5, 2);
 
-        // Lower 3D thickness lip
-        rRect(ctx, -41, -52, 82, 70, 8);
-        ctx.fillStyle = '#1e3a8a';
+        rRect(ctx, -43, -10, 86, 24, 4);
+        ctx.fillStyle = '#784421';
         ctx.fill();
-
-        // Top molded blue ABS deck
-        const blueGrad = ctx.createLinearGradient(-41, -58, 41, 14);
-        blueGrad.addColorStop(0, '#3b82f6');
-        blueGrad.addColorStop(0.45, '#2563eb');
-        blueGrad.addColorStop(1, '#1d4ed8');
-        rRect(ctx, -41, -58, 82, 70, 8);
-        ctx.fillStyle = blueGrad;
-        ctx.fill();
-        ctx.strokeStyle = 'rgba(147, 197, 253, 0.55)';
-        ctx.lineWidth = 1.2;
+        ctx.strokeStyle = '#3f220f';
+        ctx.lineWidth = 1.4;
         ctx.stroke();
 
-        // Subtle recessed corner screw indents
-        for (const [sx, sy] of [[-33, -50], [33, -50], [-33, 4], [33, 4]]) {
+        // 3 stamped brass terminal rivet eyelets on phenolic wafer
+        for (const px of [-36, 0, 36]) {
+            rRect(ctx, px - 5.5, 1, 11, 10, 2);
+            ctx.fillStyle = '#b6c2cf';
+            ctx.fill();
+            ctx.strokeStyle = '#334155';
+            ctx.lineWidth = 1;
+            ctx.stroke();
             ctx.beginPath();
-            ctx.arc(sx, sy, 2.5, 0, Math.PI * 2);
-            ctx.fillStyle = 'rgba(15, 23, 42, 0.42)';
+            ctx.arc(px, 6, 2.2, 0, Math.PI * 2);
+            ctx.fillStyle = '#1e293b';
             ctx.fill();
         }
 
-        // 3. Brushed Metallic Circular Nut / Bushing Ring & Calibration Scale at (0, -23)
-        const cx = 0, cy = -23;
+        // 3. Round Stamped Matte-Silver Aluminum Housing Can (r = 41px)
+        // Outer subtle steel edge lip
+        ctx.beginPath();
+        ctx.arc(cx, cy + 2, 41, 0, Math.PI * 2);
+        ctx.fillStyle = '#5a6677';
+        ctx.fill();
+
+        // Flat-shaded brushed silver metal body (no harsh glare)
+        const bodyGrad = ctx.createLinearGradient(cx - 41, cy - 41, cx + 41, cy + 41);
+        bodyGrad.addColorStop(0, '#cfd8e3');
+        bodyGrad.addColorStop(0.55, '#b1bcc9');
+        bodyGrad.addColorStop(1, '#8b97a7');
+        ctx.beginPath();
+        ctx.arc(cx, cy, 40.5, 0, Math.PI * 2);
+        ctx.fillStyle = bodyGrad;
+        ctx.fill();
+        ctx.strokeStyle = '#475569';
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+
+        // Stamped metal side crimping tabs & anti-rotation lug
+        ctx.fillStyle = '#8b97a7';
+        ctx.strokeStyle = '#475569';
+        ctx.lineWidth = 1.1;
+        rRect(ctx, -44, cy - 6, 5, 12, 1.5); ctx.fill(); ctx.stroke();
+        rRect(ctx, 39, cy - 6, 5, 12, 1.5);  ctx.fill(); ctx.stroke();
+
+        // Recessed concentric stamped step ring on aluminum housing
+        ctx.beginPath();
+        ctx.arc(cx, cy, 34, 0, Math.PI * 2);
+        ctx.strokeStyle = 'rgba(51, 65, 85, 0.35)';
+        ctx.lineWidth = 1.3;
+        ctx.stroke();
+
+        // Crisp stamped resistance marking (e.g. B10K) along top rim of silver can
+        ctx.font = '800 8.5px "JetBrains Mono", Consolas, monospace';
+        ctx.fillStyle = '#334155';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(shortCode, cx, cy - 31.5);
+
+        // 4. Calibrated 270° Tick Scale around Hex Nut
         const startAng = (135 * Math.PI) / 180;
         const sweepAng = (270 * Math.PI) / 180;
         const curAng = startAng + wiper * sweepAng;
 
-        // Metallic bezel collar
-        const rimGrad = ctx.createLinearGradient(cx - 30, cy - 30, cx + 30, cy + 30);
-        rimGrad.addColorStop(0, '#e2e8f0');
-        rimGrad.addColorStop(0.5, '#94a3b8');
-        rimGrad.addColorStop(1, '#475569');
-        ctx.beginPath();
-        ctx.arc(cx, cy, 31, 0, Math.PI * 2);
-        ctx.fillStyle = rimGrad;
-        ctx.fill();
-
-        // Dark recessed dial well
-        ctx.beginPath();
-        ctx.arc(cx, cy, 27.5, 0, Math.PI * 2);
-        ctx.fillStyle = '#0f172a';
-        ctx.fill();
-
-        // Calibration ticks around 270° arc
         for (let i = 0; i <= 10; i++) {
             const a = startAng + (i / 10) * sweepAng;
-            const r1 = i % 5 === 0 ? 22.5 : 24;
-            const r2 = 26.8;
+            const r1 = i % 5 === 0 ? 27.5 : 29;
+            const r2 = 32.5;
             ctx.beginPath();
             ctx.moveTo(cx + Math.cos(a) * r1, cy + Math.sin(a) * r1);
             ctx.lineTo(cx + Math.cos(a) * r2, cy + Math.sin(a) * r2);
-            ctx.strokeStyle = i / 10 <= wiper + 0.01 ? '#38bdf8' : 'rgba(148, 163, 184, 0.45)';
-            ctx.lineWidth = i % 5 === 0 ? 1.6 : 1.0;
+            ctx.strokeStyle = i / 10 <= wiper + 0.01 ? '#0284c7' : '#475569';
+            ctx.lineWidth = i % 5 === 0 ? 1.8 : 1.1;
             ctx.stroke();
         }
 
-        // Active wiper progress arc
-        ctx.beginPath();
-        ctx.arc(cx, cy, 24.5, startAng, curAng);
-        ctx.strokeStyle = '#38bdf8';
-        ctx.lineWidth = 2.6;
-        ctx.lineCap = 'round';
-        ctx.stroke();
-
-        // 4. Knurled Matte-Charcoal Rotary Knob with Fluted Grip & Pointer Notch
+        // 5. Machined 6-Sided Steel Hex Mounting Nut + Washer Collar
         ctx.save();
         ctx.translate(cx, cy);
-        // Subtle shadow under knob
         ctx.beginPath();
-        ctx.arc(1.2, 2.2, 20.5, 0, Math.PI * 2);
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.55)';
+        for (let i = 0; i < 6; i++) {
+            const a = (i * Math.PI) / 3 + Math.PI / 6;
+            const px = Math.cos(a) * 24.5;
+            const py = Math.sin(a) * 24.5;
+            if (i === 0) ctx.moveTo(px, py);
+            else ctx.lineTo(px, py);
+        }
+        ctx.closePath();
+        ctx.fillStyle = '#9aa6b6';
+        ctx.fill();
+        ctx.strokeStyle = '#334155';
+        ctx.lineWidth = 1.4;
+        ctx.stroke();
+
+        // Threaded circular bushing ring inside hex nut
+        ctx.beginPath();
+        ctx.arc(0, 0, 18.8, 0, Math.PI * 2);
+        ctx.fillStyle = '#738194';
+        ctx.fill();
+        ctx.strokeStyle = '#334155';
+        ctx.lineWidth = 1.2;
+        ctx.stroke();
+
+        // Subtle inner shadow beneath rotary knob
+        ctx.beginPath();
+        ctx.arc(0.8, 1.8, 16.5, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.42)';
         ctx.fill();
 
-        // Fluted knurled outer rim
+        // 6. Classic Knurled Rotary Knob with Machined Silver Cap & High-Contrast Pointer Line
         ctx.rotate(curAng);
         ctx.beginPath();
         const teeth = 18;
         for (let i = 0; i < teeth * 2; i++) {
             const a = (i / (teeth * 2)) * Math.PI * 2;
-            const rr = i % 2 === 0 ? 20.5 : 19.0;
+            const rr = i % 2 === 0 ? 16.5 : 15.1;
             if (i === 0) ctx.moveTo(Math.cos(a) * rr, Math.sin(a) * rr);
             else ctx.lineTo(Math.cos(a) * rr, Math.sin(a) * rr);
         }
         ctx.closePath();
-        ctx.fillStyle = '#1e293b';
+        ctx.fillStyle = '#252d3b';
+        ctx.fill();
+        ctx.strokeStyle = '#0f172a';
+        ctx.lineWidth = 1.1;
+        ctx.stroke();
+
+        // Matte brushed-silver rotary shaft top face
+        ctx.beginPath();
+        ctx.arc(0, 0, 12.6, 0, Math.PI * 2);
+        ctx.fillStyle = '#cbd5e1';
         ctx.fill();
         ctx.strokeStyle = '#475569';
-        ctx.lineWidth = 1.0;
+        ctx.lineWidth = 1.1;
         ctx.stroke();
 
-        // Brushed dark-metallic top cap
-        const capGrad = ctx.createRadialGradient(-5, -5, 2, 0, 0, 17.5);
-        capGrad.addColorStop(0, '#64748b');
-        capGrad.addColorStop(0.55, '#334155');
-        capGrad.addColorStop(1, '#0f172a');
+        // Crisp dark machined D-shaft pointer groove + high-visibility teal/cyan arrow tip
         ctx.beginPath();
-        ctx.arc(0, 0, 17, 0, Math.PI * 2);
-        ctx.fillStyle = capGrad;
-        ctx.fill();
-        ctx.strokeStyle = 'rgba(226, 232, 240, 0.35)';
-        ctx.lineWidth = 1.0;
+        ctx.moveTo(1.5, 0);
+        ctx.lineTo(13.8, 0);
+        ctx.strokeStyle = '#0f172a';
+        ctx.lineWidth = 3.6;
+        ctx.lineCap = 'round';
         ctx.stroke();
 
-        // High-contrast crisp amber/white pointer indicator groove
         ctx.beginPath();
-        ctx.moveTo(3, 0);
-        ctx.lineTo(15.5, 0);
-        ctx.strokeStyle = '#fbbf24';
-        ctx.lineWidth = 3.4;
+        ctx.moveTo(5.5, 0);
+        ctx.lineTo(13.2, 0);
+        ctx.strokeStyle = '#0ea5e9';
+        ctx.lineWidth = 1.8;
         ctx.lineCap = 'round';
         ctx.stroke();
         ctx.restore();
 
         if (st?.overloaded) {
-            drawPillBadge(ctx, 0, -72, `🔥 POT HOT · ${(st.powerW || 0).toFixed(2)}W`, 'error');
+            drawPillBadge(ctx, 0, -86, `🔥 POT HOT · ${(st.powerW || 0).toFixed(2)}W`, 'error');
         } else {
-            drawPillBadge(ctx, 0, -72, `${comp.label || 'POT'} · ${fmt} (${Math.round(wiper * 100)}%)`, 'info');
+            drawPillBadge(ctx, 0, -86, `${comp.label || 'POT'} · ${fmt} (${Math.round(wiper * 100)}%)`, 'info');
         }
-        if (isSelected) drawSelectionFrame(ctx, -48, -64, 96, 108);
+        if (isSelected) drawSelectionFrame(ctx, -50, -78, 100, 122);
         return true;
     }
 
     // =========================================================================
-    // 4. 4-PIN TACTILE PUSH BUTTON — TRUE TOP-DOWN 2.5D 6x6mm SWITCH (4 LEGS ONLY!)
+    // 4. 4-PIN TACTILE PUSH BUTTON — CLEAN MATTE 2.5D 6x6mm SWITCH (4 LEGS ONLY!)
     // =========================================================================
     // Exact 2U x 2U pins: (-36, -36), (+36, -36), (-36, +36), (+36, +36)
     function drawPushButton(ctx, comp, evalData, isSelected) {
         const down = Boolean(comp.pressed);
 
-        // 1. Exactly 4 single-piece gull-wing metallic legs landing cleanly at (±36, ±36) — ZERO double legs!
+        // 1. Exactly 4 single-piece gull-wing metallic legs landing cleanly at (±36, ±36)
         drawMetallicLead(ctx, [{ x: -24, y: -24 }, { x: -36, y: -24 }, { x: -36, y: -36 }], 3.6);
         drawMetallicLead(ctx, [{ x: 24, y: -24 },  { x: 36, y: -24 },  { x: 36, y: -36 }], 3.6);
         drawMetallicLead(ctx, [{ x: -24, y: 24 },  { x: -36, y: 24 },  { x: -36, y: 36 }], 3.6);
         drawMetallicLead(ctx, [{ x: 24, y: 24 },   { x: 36, y: 24 },   { x: 36, y: 36 }], 3.6);
 
-        // 2. Molded charcoal polymer base (62 x 62px) with 2.5D thickness
+        // 2. Molded charcoal polymer base (62 x 62px) with subtle 2.5D shadow
         withPhysicalShadow(ctx, () => {
             rRect(ctx, -31, -30, 62, 62, 6);
             ctx.fillStyle = '#0f172a';
             ctx.fill();
-        }, 11, 5, 3, 1.8);
+        }, 10, 4.5, 3, 1.8);
 
         rRect(ctx, -31, -31, 62, 62, 6);
         ctx.fillStyle = '#1e2430';
@@ -727,28 +742,19 @@
         ctx.lineWidth = 1.2;
         ctx.stroke();
 
-        // 3. Brushed stainless-steel top bezel plate (54 x 54px)
-        const plateGrad = ctx.createLinearGradient(-27, -27, 27, 27);
-        plateGrad.addColorStop(0, '#e2e8f0');
-        plateGrad.addColorStop(0.35, '#cbd5e1');
-        plateGrad.addColorStop(0.75, '#94a3b8');
-        plateGrad.addColorStop(1, '#64748b');
+        // 3. Clean matte brushed steel top bezel plate (no shiny reflections)
         rRect(ctx, -27, -27, 54, 54, 4.5);
-        ctx.fillStyle = plateGrad;
+        ctx.fillStyle = '#adb8c6';
         ctx.fill();
-        ctx.strokeStyle = 'rgba(255, 255, 255, 0.72)';
-        ctx.lineWidth = 1.1;
+        ctx.strokeStyle = '#475569';
+        ctx.lineWidth = 1.2;
         ctx.stroke();
 
-        // 4 dark circular corner heat-stake rivets with tiny specular catch-lights
+        // 4 matte dark corner heat-stake rivets
+        ctx.fillStyle = '#1e293b';
         for (const [rx, ry] of [[-19, -19], [19, -19], [-19, 19], [19, 19]]) {
             ctx.beginPath();
-            ctx.arc(rx, ry, 4.3, 0, Math.PI * 2);
-            ctx.fillStyle = '#1e293b';
-            ctx.fill();
-            ctx.beginPath();
-            ctx.arc(rx - 1.1, ry - 1.1, 1.4, 0, Math.PI * 2);
-            ctx.fillStyle = 'rgba(255, 255, 255, 0.32)';
+            ctx.arc(rx, ry, 4.2, 0, Math.PI * 2);
             ctx.fill();
         }
 
@@ -758,40 +764,22 @@
         ctx.fillStyle = '#0f172a';
         ctx.fill();
 
-        // 4. Tactile Plunger Cap (physically depresses with collapsed shadow when pressed!)
+        // 4. Clean Matte Tactile Plunger Cap (depresses cleanly when pressed, zero specular glare)
         const capR = down ? 14.8 : 16.2;
         if (!down) {
             ctx.beginPath();
-            ctx.arc(1.5, 2.5, capR, 0, Math.PI * 2);
-            ctx.fillStyle = 'rgba(0, 0, 0, 0.58)';
+            ctx.arc(1.2, 2.2, capR, 0, Math.PI * 2);
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.52)';
             ctx.fill();
-        }
-        const capGrad = ctx.createRadialGradient(-4, -4, 2, 0, 0, capR);
-        if (down) {
-            capGrad.addColorStop(0, '#334155');
-            capGrad.addColorStop(0.7, '#18202c');
-            capGrad.addColorStop(1, '#0b1019');
-        } else {
-            capGrad.addColorStop(0, '#475569');
-            capGrad.addColorStop(0.55, '#1e293b');
-            capGrad.addColorStop(1, '#090d16');
         }
         ctx.beginPath();
         ctx.arc(0, down ? 0.6 : 0, capR, 0, Math.PI * 2);
-        ctx.fillStyle = capGrad;
+        ctx.fillStyle = down ? '#1a2230' : '#263042';
         ctx.fill();
 
-        // Subtle tactile ring rim (soft emerald when ON, brushed metal when OFF)
-        ctx.strokeStyle = down ? '#34d399' : 'rgba(148, 163, 184, 0.55)';
+        // Subtle tactile ring rim (soft emerald when ON, muted slate when OFF)
+        ctx.strokeStyle = down ? '#34d399' : '#64748b';
         ctx.lineWidth = down ? 2.2 : 1.3;
-        ctx.stroke();
-
-        // Specular crescent highlight on plunger cap
-        ctx.beginPath();
-        ctx.arc(-1, down ? -0.4 : -1, capR * 0.68, Math.PI * 1.15, Math.PI * 1.72);
-        ctx.strokeStyle = 'rgba(255, 255, 255, 0.25)';
-        ctx.lineWidth = 1.6;
-        ctx.lineCap = 'round';
         ctx.stroke();
 
         const tag = comp.label || 'BTN';
@@ -801,7 +789,7 @@
     }
 
     // =========================================================================
-    // 5. VARIABLE 4-BAND AXIAL RESISTOR — SINGLE-PASS CLIPPED 3D DOG-BONE BODY
+    // 5. VARIABLE 4-BAND AXIAL RESISTOR — CLEAN MATTE CERAMIC DOG-BONE BODY
     // =========================================================================
     // Exact 4U pins: (-72, 0) and (+72, 0)
     function drawResistor(ctx, comp, evalData, isSelected, solverMod) {
@@ -811,7 +799,7 @@
         const fmt = solverMod ? solverMod.formatOhms(ohms) : `${ohms}Ω`;
         const hot = Boolean(st?.overloaded);
 
-        // 1. Single-piece tinned axial leads running straight into exact 4U (±72, 0) sockets
+        // 1. Single-piece matte tinned axial leads running straight into exact 4U (±72, 0) sockets
         drawMetallicLead(ctx, [{ x: -38, y: 0 }, { x: -72, y: 0 }], 3.6);
         drawMetallicLead(ctx, [{ x: 38, y: 0 }, { x: 72, y: 0 }], 3.6);
 
@@ -835,29 +823,28 @@
             ctx.closePath();
         };
 
-        // Physical 2-layer shadow under dog-bone ceramic body
+        // Physical shadow under dog-bone ceramic body
         withPhysicalShadow(ctx, () => {
             traceDogBone();
             ctx.fillStyle = '#8a6334';
             ctx.fill();
-        }, 10, 4.5, 3, 1.8);
+        }, 9, 4, 3, 1.6);
 
-        // 2. Single clipped pass: ceramic base + 4 dynamic EIA bands + continuous 3D cylindrical lighting OVER the bands!
+        // 2. Single clipped pass: matte ceramic base + 4 dynamic EIA bands + subtle matte lower cylindrical shading (zero shiny streak!)
         ctx.save();
         traceDogBone();
         ctx.clip();
 
-        // Warm ceramic beige cylinder base
+        // Warm matte ceramic beige body
         const bodyGrad = ctx.createLinearGradient(0, -12, 0, 12);
         if (hot) {
             bodyGrad.addColorStop(0, '#78350f');
-            bodyGrad.addColorStop(0.5, '#451a03');
+            bodyGrad.addColorStop(0.55, '#451a03');
             bodyGrad.addColorStop(1, '#1c0a00');
         } else {
-            bodyGrad.addColorStop(0, '#f7e5c3');
-            bodyGrad.addColorStop(0.28, '#e6c592');
-            bodyGrad.addColorStop(0.72, '#c59b62');
-            bodyGrad.addColorStop(1, '#8c6638');
+            bodyGrad.addColorStop(0, '#ebd3a7');
+            bodyGrad.addColorStop(0.6, '#d6b27c');
+            bodyGrad.addColorStop(1, '#9d7544');
         }
         ctx.fillStyle = bodyGrad;
         ctx.fillRect(-44, -14, 88, 28);
@@ -874,14 +861,12 @@
             ctx.fillRect(b.x, -14, b.w, 28);
         }
 
-        // Continuous cylindrical studio sheen + bottom shadow OVER BOTH ceramic & bands (zero flat paste seam!)
-        const sheenGrad = ctx.createLinearGradient(0, -12, 0, 12);
-        sheenGrad.addColorStop(0.0,  'rgba(255, 255, 255, 0.28)');
-        sheenGrad.addColorStop(0.22, 'rgba(255, 255, 255, 0.44)');
-        sheenGrad.addColorStop(0.38, 'rgba(255, 255, 255, 0.04)');
-        sheenGrad.addColorStop(0.68, 'rgba(0, 0, 0, 0.06)');
-        sheenGrad.addColorStop(1.0,  'rgba(0, 0, 0, 0.42)');
-        ctx.fillStyle = sheenGrad;
+        // Subtle matte underside depth shading only (no glossy white sheen!)
+        const shadeGrad = ctx.createLinearGradient(0, -12, 0, 12);
+        shadeGrad.addColorStop(0.0, 'rgba(0, 0, 0, 0.04)');
+        shadeGrad.addColorStop(0.65, 'rgba(0, 0, 0, 0.03)');
+        shadeGrad.addColorStop(1.0, 'rgba(0, 0, 0, 0.30)');
+        ctx.fillStyle = shadeGrad;
         ctx.fillRect(-44, -14, 88, 28);
         ctx.restore();
 
@@ -1302,277 +1287,1439 @@
     }
 
     // =========================================================================
-    // 9. DYNAMIC 1–4x AA BATTERY PACK — RENDERS LITERALLY 1, 2, 3, OR 4 AA CELLS!
+    // 9. DYNAMIC 1–4x AA BATTERY PACK — TINKERCAD REALISTIC SCALE (1..4 AA CELLS)
     // =========================================================================
-    // Exact pins: neg (-108, 0), pos (+108, 0)
+    // Exact 36px-grid pins: neg (-216, 0), pos (+216, 0)
     function drawAAHolder(ctx, comp, evalData, isSelected) {
         const cells = Math.max(1, Math.min(4, Math.round(comp.cells || (comp.voltage ? comp.voltage / 1.5 : 3))));
         const st = evalData?.sourceStates?.get(comp.id);
         const vNom = (cells * 1.5).toFixed(1);
 
-        const cellH = 32;
-        const gap = 5;
-        const padY = 12;
+        const cellH = 56;
+        const gap = 8;
+        const padY = 18;
         const dh = cells * cellH + (cells - 1) * gap + padY * 2;
-        const dw = 158;
+        const dw = 312;
         const hw = dw / 2;
         const hh = dh / 2;
 
-        // 1. Clean insulated exit wires from molded side grommets to (-108, 0) and (+108, 0)
-        drawInsulatedLead(ctx, { x: -hw, y: 0 }, { x: -92, y: 0 }, { x: -98, y: 0 }, { x: -108, y: 0 }, '#334155', '#1e293b', 4.6);
-        drawInsulatedLead(ctx, { x: hw, y: 0 },  { x: 92, y: 0 },  { x: 98, y: 0 },  { x: 108, y: 0 },  '#7f1d1d', '#ef4444', 4.6);
+        // 1. Clean matte insulated exit wires from molded side grommets to (-216, 0) and (+216, 0)
+        drawInsulatedLead(ctx, { x: -hw, y: 0 }, { x: -182, y: 0 }, { x: -196, y: 0 }, { x: -216, y: 0 }, '#334155', '#1e293b', 5.6);
+        drawInsulatedLead(ctx, { x: hw, y: 0 },  { x: 182, y: 0 },  { x: 196, y: 0 },  { x: 216, y: 0 },  '#7f1d1d', '#dc2626', 5.6);
+
+        // Molded rubber strain-relief grommets at wire exit ports
+        ctx.fillStyle = '#0f172a';
+        rRect(ctx, -hw - 8, -9, 10, 18, 3); ctx.fill();
+        rRect(ctx, hw - 2, -9, 10, 18, 3);  ctx.fill();
 
         // 2. Molded Matte-Black Ribbed Battery Holder Chassis
         withPhysicalShadow(ctx, () => {
-            rRect(ctx, -hw, -hh, dw, dh, 8);
+            rRect(ctx, -hw, -hh, dw, dh, 12);
             ctx.fillStyle = '#090d16';
             ctx.fill();
-        }, 16, 6, 4, 2.2);
+        }, 18, 7, 4, 2.5);
 
-        rRect(ctx, -hw, -hh, dw, dh, 8);
-        const trayGrad = ctx.createLinearGradient(0, -hh, 0, hh);
-        trayGrad.addColorStop(0, '#272f3d');
-        trayGrad.addColorStop(0.5, '#151b26');
-        trayGrad.addColorStop(1, '#0b0f17');
-        ctx.fillStyle = trayGrad;
+        rRect(ctx, -hw, -hh, dw, dh, 12);
+        ctx.fillStyle = '#181f2c';
         ctx.fill();
         ctx.strokeStyle = st?.shorted ? '#ef4444' : '#475569';
-        ctx.lineWidth = 1.6;
+        ctx.lineWidth = 2.0;
         ctx.stroke();
 
-        // Recessed inner battery cavity
-        rRect(ctx, -hw + 6, -hh + 6, dw - 12, dh - 12, 5);
-        ctx.fillStyle = '#070a10';
+        // Molded internal rib divider walls & recessed battery cavity
+        rRect(ctx, -hw + 10, -hh + 10, dw - 20, dh - 20, 7);
+        ctx.fillStyle = '#0a0e16';
         ctx.fill();
 
-        // 3. Draw Each Individual Cylindrical AA 1.5V Cell (Alternating polarity orientation like a real series pack!)
+        // 3. Draw Each Individual Cylindrical AA 1.5V Cell (Alternating polarity orientation!)
         const startY = -hh + padY;
         for (let i = 0; i < cells; i++) {
             const cy = startY + i * (cellH + gap) + cellH / 2;
             const posRight = (i % 2 === 0);
-            const cellX = posRight ? -hw + 16 : -hw + 12;
-            const cellW = dw - 28;
+            const cellX = posRight ? -hw + 28 : -hw + 20;
+            const cellW = dw - 48;
 
             // Metallic coiled negative tension spring
             ctx.save();
             ctx.strokeStyle = '#94a3b8';
-            ctx.lineWidth = 1.6;
-            const spX = posRight ? -hw + 8 : hw - 15;
+            ctx.lineWidth = 2.2;
+            const spX = posRight ? -hw + 13 : hw - 26;
             ctx.beginPath();
-            for (let s = 0; s < 3; s++) {
-                ctx.moveTo(spX + s * 2.6, cy - 7 + s);
-                ctx.lineTo(spX + s * 2.6, cy + 7 - s);
+            for (let s = 0; s < 4; s++) {
+                ctx.moveTo(spX + s * 3.8, cy - 13 + s * 1.4);
+                ctx.lineTo(spX + s * 3.8, cy + 13 - s * 1.4);
             }
             ctx.stroke();
             ctx.restore();
 
-            // Positive button terminal nub
-            const nubX = posRight ? cellX + cellW : cellX - 5;
-            rRect(ctx, nubX, cy - 6, 5, 12, 2);
-            ctx.fillStyle = '#cbd5e1';
+            // Positive button terminal nub (matte brushed steel)
+            const nubX = posRight ? cellX + cellW : cellX - 8;
+            rRect(ctx, nubX, cy - 10, 8, 20, 2.5);
+            ctx.fillStyle = '#b6c2cf';
             ctx.fill();
+            ctx.strokeStyle = '#475569';
+            ctx.lineWidth = 1;
+            ctx.stroke();
 
-            // Cylindrical AA cell body (matte charcoal wrap + copper-gold positive crown)
+            // Cylindrical AA cell body (clean matte charcoal wrap + matte copper-gold positive crown)
             ctx.save();
-            rRect(ctx, cellX, cy - cellH / 2 + 1, cellW, cellH - 2, 4);
+            rRect(ctx, cellX, cy - cellH / 2 + 1, cellW, cellH - 2, 6);
             ctx.clip();
 
             const wrapGrad = ctx.createLinearGradient(0, cy - cellH / 2, 0, cy + cellH / 2);
-            wrapGrad.addColorStop(0, '#334155');
-            wrapGrad.addColorStop(0.26, '#475569');
-            wrapGrad.addColorStop(0.5, '#1e293b');
-            wrapGrad.addColorStop(1, '#090d16');
+            wrapGrad.addColorStop(0, '#303b4c');
+            wrapGrad.addColorStop(0.55, '#1e2633');
+            wrapGrad.addColorStop(1, '#0e131c');
             ctx.fillStyle = wrapGrad;
             ctx.fillRect(cellX, cy - cellH / 2, cellW, cellH);
 
-            // Anodized copper-gold crown (32% of cell length on positive end)
-            const crownW = cellW * 0.32;
+            // Matte copper-bronze crown (31% of cell length on positive end)
+            const crownW = cellW * 0.31;
             const crownX = posRight ? (cellX + cellW - crownW) : cellX;
             const goldGrad = ctx.createLinearGradient(0, cy - cellH / 2, 0, cy + cellH / 2);
-            goldGrad.addColorStop(0, '#92400e');
-            goldGrad.addColorStop(0.28, '#fcd34d');
-            goldGrad.addColorStop(0.55, '#d97706');
-            goldGrad.addColorStop(1, '#78350f');
+            goldGrad.addColorStop(0, '#d99a3c');
+            goldGrad.addColorStop(0.55, '#b87622');
+            goldGrad.addColorStop(1, '#784912');
             ctx.fillStyle = goldGrad;
             ctx.fillRect(crownX, cy - cellH / 2, crownW, cellH);
 
-            // Specular cylindrical top reflection strip
-            ctx.fillStyle = 'rgba(255, 255, 255, 0.22)';
-            ctx.fillRect(cellX, cy - cellH / 2 + 4, cellW, 5.5);
+            // Crisp seam line between crown and wrap
+            ctx.fillStyle = '#0f172a';
+            ctx.fillRect(posRight ? crownX : crownX + crownW - 1.5, cy - cellH / 2, 1.5, cellH);
             ctx.restore();
 
             // Crisp cell outline
-            rRect(ctx, cellX, cy - cellH / 2 + 1, cellW, cellH - 2, 4);
-            ctx.strokeStyle = 'rgba(255, 255, 255, 0.16)';
-            ctx.lineWidth = 1.0;
+            rRect(ctx, cellX, cy - cellH / 2 + 1, cellW, cellH - 2, 6);
+            ctx.strokeStyle = 'rgba(148, 163, 184, 0.24)';
+            ctx.lineWidth = 1.2;
             ctx.stroke();
 
-            // Accurate "AA 1.5V" Typography + Polarity Marks
-            ctx.font = '800 9.5px "JetBrains Mono", monospace';
+            // Authentic "AA · 1.5V ALKALINE" Typography + Polarity Marks
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
             ctx.fillStyle = '#e2e8f0';
-            ctx.fillText('AA · 1.5V', posRight ? -16 : 16, cy + 0.5);
+            ctx.font = '800 13px "JetBrains Mono", monospace';
+            ctx.fillText('AA · 1.5V', posRight ? -30 : 30, cy - 6);
+            ctx.fillStyle = '#94a3b8';
+            ctx.font = '700 9.5px "JetBrains Mono", monospace';
+            ctx.fillText('ALKALINE LR6', posRight ? -30 : 30, cy + 10);
+
             ctx.fillStyle = '#0f172a';
-            ctx.font = '900 11px "JetBrains Mono", monospace';
-            ctx.fillText('+', posRight ? (cellX + cellW - 14) : (cellX + 14), cy + 0.5);
+            ctx.font = '900 18px "JetBrains Mono", monospace';
+            ctx.fillText('+', posRight ? (cellX + cellW - 26) : (cellX + 26), cy + 1);
         }
 
         // Side polarity markers
-        ctx.font = '900 13px "JetBrains Mono", monospace';
+        ctx.font = '900 16px "JetBrains Mono", monospace';
         ctx.textAlign = 'center';
         ctx.fillStyle = '#cbd5e1';
-        ctx.fillText('−', -108, -16);
+        ctx.fillText('−', -216, -20);
         ctx.fillStyle = '#f87171';
-        ctx.fillText('+', 108, -16);
+        ctx.fillText('+', 216, -20);
 
-        drawPillBadge(ctx, 0, -hh - 17, `${cells}×AA · ${vNom}V`, 'info');
-        if (st?.shorted) drawPillBadge(ctx, 0, hh + 18, '⚡ SHORT CIRCUIT!', 'error');
-        if (isSelected) drawSelectionFrame(ctx, -114, -hh - 8, 228, dh + 16);
+        drawPillBadge(ctx, 0, -hh - 20, `${cells}×AA · ${vNom}V`, 'info');
+        if (st?.shorted) drawPillBadge(ctx, 0, hh + 22, '⚡ SHORT CIRCUIT!', 'error');
+        if (isSelected) drawSelectionFrame(ctx, -224, -hh - 10, 448, dh + 20);
         return true;
     }
 
     // =========================================================================
-    // 10. 9V PP3 ALKALINE BATTERY WITH MOLDED SNAP-ON CONNECTOR CAP
+    // 10. 9V PP3 ALKALINE BATTERY — STUDIO WIRE-FREE WITH EXPOSED SNAP TERMINALS
     // =========================================================================
-    // Exact pins: neg (-90, 0), pos (+90, 0)
+    // Exact 36px-grid top snap terminals: neg (-36, -180), pos (+36, -180)
+    // Zero protruding side wires — authentic top hexagonal female (−) & round male (+) studs!
     function drawBattery9V(ctx, comp, evalData, isSelected) {
         const st = evalData?.sourceStates?.get(comp.id);
-        const w = 108, h = 154, top = -74;
+        const w = 188, h = 296, top = -148;
+        const hw = w / 2;
 
-        // 1. Curved Glossy Insulated Red (+) & Black (−) Snap-Cap Leads to (±90, 0)
-        drawInsulatedLead(ctx, { x: -30, y: top - 13 }, { x: -74, y: top - 13 }, { x: -86, y: -36 }, { x: -90, y: 0 }, '#334155', '#1e293b', 4.6);
-        drawInsulatedLead(ctx, { x: 30,  y: top - 13 }, { x: 74,  y: top - 13 }, { x: 86,  y: -36 }, { x: 90,  y: 0 }, '#7f1d1d', '#ef4444', 4.6);
-
-        // 2. Molded Black 9V Snap-On Terminal Connector Cap seated cleanly over chrome studs
-        ctx.fillStyle = '#cbd5e1';
-        rRect(ctx, -31, top - 6, 18, 7, 2); ctx.fill();
-        rRect(ctx, 13,  top - 6, 18, 7, 2); ctx.fill();
-
+        // 1. Subtle Top Terminal Base Shadow & Recessed Dark Phenolic Insulator Deck
         withPhysicalShadow(ctx, () => {
-            rRect(ctx, -38, top - 21, 76, 17, 5);
-            ctx.fillStyle = '#0f172a';
+            rRect(ctx, -hw, top, w, h, 14);
+            ctx.fillStyle = '#090d16';
             ctx.fill();
-        }, 8, 3, 2, 1);
+        }, 20, 8, 5, 2.5);
 
-        const capGrad = ctx.createLinearGradient(-38, top - 21, 38, top - 4);
-        capGrad.addColorStop(0, '#334155');
-        capGrad.addColorStop(0.45, '#1e293b');
-        capGrad.addColorStop(1, '#0b0f17');
-        rRect(ctx, -38, top - 21, 76, 17, 5);
-        ctx.fillStyle = capGrad;
+        // Recessed top phenolic insulator plate sitting just above top shoulder (-156..-144)
+        rRect(ctx, -hw + 18, top - 9, w - 36, 14, 5);
+        ctx.fillStyle = '#141923';
+        ctx.fill();
+        ctx.strokeStyle = '#334155';
+        ctx.lineWidth = 1.4;
+        ctx.stroke();
+
+        // 2. Authentic Machined Nickel-Steel Top Snap-Fastener Terminals at (-36, -180) & (+36, -180)
+        // LEFT (−) NEGATIVE: Wider Flared Hexagonal Female Snap Socket (classic 9V PP3 negative!)
+        ctx.save();
+        ctx.translate(-36, top - 22);
+        // Vertical metal collar neck rising from insulator plate
+        rRect(ctx, -18, 2, 36, 16, 2);
+        ctx.fillStyle = '#8b98a8';
+        ctx.fill();
+        ctx.strokeStyle = '#334155';
+        ctx.lineWidth = 1.3;
+        ctx.stroke();
+        // Flared hexagonal female cup rim centered around pin tip (-36, -180 -> local y = -10)
+        ctx.beginPath();
+        const hexR = 20;
+        for (let i = 0; i < 6; i++) {
+            const a = (i * Math.PI) / 3;
+            const px = Math.cos(a) * hexR;
+            const py = -10 + Math.sin(a) * 10.5;
+            if (i === 0) ctx.moveTo(px, py);
+            else ctx.lineTo(px, py);
+        }
+        ctx.closePath();
+        ctx.fillStyle = '#bcc7d4';
+        ctx.fill();
+        ctx.strokeStyle = '#334155';
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+        // Inner dark socket recess inside female hex snap
+        ctx.beginPath();
+        ctx.ellipse(0, -10, 11.5, 5.8, 0, 0, Math.PI * 2);
+        ctx.fillStyle = '#1e293b';
         ctx.fill();
         ctx.strokeStyle = '#64748b';
+        ctx.lineWidth = 1.1;
+        ctx.stroke();
+        ctx.restore();
+
+        // RIGHT (+) POSITIVE: Smaller Circular Male Snap Stud (classic 9V PP3 positive!)
+        ctx.save();
+        ctx.translate(36, top - 22);
+        // Machined cylindrical collar base
+        rRect(ctx, -12, 2, 24, 16, 2);
+        ctx.fillStyle = '#9aa7b8';
+        ctx.fill();
+        ctx.strokeStyle = '#334155';
+        ctx.lineWidth = 1.3;
+        ctx.stroke();
+        // Rolled circular male snap stud head centered around pin tip (+36, -180 -> local y = -10)
+        ctx.beginPath();
+        ctx.ellipse(0, -10, 14.5, 9.2, 0, 0, Math.PI * 2);
+        ctx.fillStyle = '#cbd5e1';
+        ctx.fill();
+        ctx.strokeStyle = '#334155';
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+        // Inner stamped rivet dimple
+        ctx.beginPath();
+        ctx.ellipse(0, -10, 7.2, 4.4, 0, 0, Math.PI * 2);
+        ctx.fillStyle = '#7b899b';
+        ctx.fill();
+        ctx.strokeStyle = '#475569';
+        ctx.lineWidth = 1.0;
+        ctx.stroke();
+        ctx.restore();
+
+        // 3. Matte Anodized Rectangular PP3 9V Battery Housing (clean beveled industrial jacket)
+        ctx.save();
+        rRect(ctx, -hw, top, w, h, 14);
+        ctx.clip();
+
+        // Matte charcoal-graphite lower casing
+        const bodyGrad = ctx.createLinearGradient(-hw, 0, hw, 0);
+        bodyGrad.addColorStop(0, '#161d29');
+        bodyGrad.addColorStop(0.5, '#242e3f');
+        bodyGrad.addColorStop(1, '#101621');
+        ctx.fillStyle = bodyGrad;
+        ctx.fillRect(-hw, top, w, h);
+
+        // Warm matte copper-bronze upper crown (top 32%)
+        const goldGrad = ctx.createLinearGradient(-hw, 0, hw, 0);
+        goldGrad.addColorStop(0, '#9c5f1c');
+        goldGrad.addColorStop(0.46, '#cf8f36');
+        goldGrad.addColorStop(1, '#824b13');
+        ctx.fillStyle = goldGrad;
+        ctx.fillRect(-hw, top, w, 96);
+
+        // Subtle rolled metallic crimping rim along top & bottom edges of steel jacket
+        ctx.fillStyle = '#334155';
+        ctx.fillRect(-hw, top, w, 6);
+        ctx.fillStyle = '#0f172a';
+        ctx.fillRect(-hw, top + 95, w, 3);
+        ctx.fillStyle = 'rgba(203, 213, 225, 0.25)';
+        ctx.fillRect(-hw, top + 98, w, 1.5);
+        ctx.fillStyle = '#0b1019';
+        ctx.fillRect(-hw, top + h - 7, w, 7);
+        ctx.restore();
+
+        // Crisp outer casing border
+        rRect(ctx, -hw, top, w, h, 14);
+        ctx.strokeStyle = st?.shorted ? '#ef4444' : '#475569';
+        ctx.lineWidth = 2.0;
+        ctx.stroke();
+
+        // Subtle recessed inner panel border on charcoal lower section
+        rRect(ctx, -hw + 14, top + 112, w - 28, h - 128, 7);
+        ctx.strokeStyle = 'rgba(148, 163, 184, 0.14)';
+        ctx.lineWidth = 1.1;
+        ctx.stroke();
+
+        // 4. Precision Industrial Polarity Symbols & Battery Typography
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+
+        // Crisp polarity badges directly aligned under Left (−) and Right (+) terminals!
+        ctx.fillStyle = '#0f172a';
+        ctx.font = '900 24px "JetBrains Mono", monospace';
+        ctx.fillText('−', -36, top + 36);
+        ctx.fillText('+', 36, top + 36);
+
+        ctx.fillStyle = 'rgba(15, 23, 42, 0.72)';
+        ctx.font = '800 9.5px "JetBrains Mono", monospace';
+        ctx.fillText('9V INDUSTRIAL', 0, top + 74);
+
+        // Bold 9V headline
+        ctx.fillStyle = '#f59e0b';
+        ctx.font = '800 60px "Inter", sans-serif';
+        ctx.fillText('9V', 0, top + 162);
+
+        // Clean technical rating block
+        ctx.fillStyle = '#e2e8f0';
+        ctx.font = '800 12.5px "JetBrains Mono", monospace';
+        ctx.fillText('ALKALINE · 6LR61', 0, top + 214);
+
+        ctx.fillStyle = '#94a3b8';
+        ctx.font = '700 10px "JetBrains Mono", monospace';
+        ctx.fillText('9.0V DC · PP3 CELL', 0, top + 236);
+
+        // Subtle bottom barcode-style industrial detail strip
+        ctx.fillStyle = 'rgba(148, 163, 184, 0.22)';
+        const barW = [3, 1.5, 4, 2, 1.5, 3.5, 2, 4.5, 1.5, 3, 2, 3.5, 1.5, 4, 2];
+        let bx = -44;
+        for (const bw of barW) {
+            ctx.fillRect(bx, top + 258, bw, 12);
+            bx += bw + 3.2;
+        }
+
+        drawPillBadge(ctx, 0, top + h + 20, '9V PP3', 'info');
+        if (st?.shorted) drawPillBadge(ctx, 0, top - 56, '⚡ SHORT CIRCUIT!', 'error');
+        if (isSelected) drawSelectionFrame(ctx, -hw - 8, top - 46, w + 16, h + 60);
+        return true;
+    }
+
+    // =========================================================================
+    // SHARED PRECISION 7-SEGMENT VECTOR DIGIT RENDERER (FOR PSU & MULTIMETER!)
+    // =========================================================================
+    const SEG7_GLYPHS = {
+        '0': 0b0111111, '1': 0b0000110, '2': 0b1011011, '3': 0b1001111,
+        '4': 0b1100110, '5': 0b1101101, '6': 0b1111101, '7': 0b0000111,
+        '8': 0b1111111, '9': 0b1101101 | 0b0000010, '-': 0b1000000,
+        'O': 0b0111111, 'L': 0b0111000, 'F': 0b1110001, 'E': 0b1111001,
+        'r': 0b1010000, ' ': 0
+    };
+    SEG7_GLYPHS['9'] = 0b1101111;
+
+    function drawSevenSegChar(ctx, ch, x, y, digitW, digitH, onColor, ghostColor, slant = 0.08) {
+        const mask = SEG7_GLYPHS[ch] !== undefined ? SEG7_GLYPHS[ch] : 0;
+        const t = Math.max(2.2, digitH * 0.115);
+        const halfT = t * 0.5;
+        const gap = Math.max(0.9, t * 0.24);
+        const hw = digitW;
+        const hh = digitH;
+        const midY = hh / 2;
+
+        const drawH = (sx, sy, len, isOn) => {
+            const fill = isOn ? onColor : ghostColor;
+            if (!fill) return;
+            ctx.beginPath();
+            ctx.moveTo(sx + halfT, sy);
+            ctx.lineTo(sx + len - halfT, sy);
+            ctx.lineTo(sx + len, sy + halfT);
+            ctx.lineTo(sx + len - halfT, sy + t);
+            ctx.lineTo(sx + halfT, sy + t);
+            ctx.lineTo(sx, sy + halfT);
+            ctx.closePath();
+            ctx.fillStyle = fill;
+            ctx.fill();
+        };
+
+        const drawV = (sx, sy, len, isOn) => {
+            const fill = isOn ? onColor : ghostColor;
+            if (!fill) return;
+            ctx.beginPath();
+            ctx.moveTo(sx + halfT, sy);
+            ctx.lineTo(sx + t, sy + halfT);
+            ctx.lineTo(sx + t, sy + len - halfT);
+            ctx.lineTo(sx + halfT, sy + len);
+            ctx.lineTo(sx, sy + len - halfT);
+            ctx.lineTo(sx, sy + halfT);
+            ctx.closePath();
+            ctx.fillStyle = fill;
+            ctx.fill();
+        };
+
+        ctx.save();
+        ctx.translate(x, y);
+        if (slant) ctx.transform(1, 0, -slant, 1, hh * slant * 0.5, 0);
+
+        const hLen = hw - t - gap * 2;
+        const vLen = midY - t * 0.5 - gap * 2;
+        // a (top), b (top-right), c (bot-right), d (bottom), e (bot-left), f (top-left), g (middle)
+        drawH(halfT + gap, 0, hLen, Boolean(mask & 1));
+        drawV(hw - t, halfT + gap, vLen, Boolean(mask & 2));
+        drawV(hw - t, midY + gap, vLen, Boolean(mask & 4));
+        drawH(halfT + gap, hh - t, hLen, Boolean(mask & 8));
+        drawV(0, midY + gap, vLen, Boolean(mask & 16));
+        drawV(0, halfT + gap, vLen, Boolean(mask & 32));
+        drawH(halfT + gap, midY - halfT, hLen, Boolean(mask & 64));
+        ctx.restore();
+    }
+
+    // Draws a right-aligned string of vector 7-segment characters with decimal points
+    function drawSevenSegString(ctx, str, rightX, topY, digitW, digitH, spacing, onColor, ghostColor, minSlots = 4) {
+        const tokens = [];
+        for (let i = 0; i < str.length; i++) {
+            const c = str[i];
+            if (c === '.' && tokens.length > 0) {
+                tokens[tokens.length - 1].dot = true;
+            } else if (c === '.') {
+                tokens.push({ ch: ' ', dot: true });
+            } else {
+                tokens.push({ ch: c, dot: false });
+            }
+        }
+        while (tokens.length < minSlots) {
+            tokens.unshift({ ch: ' ', dot: false });
+        }
+        const totalW = tokens.length * digitW + (tokens.length - 1) * spacing;
+        let curX = rightX - totalW;
+        const dotR = Math.max(2.0, digitH * 0.068);
+        for (const tok of tokens) {
+            drawSevenSegChar(ctx, tok.ch, curX, topY, digitW, digitH, onColor, ghostColor);
+            if (tok.dot) {
+                ctx.beginPath();
+                ctx.arc(curX + digitW + spacing * 0.32, topY + digitH - dotR * 1.05, dotR, 0, Math.PI * 2);
+                ctx.fillStyle = onColor;
+                ctx.fill();
+            }
+            curX += digitW + spacing;
+        }
+    }
+
+    function drawTorxScrew(ctx, x, y, r = 7.5) {
+        ctx.save();
+        ctx.translate(x, y);
+        ctx.beginPath();
+        ctx.arc(0, 0, r + 2, 0, Math.PI * 2);
+        ctx.fillStyle = '#0a0e16';
+        ctx.fill();
+        ctx.beginPath();
+        ctx.arc(0, 0, r, 0, Math.PI * 2);
+        ctx.fillStyle = '#475569';
+        ctx.fill();
+        ctx.strokeStyle = '#1e293b';
+        ctx.lineWidth = 1.2;
+        ctx.stroke();
+        // Hex socket recess
+        ctx.beginPath();
+        for (let i = 0; i < 6; i++) {
+            const a = (i * Math.PI) / 3;
+            const px = Math.cos(a) * (r * 0.48);
+            const py = Math.sin(a) * (r * 0.48);
+            if (i === 0) ctx.moveTo(px, py);
+            else ctx.lineTo(px, py);
+        }
+        ctx.closePath();
+        ctx.fillStyle = '#0f172a';
+        ctx.fill();
+        ctx.restore();
+    }
+
+    // =========================================================================
+    // 10B. FLAGSHIP LABORATORY BENCH DC POWER SUPPLY (EPS-1205D PRO — 864x548px)
+    // =========================================================================
+    // Exact 36px-grid pins: neg (-180, +324), pos (+180, +324)
+    // Interactive front-panel controls:
+    //   • M1 (3.3V), M2 (5.0V), M3 (9.0V), M4 (12.0V) preset keys
+    //   • OUTPUT ON / STANDBY switch button
+    function drawBenchPSU(ctx, comp, evalData, isSelected) {
+        const vSet = Number(comp.voltage !== undefined ? comp.voltage : 5.0);
+        const enabled = comp.enabled !== false;
+        const st = evalData?.sourceStates?.get(comp.id);
+        const iMa = st ? Math.abs(st.currentMa || 0) : 0;
+        const shorted = Boolean(st?.shorted);
+        const powerW = enabled ? (vSet * iMa) / 1000 : 0;
+
+        const w = 864, h = 548;
+        const hw = w / 2;
+        const top = -290;
+        const bot = top + h; // +258
+
+        // 1. Heavy Molded Rubber Benchtop Feet with Anti-Vibration Tread
+        ctx.fillStyle = '#070a11';
+        rRect(ctx, -hw + 44, bot - 6, 92, 24, 6); ctx.fill();
+        rRect(ctx, hw - 136, bot - 6, 92, 24, 6); ctx.fill();
+        ctx.fillStyle = '#1e293b';
+        rRect(ctx, -hw + 54, bot + 10, 72, 4, 2); ctx.fill();
+        rRect(ctx, hw - 126, bot + 10, 72, 4, 2); ctx.fill();
+
+        // 2. Shrouded 4mm Banana Terminal Drop Leads to Exact 36px-Grid Pins (-180, 324) & (+180, 324)
+        drawMetallicLead(ctx, [{ x: -180, y: 214 }, { x: -180, y: 324 }], 7.2);
+        drawMetallicLead(ctx, [{ x: 180, y: 214 },  { x: 180, y: 324 }],  7.2);
+
+        // 3. Multi-Layer Industrial Instrument Chassis (Outer Rubberized Bumper Frame + Anodized Aluminum Faceplate)
+        withPhysicalShadow(ctx, () => {
+            rRect(ctx, -hw, top, w, h, 26);
+            ctx.fillStyle = '#080c14';
+            ctx.fill();
+        }, 32, 13, 8, 4);
+
+        // Outer protective molded dark-graphite bumper shell
+        rRect(ctx, -hw, top, w, h, 26);
+        const shellGrad = ctx.createLinearGradient(0, top, 0, bot);
+        shellGrad.addColorStop(0, '#2c3749');
+        shellGrad.addColorStop(0.5, '#1d2534');
+        shellGrad.addColorStop(1, '#121824');
+        ctx.fillStyle = shellGrad;
+        ctx.fill();
+        ctx.strokeStyle = shorted ? '#ef4444' : '#4b5b73';
+        ctx.lineWidth = 3.0;
+        ctx.stroke();
+
+        // Molded protective corner bumper notches (Keysight / Rigol style!)
+        ctx.strokeStyle = '#0d131e';
+        ctx.lineWidth = 2.4;
+        for (const [cx, cy, sx, sy] of [
+            [-hw + 2, top + 2, 1, 1], [hw - 2, top + 2, -1, 1],
+            [-hw + 2, bot - 2, 1, -1], [hw - 2, bot - 2, -1, -1]
+        ]) {
+            ctx.beginPath();
+            ctx.moveTo(cx + sx * 46, cy);
+            ctx.lineTo(cx + sx * 46, cy + sy * 12);
+            ctx.moveTo(cx, cy + sy * 46);
+            ctx.lineTo(cx + sx * 12, cy + sy * 46);
+            ctx.stroke();
+        }
+
+        // Recessed Matte Brushed-Charcoal Aluminum Front Faceplate
+        rRect(ctx, -hw + 22, top + 22, w - 44, h - 44, 16);
+        const faceGrad = ctx.createLinearGradient(0, top + 22, 0, bot - 22);
+        faceGrad.addColorStop(0, '#242f40');
+        faceGrad.addColorStop(0.45, '#1d2635');
+        faceGrad.addColorStop(1, '#161e2b');
+        ctx.fillStyle = faceGrad;
+        ctx.fill();
+        ctx.strokeStyle = '#090e17';
+        ctx.lineWidth = 2.4;
+        ctx.stroke();
+
+        // 4 Recessed Corner Hex/Torx Faceplate Fasteners
+        drawTorxScrew(ctx, -hw + 40, top + 40, 6.5);
+        drawTorxScrew(ctx,  hw - 40, top + 40, 6.5);
+        drawTorxScrew(ctx, -hw + 40, bot - 40, 6.5);
+        drawTorxScrew(ctx,  hw - 40, bot - 40, 6.5);
+
+        // Recessed Side Heat-Sink Ventilation Louver Grilles (Left & Right Sides)
+        for (let i = 0; i < 10; i++) {
+            const ly = top + 92 + i * 24;
+            ctx.fillStyle = '#0b1019';
+            rRect(ctx, -hw + 34, ly, 22, 9, 3); ctx.fill();
+            rRect(ctx, hw - 56, ly, 22, 9, 3);  ctx.fill();
+            ctx.fillStyle = '#334155';
+            ctx.fillRect(-hw + 36, ly + 8, 18, 1.2);
+            ctx.fillRect(hw - 54, ly + 8, 18, 1.2);
+        }
+
+        // 4. Precision Engraved Brand & Model Header Strip
+        ctx.fillStyle = '#38bdf8';
+        rRect(ctx, -hw + 70, top + 44, 6, 26, 2);
+        ctx.fill();
+
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'middle';
+        ctx.fillStyle = '#f1f5f9';
+        ctx.font = '900 22px "Inter", sans-serif';
+        ctx.fillText('ELECTRICSIM', -hw + 86, top + 53);
+        ctx.fillStyle = '#64748b';
+        ctx.font = '800 10.5px "JetBrains Mono", monospace';
+        ctx.fillText('PRECISION LABORATORY INSTRUMENTS', -hw + 86, top + 69);
+
+        ctx.fillStyle = '#cbd5e1';
+        ctx.font = '800 14.5px "JetBrains Mono", monospace';
+        ctx.fillText('EPS-1205D PRO', -hw + 290, top + 53);
+        ctx.fillStyle = '#64748b';
+        ctx.font = '700 10.5px "JetBrains Mono", monospace';
+        ctx.fillText('PROGRAMMABLE LINEAR DC SUPPLY', -hw + 290, top + 69);
+
+        // Right-aligned dual rating & safety badge
+        rRect(ctx, hw - 246, top + 42, 176, 32, 6);
+        ctx.fillStyle = '#0d131f';
+        ctx.fill();
+        ctx.strokeStyle = '#334155';
+        ctx.lineWidth = 1.4;
+        ctx.stroke();
+        ctx.textAlign = 'center';
+        ctx.fillStyle = '#38bdf8';
+        ctx.font = '800 14.5px "JetBrains Mono", monospace';
+        ctx.fillText('0–12.0V · 5.0A MAX', hw - 158, top + 58);
+
+        // Subtle horizontal hairline separator under header
+        ctx.beginPath();
+        ctx.moveTo(-hw + 70, top + 84);
+        ctx.lineTo(hw - 70, top + 84);
+        ctx.strokeStyle = 'rgba(148, 163, 184, 0.16)';
         ctx.lineWidth = 1.2;
         ctx.stroke();
 
-        // 3. Metallic Rectangular PP3 9V Battery Housing
-        withPhysicalShadow(ctx, () => {
-            rRect(ctx, -w / 2, top, w, h, 9);
-            ctx.fillStyle = '#090d16';
-            ctx.fill();
-        }, 18, 7, 4, 2);
-
-        ctx.save();
-        rRect(ctx, -w / 2, top, w, h, 9);
-        ctx.clip();
-
-        // Charcoal brushed aluminum body
-        const bodyGrad = ctx.createLinearGradient(-w / 2, 0, w / 2, 0);
-        bodyGrad.addColorStop(0, '#111827');
-        bodyGrad.addColorStop(0.25, '#334155');
-        bodyGrad.addColorStop(0.5, '#1e293b');
-        bodyGrad.addColorStop(1, '#090d16');
-        ctx.fillStyle = bodyGrad;
-        ctx.fillRect(-w / 2, top, w, h);
-
-        // Anodized copper-gold upper crown (top 31%)
-        const goldGrad = ctx.createLinearGradient(-w / 2, 0, w / 2, 0);
-        goldGrad.addColorStop(0, '#92400e');
-        goldGrad.addColorStop(0.28, '#fde047');
-        goldGrad.addColorStop(0.54, '#d97706');
-        goldGrad.addColorStop(1, '#78350f');
-        ctx.fillStyle = goldGrad;
-        ctx.fillRect(-w / 2, top, w, 48);
-
-        // Crisp metallic dividing pinstripe & longitudinal vertical sheen
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.45)';
-        ctx.fillRect(-w / 2, top + 48, w, 1.8);
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.14)';
-        ctx.fillRect(-w / 2 + 15, top, 14, h);
-        ctx.restore();
-
-        rRect(ctx, -w / 2, top, w, h, 9);
-        ctx.strokeStyle = st?.shorted ? '#ef4444' : '#64748b';
+        // 5. FLAGSHIP RECESSED SMOKED-GLASS INSTRUMENT DISPLAY BAY (Upper Left)
+        const dispX = -hw + 70, dispY = top + 98, dispW = 458, dispH = 264;
+        // Outer machined bezel recess
+        rRect(ctx, dispX - 4, dispY - 4, dispW + 8, dispH + 8, 14);
+        ctx.fillStyle = '#0b1019';
+        ctx.fill();
+        ctx.strokeStyle = '#475569';
         ctx.lineWidth = 1.6;
         ctx.stroke();
 
-        // Crisp embossed typography
+        // Deep smoked OLED/VFD glass display panel
+        rRect(ctx, dispX, dispY, dispW, dispH, 10);
+        const glassGrad = ctx.createLinearGradient(0, dispY, 0, dispY + dispH);
+        glassGrad.addColorStop(0, '#04080f');
+        glassGrad.addColorStop(0.5, '#070c15');
+        glassGrad.addColorStop(1, '#09101c');
+        ctx.fillStyle = glassGrad;
+        ctx.fill();
+        ctx.strokeStyle = '#1e293b';
+        ctx.lineWidth = 1.8;
+        ctx.stroke();
+
+        // Top inner bezel depth shadow
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.55)';
+        ctx.fillRect(dispX + 6, dispY + 2, dispW - 12, 5);
+
+        // Left Telemetry Channels (Voltage, Current, Power) + Right Status Annunciator Column
+        const colSplitX = dispX + dispW - 96;
+        ctx.beginPath();
+        ctx.moveTo(colSplitX, dispY + 12);
+        ctx.lineTo(colSplitX, dispY + dispH - 40);
+        ctx.moveTo(dispX + 14, dispY + 104);
+        ctx.lineTo(colSplitX - 10, dispY + 104);
+        ctx.moveTo(dispX + 14, dispY + 190);
+        ctx.lineTo(colSplitX - 10, dispY + 190);
+        ctx.moveTo(dispX + 14, dispY + dispH - 36);
+        ctx.lineTo(dispX + dispW - 14, dispY + dispH - 36);
+        ctx.strokeStyle = '#162032';
+        ctx.lineWidth = 1.4;
+        ctx.stroke();
+
+        // --- CHANNEL 1: TRUE VECTOR 7-SEGMENT VOLTAGE READOUT (EMERALD VFD) ---
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'middle';
+        ctx.fillStyle = '#64748b';
+        ctx.font = '800 11.5px "JetBrains Mono", monospace';
+        ctx.fillText('CH1 · OUTPUT VOLTAGE', dispX + 18, dispY + 19);
+
+        const vDigitsStr = enabled ? vSet.toFixed(2) : '0.00';
+        const vOnCol = enabled ? (shorted ? '#f87171' : '#34d399') : '#1c2a3a';
+        const vGhostCol = enabled ? 'rgba(52, 211, 153, 0.08)' : 'rgba(51, 65, 85, 0.14)';
+        drawSevenSegString(ctx, vDigitsStr, colSplitX - 52, dispY + 34, 34, 58, 12, vOnCol, vGhostCol, 4);
+
+        ctx.textAlign = 'left';
+        ctx.font = '800 30px "JetBrains Mono", monospace';
+        ctx.fillStyle = enabled ? (shorted ? '#fca5a5' : '#6ee7b7') : '#293548';
+        ctx.fillText('V', colSplitX - 40, dispY + 76);
+
+        // --- CHANNEL 2: TRUE VECTOR 7-SEGMENT CURRENT READOUT (AMBER VFD) ---
+        ctx.fillStyle = '#64748b';
+        ctx.font = '800 11.5px "JetBrains Mono", monospace';
+        ctx.fillText('OUTPUT CURRENT', dispX + 18, dispY + 118);
+
+        const curInAmps = !enabled || iMa >= 1000;
+        const cDigitsStr = !enabled ? '0.00' : (curInAmps ? (iMa / 1000).toFixed(2) : iMa.toFixed(1));
+        const cOnCol = enabled ? (shorted ? '#ef4444' : '#fbbf24') : '#1c2a3a';
+        const cGhostCol = enabled ? 'rgba(251, 191, 36, 0.08)' : 'rgba(51, 65, 85, 0.14)';
+        drawSevenSegString(ctx, cDigitsStr, colSplitX - 58, dispY + 131, 29, 48, 10, cOnCol, cGhostCol, 4);
+
+        ctx.font = '800 22px "JetBrains Mono", monospace';
+        ctx.fillStyle = enabled ? '#fcd34d' : '#293548';
+        ctx.fillText(curInAmps ? 'A' : 'mA', colSplitX - 46, dispY + 166);
+
+        // --- CHANNEL 3: LIVE POWER TELEMETRY BAR (ICE CYAN) ---
+        ctx.textAlign = 'left';
+        ctx.fillStyle = '#64748b';
+        ctx.font = '800 11px "JetBrains Mono", monospace';
+        ctx.fillText('POWER', dispX + 18, dispY + 209);
+
+        const pwrText = !enabled ? '0.00 W' : (powerW >= 1 ? `${powerW.toFixed(2)} W` : `${Math.round(powerW * 1000)} mW`);
+        ctx.textAlign = 'right';
+        ctx.fillStyle = enabled ? '#38bdf8' : '#293548';
+        ctx.font = '800 18px "JetBrains Mono", monospace';
+        ctx.fillText(pwrText, colSplitX - 16, dispY + 209);
+
+        // --- RIGHT STATUS ANNUNCIATOR COLUMN (CV / CC / OVP / OCP) ---
+        const drawAnnunciator = (ay, label, active, activeBg, activeBorder, activeText) => {
+            rRect(ctx, colSplitX + 12, ay, 72, 28, 5);
+            ctx.fillStyle = active ? activeBg : '#0d1422';
+            ctx.fill();
+            ctx.strokeStyle = active ? activeBorder : '#1e293b';
+            ctx.lineWidth = 1.4;
+            ctx.stroke();
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillStyle = active ? activeText : '#334155';
+            ctx.font = '800 12.5px "JetBrains Mono", monospace';
+            ctx.fillText(label, colSplitX + 48, ay + 14.5);
+        };
+        drawAnnunciator(dispY + 18,  'CV',  enabled && !shorted, 'rgba(34, 197, 94, 0.22)',  '#22c55e', '#4ade80');
+        drawAnnunciator(dispY + 56,  'CC',  shorted,             'rgba(239, 68, 68, 0.26)',  '#ef4444', '#fca5a5');
+        drawAnnunciator(dispY + 114, 'OVP', enabled,             'rgba(56, 189, 248, 0.16)', '#0284c7', '#7dd3fc');
+        drawAnnunciator(dispY + 152, 'OCP', enabled,             'rgba(245, 158, 11, 0.16)', '#d97706', '#fcd34d');
+
+        // --- BOTTOM LIVE SEGMENTED LED LOAD BAR-GRAPH ---
+        const barX = dispX + 74, barY = dispY + dispH - 24, barW = dispW - 92;
+        ctx.textAlign = 'left';
+        ctx.fillStyle = '#64748b';
+        ctx.font = '800 9.5px "JetBrains Mono", monospace';
+        ctx.fillText('LOAD', dispX + 18, barY + 5);
+        const loadFrac = !enabled ? 0 : (shorted ? 1 : Math.min(1, iMa / 500));
+        const totalBars = 30;
+        const litBars = Math.round(loadFrac * totalBars);
+        for (let i = 0; i < totalBars; i++) {
+            const bx = barX + i * (barW / totalBars);
+            const col = i < 18 ? '#22c55e' : i < 25 ? '#f59e0b' : '#ef4444';
+            ctx.fillStyle = i < litBars ? col : '#131d2d';
+            rRect(ctx, bx, barY, (barW / totalBars) - 3, 10, 1.5);
+            ctx.fill();
+        }
+
+        // 6. RIGHT CONTROL BAY: MACHINED KNURLED VOLTAGE & CURRENT ENCODER KNOBS + PRESET KEYS + OUTPUT BUTTON
+        const ctrlX = dispX + dispW + 22;
+        const ctrlW = (hw - 70) - ctrlX;
+        rRect(ctx, ctrlX, dispY - 4, ctrlW, dispH + 8, 12);
+        ctx.fillStyle = '#18202e';
+        ctx.fill();
+        ctx.strokeStyle = '#334155';
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+
+        // Precision Machined Multi-Step Knurled Rotary Encoder Knob
+        const drawProKnob = (kx, ky, rad, frac, label, maxUnit, accentCol, majorLabels) => {
+            const startA = (135 * Math.PI) / 180;
+            const sweepA = (270 * Math.PI) / 180;
+            const curA = startA + Math.max(0, Math.min(1, frac)) * sweepA;
+
+            // Fine + major radial calibration ticks & printed scale values
+            for (let i = 0; i <= 12; i++) {
+                const a = startA + (i / 12) * sweepA;
+                const major = (i % 3 === 0);
+                const r1 = rad + 6;
+                const r2 = rad + (major ? 14 : 10);
+                ctx.beginPath();
+                ctx.moveTo(kx + Math.cos(a) * r1, ky + Math.sin(a) * r1);
+                ctx.lineTo(kx + Math.cos(a) * r2, ky + Math.sin(a) * r2);
+                ctx.strokeStyle = i / 12 <= frac + 0.01 ? accentCol : '#475569';
+                ctx.lineWidth = major ? 2.2 : 1.2;
+                ctx.stroke();
+            }
+            // Printed min / mid / max legends around knob
+            if (majorLabels) {
+                ctx.font = '700 9.5px "JetBrains Mono", monospace';
+                ctx.fillStyle = '#94a3b8';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                const lblAngs = [startA, startA + sweepA * 0.5, startA + sweepA];
+                for (let j = 0; j < 3; j++) {
+                    const lr = rad + 23;
+                    ctx.fillText(majorLabels[j], kx + Math.cos(lblAngs[j]) * lr, ky + Math.sin(lblAngs[j]) * lr);
+                }
+            }
+
+            // Recessed bezel collar shadow
+            ctx.save();
+            ctx.translate(kx, ky);
+            ctx.beginPath();
+            ctx.arc(0, 0, rad + 4, 0, Math.PI * 2);
+            ctx.fillStyle = '#090d16';
+            ctx.fill();
+
+            ctx.beginPath();
+            ctx.arc(2, 4, rad, 0, Math.PI * 2);
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.52)';
+            ctx.fill();
+
+            // 24-tooth knurled outer skirt
+            ctx.rotate(curA);
+            ctx.beginPath();
+            const teeth = 24;
+            for (let i = 0; i < teeth * 2; i++) {
+                const a = (i / (teeth * 2)) * Math.PI * 2;
+                const rr = i % 2 === 0 ? rad : rad - 2.2;
+                if (i === 0) ctx.moveTo(Math.cos(a) * rr, Math.sin(a) * rr);
+                else ctx.lineTo(Math.cos(a) * rr, Math.sin(a) * rr);
+            }
+            ctx.closePath();
+            ctx.fillStyle = '#18202c';
+            ctx.fill();
+            ctx.strokeStyle = '#475569';
+            ctx.lineWidth = 1.4;
+            ctx.stroke();
+
+            // Chamfered brushed-aluminum inner accent ring
+            ctx.beginPath();
+            ctx.arc(0, 0, rad * 0.78, 0, Math.PI * 2);
+            ctx.fillStyle = '#8b99ab';
+            ctx.fill();
+
+            // Matte anodized dark-graphite center cap
+            ctx.beginPath();
+            ctx.arc(0, 0, rad * 0.70, 0, Math.PI * 2);
+            ctx.fillStyle = '#1e2736';
+            ctx.fill();
+            ctx.strokeStyle = '#0f172a';
+            ctx.lineWidth = 1.4;
+            ctx.stroke();
+
+            // Recessed center finger-dimple
+            ctx.beginPath();
+            ctx.arc(rad * 0.34, 0, rad * 0.14, 0, Math.PI * 2);
+            ctx.fillStyle = '#0f172a';
+            ctx.fill();
+
+            // High-visibility machined pointer notch
+            ctx.beginPath();
+            ctx.moveTo(rad * 0.52, 0);
+            ctx.lineTo(rad - 3, 0);
+            ctx.strokeStyle = accentCol;
+            ctx.lineWidth = 4.6;
+            ctx.lineCap = 'round';
+            ctx.stroke();
+            ctx.restore();
+
+            ctx.textAlign = 'center';
+            ctx.fillStyle = '#e2e8f0';
+            ctx.font = '800 12px "JetBrains Mono", monospace';
+            ctx.fillText(label, kx, ky + rad + 21);
+            ctx.fillStyle = '#64748b';
+            ctx.font = '700 8.5px "JetBrains Mono", monospace';
+            ctx.fillText(maxUnit, kx, ky + rad + 32);
+        };
+
+        drawProKnob(196, top + 161, 41, vSet / 12, 'VOLTAGE', 'COARSE · FINE', '#34d399', ['0V', '6V', '12V']);
+        drawProKnob(318, top + 161, 31, 0.80, 'CURRENT', 'LIMIT 5A', '#fbbf24', ['0A', '2.5A', '5A']);
+
+        // Interactive Silicone Preset Memory Keys: M1 (3.3V), M2 (5.0V), M3 (9.0V), M4 (12V)
+        // Centered along y = top + 257 (-33) inside the right control bay!
+        const memPresets = [
+            { tag: 'M1', v: 3.3,  x: 151 },
+            { tag: 'M2', v: 5.0,  x: 217 },
+            { tag: 'M3', v: 9.0,  x: 283 },
+            { tag: 'M4', v: 12.0, x: 349 }
+        ];
+        for (const mp of memPresets) {
+            const isAct = enabled && Math.abs(vSet - mp.v) < 0.08;
+            const ky = top + 257;
+            rRect(ctx, mp.x - 28, ky - 16, 56, 32, 6);
+            ctx.fillStyle = isAct ? '#10314a' : '#0f172a';
+            ctx.fill();
+            ctx.strokeStyle = isAct ? '#38bdf8' : '#334155';
+            ctx.lineWidth = isAct ? 1.8 : 1.3;
+            ctx.stroke();
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillStyle = isAct ? '#7dd3fc' : '#94a3b8';
+            ctx.font = '800 9.5px "JetBrains Mono", monospace';
+            ctx.fillText(mp.tag, mp.x, ky - 5);
+            ctx.fillStyle = isAct ? '#f8fafc' : '#64748b';
+            ctx.font = '800 10px "JetBrains Mono", monospace';
+            ctx.fillText(`${mp.v}V`, mp.x, ky + 7);
+        }
+
+        // Heavy Tactile Guarded OUTPUT ON / STANDBY Button (centered at x = 250, y = top + 318 = +28)
+        const btnX = 250, btnY = top + 318;
+        // Recessed guard bezel around output switch
+        rRect(ctx, btnX - 114, btnY - 31, 228, 62, 11);
+        ctx.fillStyle = '#090d16';
+        ctx.fill();
+        ctx.strokeStyle = '#334155';
+        ctx.lineWidth = 1.4;
+        ctx.stroke();
+
+        // Main tactile switch cap
+        rRect(ctx, btnX - 108, btnY - 25, 216, 50, 8);
+        ctx.fillStyle = enabled ? '#064e3b' : '#1b2434';
+        ctx.fill();
+        ctx.strokeStyle = enabled ? '#34d399' : '#475569';
+        ctx.lineWidth = 2.4;
+        ctx.stroke();
+
+        // Glowing LED bar indicator inside output button
+        rRect(ctx, btnX - 90, btnY - 12, 10, 24, 3);
+        ctx.fillStyle = enabled ? '#22c55e' : '#334155';
+        ctx.fill();
+
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.fillStyle = '#0f172a';
-        ctx.font = '900 14px "JetBrains Mono", monospace';
-        ctx.fillText('−        +', 0, top + 24);
-        ctx.fillStyle = '#fbbf24';
-        ctx.font = '800 34px "Inter", sans-serif';
-        ctx.fillText('9V', 0, top + 92);
-        ctx.fillStyle = '#cbd5e1';
-        ctx.font = '700 10.5px "JetBrains Mono", monospace';
-        ctx.fillText('ALKALINE PP3', 0, top + 126);
+        ctx.fillStyle = enabled ? '#ecfdf5' : '#94a3b8';
+        ctx.font = '900 17.5px "JetBrains Mono", monospace';
+        ctx.fillText(enabled ? 'OUTPUT  ON' : 'STANDBY OFF', btnX + 12, btnY + 1);
 
-        ctx.font = '900 13px "JetBrains Mono", monospace';
-        ctx.fillStyle = '#cbd5e1'; ctx.fillText('−', -90, 18);
-        ctx.fillStyle = '#f87171'; ctx.fillText('+', 90, 18);
+        // 7. LOWER RECESSED ANODIZED TERMINAL MANIFOLD WITH HEAVY-DUTY 4MM BINDING POSTS
+        const termY = top + 380;
+        rRect(ctx, -hw + 70, termY, w - 140, 126, 12);
+        ctx.fillStyle = '#141c29';
+        ctx.fill();
+        ctx.strokeStyle = '#334155';
+        ctx.lineWidth = 1.8;
+        ctx.stroke();
 
-        drawPillBadge(ctx, 0, top + h + 18, '9V PP3', 'info');
-        if (st?.shorted) drawPillBadge(ctx, 0, top - 36, '⚡ SHORT CIRCUIT!', 'error');
-        if (isSelected) drawSelectionFrame(ctx, -98, -100, 196, 198);
+        // Engraved safety specs along top-left & top-right of terminal manifold
+        ctx.textAlign = 'left';
+        ctx.fillStyle = '#64748b';
+        ctx.font = '800 10px "JetBrains Mono", monospace';
+        ctx.fillText('DC OUTPUT TERMINALS · ISOLATED', -hw + 90, termY + 18);
+        ctx.textAlign = 'right';
+        ctx.fillText('⚠ MAX ±60V TO EARTH · 5A CONTINUOUS', hw - 90, termY + 18);
+
+        // Subtle brass ground-strap link indicator between NEG (−) and EARTH (⏚)
+        ctx.beginPath();
+        ctx.moveTo(-132, termY + 72);
+        ctx.lineTo(-48, termY + 72);
+        ctx.strokeStyle = 'rgba(148, 163, 184, 0.25)';
+        ctx.lineWidth = 3.0;
+        ctx.setLineDash([6, 4]);
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        const drawProBindingPost = (bx, by, ringCol, capCol, sym, label, sub) => {
+            // Recessed circular panel socket grommet
+            ctx.beginPath();
+            ctx.arc(bx, by, 44, 0, Math.PI * 2);
+            ctx.fillStyle = '#090d16';
+            ctx.fill();
+            ctx.strokeStyle = '#334155';
+            ctx.lineWidth = 1.5;
+            ctx.stroke();
+
+            // Machined 6-sided steel hex locknut base
+            ctx.beginPath();
+            for (let i = 0; i < 6; i++) {
+                const a = (i * Math.PI) / 3;
+                const px = bx + Math.cos(a) * 38;
+                const py = by + Math.sin(a) * 38;
+                if (i === 0) ctx.moveTo(px, py);
+                else ctx.lineTo(px, py);
+            }
+            ctx.closePath();
+            ctx.fillStyle = '#64748b';
+            ctx.fill();
+            ctx.strokeStyle = '#0f172a';
+            ctx.lineWidth = 1.8;
+            ctx.stroke();
+
+            // 12-flute scalloped color-coded thumb-nut insulator collar
+            ctx.beginPath();
+            const flutes = 12;
+            for (let i = 0; i < flutes * 2; i++) {
+                const a = (i / (flutes * 2)) * Math.PI * 2;
+                const rr = i % 2 === 0 ? 31.5 : 28.5;
+                const px = bx + Math.cos(a) * rr;
+                const py = by + Math.sin(a) * rr;
+                if (i === 0) ctx.moveTo(px, py);
+                else ctx.lineTo(px, py);
+            }
+            ctx.closePath();
+            ctx.fillStyle = capCol;
+            ctx.fill();
+            ctx.strokeStyle = ringCol;
+            ctx.lineWidth = 2.8;
+            ctx.stroke();
+
+            // Machined inner brass contact sleeve
+            ctx.beginPath();
+            ctx.arc(bx, by, 17, 0, Math.PI * 2);
+            ctx.fillStyle = '#b48a3e';
+            ctx.fill();
+            ctx.strokeStyle = '#1e293b';
+            ctx.lineWidth = 1.5;
+            ctx.stroke();
+
+            // Deep 4mm banana jack bore
+            ctx.beginPath();
+            ctx.arc(bx, by, 11, 0, Math.PI * 2);
+            ctx.fillStyle = '#04060a';
+            ctx.fill();
+
+            // Polarity symbol + clean technical silkscreen
+            ctx.textAlign = 'left';
+            ctx.textBaseline = 'middle';
+            ctx.fillStyle = '#f8fafc';
+            ctx.font = '900 26px "JetBrains Mono", monospace';
+            ctx.fillText(sym, bx + 52, by - 14);
+            ctx.fillStyle = '#cbd5e1';
+            ctx.font = '800 13px "JetBrains Mono", monospace';
+            ctx.fillText(label, bx + 52, by + 8);
+            ctx.fillStyle = '#64748b';
+            ctx.font = '700 9.5px "JetBrains Mono", monospace';
+            ctx.fillText(sub, bx + 52, by + 24);
+        };
+
+        drawProBindingPost(-180, termY + 72, '#94a3b8', '#151c28', '−', 'NEG 0V', 'RETURN');
+        drawProBindingPost(0,    termY + 72, '#22c55e', '#14532d', '⏚', 'GND',    'CHASSIS');
+        drawProBindingPost(180,  termY + 72, '#fca5a5', '#b91c1c', '+', 'POS +V', '0–12V');
+
+        if (shorted) {
+            drawPillBadge(ctx, 0, top - 28, '⚡ PSU SHORT CIRCUIT · OVERCURRENT TRIP!', 'error');
+        }
+        if (isSelected) drawSelectionFrame(ctx, -hw - 12, top - 12, w + 24, h + 82);
         return true;
     }
 
     // =========================================================================
-    // 11. BRUSHED 130-SIZE HOBBY DC MOTOR + MACHINED ENCODER SPINNER
+    // 10C. FLUKE-GRADE RUGGED HANDHELD DIGITAL MULTIMETER (DMM-87V TRUE RMS)
+    // =========================================================================
+    // Exact 36px-grid pins: neg (-72, +252), pos (+72, +252)
+    function drawMultimeter(ctx, comp, evalData, isSelected) {
+        const st = evalData?.meterStates?.get(comp.id) || { mode: comp.mode || 'V', display: '0.00 V', numeric: 0 };
+        const mode = comp.mode || st.mode || 'V';
+        const w = 296, h = 440;
+        const hw = w / 2;
+        const top = -224;
+        const bot = top + h; // +216
+
+        // Sculpted ergonomic tapered Fluke rubber holster silhouette (subtle waist grip curves!)
+        const traceHolster = () => {
+            ctx.beginPath();
+            ctx.moveTo(-hw + 28, top);
+            ctx.lineTo(hw - 28, top);
+            ctx.quadraticCurveTo(hw, top, hw, top + 28);
+            ctx.lineTo(hw, top + 148);
+            ctx.quadraticCurveTo(hw - 7, top + 230, hw - 4, top + 318);
+            ctx.lineTo(hw - 2, bot - 28);
+            ctx.quadraticCurveTo(hw - 2, bot, hw - 30, bot);
+            ctx.lineTo(-hw + 30, bot);
+            ctx.quadraticCurveTo(-hw + 2, bot, -hw + 2, bot - 28);
+            ctx.lineTo(-hw + 4, top + 318);
+            ctx.quadraticCurveTo(-hw + 7, top + 230, -hw, top + 148);
+            ctx.lineTo(-hw, top + 28);
+            ctx.quadraticCurveTo(-hw, top, -hw + 28, top);
+            ctx.closePath();
+        };
+
+        // 1. Matte probe terminal drop leads + molded strain-relief probe boots to (±72, +252)
+        drawMetallicLead(ctx, [{ x: -72, y: 196 }, { x: -72, y: 252 }], 5.2);
+        drawMetallicLead(ctx, [{ x: 72, y: 196 },  { x: 72, y: 252 }],  5.2);
+        // Molded black & red probe plug exit collars emerging from bottom of meter
+        ctx.fillStyle = '#1e293b';
+        rRect(ctx, -82, bot - 4, 20, 14, 4); ctx.fill();
+        ctx.fillStyle = '#b91c1c';
+        rRect(ctx, 62, bot - 4, 20, 14, 4);  ctx.fill();
+
+        // 2. Protective Mustard-Yellow Rugged Elastomer Rubber Holster
+        withPhysicalShadow(ctx, () => {
+            traceHolster();
+            ctx.fillStyle = '#090d16';
+            ctx.fill();
+        }, 26, 10, 6, 3);
+
+        traceHolster();
+        const holGrad = ctx.createLinearGradient(0, top, 0, bot);
+        holGrad.addColorStop(0, '#f0be16');
+        holGrad.addColorStop(0.5, '#dfaa0d');
+        holGrad.addColorStop(1, '#bd8908');
+        ctx.fillStyle = holGrad;
+        ctx.fill();
+        ctx.strokeStyle = '#926406';
+        ctx.lineWidth = 2.6;
+        ctx.stroke();
+
+        // Top molded lanyard/tilt-stand notch + reinforced corner bumper seams
+        rRect(ctx, -32, top + 3, 64, 6, 3);
+        ctx.fillStyle = '#a17206';
+        ctx.fill();
+
+        // Sculpted rubber ergonomic waist grip ribs
+        ctx.fillStyle = '#b38007';
+        for (let i = 0; i < 6; i++) {
+            const gy = top + 168 + i * 22;
+            rRect(ctx, -hw + 5, gy, 7, 10, 3); ctx.fill();
+            rRect(ctx, hw - 12, gy, 7, 10, 3); ctx.fill();
+        }
+
+        // Recessed Dark-Graphite Inner Instrument Chassis
+        rRect(ctx, -hw + 16, top + 16, w - 32, h - 32, 18);
+        const bodyGrad = ctx.createLinearGradient(0, top + 16, 0, bot - 16);
+        bodyGrad.addColorStop(0, '#232b38');
+        bodyGrad.addColorStop(0.5, '#1b222e');
+        bodyGrad.addColorStop(1, '#141a24');
+        ctx.fillStyle = bodyGrad;
+        ctx.fill();
+        ctx.strokeStyle = '#0a0e16';
+        ctx.lineWidth = 2.2;
+        ctx.stroke();
+
+        // 3. Top Industrial Brand & Safety Plate
+        ctx.fillStyle = '#facc15';
+        rRect(ctx, -hw + 28, top + 28, 4.5, 16, 2);
+        ctx.fill();
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'middle';
+        ctx.fillStyle = '#facc15';
+        ctx.font = '900 13.5px "Inter", sans-serif';
+        ctx.fillText('ELECTRICSIM', -hw + 38, top + 36);
+        ctx.textAlign = 'right';
+        ctx.fillStyle = '#94a3b8';
+        ctx.font = '800 9.5px "JetBrains Mono", monospace';
+        ctx.fillText('87V · TRUE RMS', hw - 28, top + 36);
+
+        // 4. Deeply Recessed Backlit Transflective Olive-Sage LCD Display Window
+        const lcdX = -hw + 26, lcdY = top + 50, lcdW = w - 52, lcdH = 108;
+        // Outer molded dark bezel frame
+        rRect(ctx, lcdX, lcdY, lcdW, lcdH, 10);
+        ctx.fillStyle = '#0a0f18';
+        ctx.fill();
+        ctx.strokeStyle = '#334155';
+        ctx.lineWidth = 1.8;
+        ctx.stroke();
+
+        // Transflective sage-olive LCD panel with subtle top bezel shadow
+        rRect(ctx, lcdX + 7, lcdY + 7, lcdW - 14, lcdH - 14, 6);
+        const lcdGrad = ctx.createLinearGradient(0, lcdY + 7, 0, lcdY + lcdH - 7);
+        lcdGrad.addColorStop(0, '#8ea991');
+        lcdGrad.addColorStop(0.16, '#a0bc9f');
+        lcdGrad.addColorStop(1, '#92ae94');
+        ctx.fillStyle = lcdGrad;
+        ctx.fill();
+        ctx.strokeStyle = '#3f5443';
+        ctx.lineWidth = 1.4;
+        ctx.stroke();
+
+        // Inner top depth shadow cast by LCD bezel lip
+        ctx.fillStyle = 'rgba(15, 28, 18, 0.22)';
+        ctx.fillRect(lcdX + 9, lcdY + 8, lcdW - 18, 4);
+
+        // LCD Top Annunciator Bar (AUTO · DC · Mode + tiny battery icon)
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'top';
+        ctx.fillStyle = '#18281c';
+        ctx.font = '800 9.5px "JetBrains Mono", monospace';
+        ctx.fillText(mode === 'V' ? 'AUTO  DC' : mode === 'mA' ? 'AUTO  DC mA' : 'AUTO  OHMS', lcdX + 15, lcdY + 14);
+        ctx.textAlign = 'right';
+        ctx.font = '700 8.5px "JetBrains Mono", monospace';
+        ctx.fillText('TRUE RMS', lcdX + lcdW - 34, lcdY + 15);
+        // Tiny LCD battery indicator icon in top-right
+        ctx.strokeStyle = '#18281c';
+        ctx.lineWidth = 1.1;
+        ctx.strokeRect(lcdX + lcdW - 28, lcdY + 15, 11, 6.5);
+        ctx.fillStyle = '#18281c';
+        ctx.fillRect(lcdX + lcdW - 17, lcdY + 17, 2, 2.5);
+        ctx.fillRect(lcdX + lcdW - 26, lcdY + 17, 7, 2.5);
+
+        // Parse display string into numeric part + unit for authentic vector 7-segment LCD digits!
+        const rawDisp = String(st.display || '0.00 V').trim();
+        const dispMatch = rawDisp.match(/^([+-]?\d+(?:\.\d+)?|OL)\s*(.*)$/);
+        let numPart = dispMatch ? dispMatch[1] : '0.00';
+        const unitPart = dispMatch ? dispMatch[2] : (mode === 'V' ? 'V' : mode === 'mA' ? 'mA' : 'Ω');
+        let isNeg = false;
+        if (numPart.startsWith('-')) {
+            isNeg = true;
+            numPart = numPart.slice(1);
+        } else if (numPart.startsWith('+')) {
+            numPart = numPart.slice(1);
+        }
+
+        // Negative polarity sign on left of LCD when negative
+        if (isNeg) {
+            ctx.fillStyle = '#0e1b11';
+            ctx.fillRect(lcdX + 16, lcdY + 49, 12, 3.5);
+        }
+
+        // Authentic Vector 7-Segment Dark-LCD Digits + Ghost Backdrop!
+        drawSevenSegString(
+            ctx,
+            numPart.slice(0, 5),
+            lcdX + lcdW - 46,
+            lcdY + 30,
+            23,
+            40,
+            7,
+            '#0e1b11',
+            'rgba(14, 27, 17, 0.09)',
+            4
+        );
+
+        // Crisp LCD Unit Annunciator beside digits
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'middle';
+        ctx.fillStyle = '#0e1b11';
+        ctx.font = '900 17px "JetBrains Mono", monospace';
+        ctx.fillText(unitPart, lcdX + lcdW - 40, lcdY + 61);
+
+        // Authentic Graduated Analog Bar-Graph Ruler along bottom of LCD
+        const barX = lcdX + 15, barY = lcdY + lcdH - 22, barW = lcdW - 30;
+        const mag = Math.min(1, Math.abs(Number(st.numeric) || 0) / (mode === 'V' ? 12 : mode === 'mA' ? 100 : 10000));
+        const segCount = 26;
+        const activeSegs = Math.round(mag * segCount);
+        for (let i = 0; i < segCount; i++) {
+            const sx = barX + i * (barW / segCount);
+            const major = (i % 5 === 0);
+            ctx.fillStyle = i < activeSegs ? '#0e1b11' : 'rgba(14, 27, 17, 0.14)';
+            ctx.fillRect(sx, barY + (major ? 0 : 2.5), (barW / segCount) - 1.8, major ? 8.5 : 6);
+        }
+
+        // 5. Row of 4 Raised Molded Silicone Function Keys + Secondary Legends Above
+        const fnKeys = [
+            { lbl: 'HOLD', sub: 'AUTO', bg: '#334155', fg: '#e2e8f0' },
+            { lbl: 'MIN MAX', sub: 'PEAK', bg: '#334155', fg: '#e2e8f0' },
+            { lbl: 'RANGE', sub: 'MAN', bg: '#334155', fg: '#e2e8f0' },
+            { lbl: 'MODE', sub: 'SELECT', bg: '#d4a00d', fg: '#0f172a' }
+        ];
+        for (let i = 0; i < 4; i++) {
+            const bx = -87 + i * 58;
+            const by = top + 179;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillStyle = i === 3 ? '#facc15' : '#64748b';
+            ctx.font = '800 7px "JetBrains Mono", monospace';
+            ctx.fillText(fnKeys[i].sub, bx, by - 14.5);
+
+            // Tactile bottom 3D button skirt
+            rRect(ctx, bx - 23, by - 8, 46, 20, 5.5);
+            ctx.fillStyle = '#090d16';
+            ctx.fill();
+            // Raised silicone key cap
+            rRect(ctx, bx - 23, by - 10, 46, 19, 5.5);
+            ctx.fillStyle = fnKeys[i].bg;
+            ctx.fill();
+            ctx.strokeStyle = i === 3 ? '#fef08a' : '#475569';
+            ctx.lineWidth = 1.0;
+            ctx.stroke();
+
+            ctx.fillStyle = fnKeys[i].fg;
+            ctx.font = '800 8px "Inter", sans-serif';
+            ctx.fillText(fnKeys[i].lbl, bx, by - 0.5);
+        }
+
+        // 6. Precision Fluke-Style Central Rotary Range Selector Deck
+        const dialY = top + 281;
+        const dialR = 50;
+
+        // Subtle circular silkscreen calibration track around dial
+        ctx.beginPath();
+        ctx.arc(0, dialY, dialR + 9, -Math.PI * 1.25, Math.PI * 0.25);
+        ctx.strokeStyle = 'rgba(148, 163, 184, 0.22)';
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+
+        // Fine perimeter detent ticks around dial
+        for (let i = 0; i < 16; i++) {
+            const a = (i / 16) * Math.PI * 2;
+            ctx.beginPath();
+            ctx.moveTo(Math.cos(a) * (dialR + 4), dialY + Math.sin(a) * (dialR + 4));
+            ctx.lineTo(Math.cos(a) * (dialR + 7), dialY + Math.sin(a) * (dialR + 7));
+            ctx.strokeStyle = 'rgba(100, 116, 139, 0.35)';
+            ctx.lineWidth = 1.1;
+            ctx.stroke();
+        }
+
+        const modePositions = [
+            { id: 'off',  ang: -Math.PI * 0.68, lbl: 'OFF',  col: '#94a3b8' },
+            { id: 'V',    ang: -Math.PI * 0.34, lbl: 'V⎓',   col: '#facc15' },
+            { id: 'mA',   ang: 0,               lbl: 'mA⎓',  col: '#38bdf8' },
+            { id: 'ohm',  ang:  Math.PI * 0.34, lbl: 'Ω',    col: '#34d399' },
+            { id: 'cont', ang:  Math.PI * 0.68, lbl: '•)))', col: '#94a3b8' }
+        ];
+
+        for (const mp of modePositions) {
+            const a = mp.ang - Math.PI / 2;
+            const isAct = mp.id === mode;
+            ctx.beginPath();
+            ctx.moveTo(Math.cos(a) * (dialR + 5), dialY + Math.sin(a) * (dialR + 5));
+            ctx.lineTo(Math.cos(a) * (dialR + 13), dialY + Math.sin(a) * (dialR + 13));
+            ctx.strokeStyle = isAct ? mp.col : '#64748b';
+            ctx.lineWidth = isAct ? 3.2 : 1.6;
+            ctx.stroke();
+
+            const rLbl = dialR + 26;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillStyle = isAct ? mp.col : '#cbd5e1';
+            ctx.font = isAct ? '900 13.5px "JetBrains Mono", monospace' : '800 11.5px "JetBrains Mono", monospace';
+            ctx.fillText(mp.lbl, Math.cos(a) * rLbl, dialY + Math.sin(a) * rLbl);
+        }
+
+        // Deep recessed circular selector well
+        ctx.beginPath();
+        ctx.arc(0, dialY, dialR + 3, 0, Math.PI * 2);
+        ctx.fillStyle = '#070a11';
+        ctx.fill();
+
+        // Sculpted Tapered Ergonomic Selector Knob
+        const dialAngle = mode === 'V' ? -Math.PI * 0.34 : mode === 'mA' ? 0 : Math.PI * 0.34;
+        ctx.save();
+        ctx.translate(0, dialY);
+
+        // Dial dish base
+        ctx.beginPath();
+        ctx.arc(0, 0, dialR - 1, 0, Math.PI * 2);
+        ctx.fillStyle = '#242e3e';
+        ctx.fill();
+        ctx.strokeStyle = '#475569';
+        ctx.lineWidth = 2.0;
+        ctx.stroke();
+
+        // Subtle inner machined circle groove
+        ctx.beginPath();
+        ctx.arc(0, 0, dialR - 9, 0, Math.PI * 2);
+        ctx.strokeStyle = '#151c27';
+        ctx.lineWidth = 1.6;
+        ctx.stroke();
+
+        ctx.rotate(dialAngle);
+        // Sculpted tapered ergonomic thumb bar (wider tail grip, tapered pointer nose!)
+        ctx.beginPath();
+        ctx.moveTo(-7, -dialR + 5);
+        ctx.lineTo(7, -dialR + 5);
+        ctx.lineTo(13, dialR - 9);
+        ctx.quadraticCurveTo(13, dialR - 5, 8, dialR - 5);
+        ctx.lineTo(-8, dialR - 5);
+        ctx.quadraticCurveTo(-13, dialR - 5, -13, dialR - 9);
+        ctx.closePath();
+        ctx.fillStyle = '#121822';
+        ctx.fill();
+        ctx.strokeStyle = '#64748b';
+        ctx.lineWidth = 1.6;
+        ctx.stroke();
+
+        // Tactile thumb grip ribs on handle
+        ctx.fillStyle = '#334155';
+        for (const gy of [-6, 2, 10, 18, 26]) {
+            ctx.fillRect(-6, gy, 12, 2.2);
+        }
+
+        // High-contrast pointer nose wedge
+        ctx.beginPath();
+        ctx.moveTo(0, -dialR + 8);
+        ctx.lineTo(-5.5, -dialR + 22);
+        ctx.lineTo(5.5, -dialR + 22);
+        ctx.closePath();
+        ctx.fillStyle = mode === 'V' ? '#facc15' : mode === 'mA' ? '#38bdf8' : '#34d399';
+        ctx.fill();
+        ctx.restore();
+
+        // 7. Bottom Recessed 4mm Safety Probe Jack Deck: COM (−) at -72, VΩmA (+) at +72
+        rRect(ctx, -hw + 24, top + 346, w - 48, 68, 10);
+        ctx.fillStyle = '#10151f';
+        ctx.fill();
+        ctx.strokeStyle = '#334155';
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+
+        for (const [jx, bg, ring, tag, sub] of [
+            [-72, '#0f172a', '#94a3b8', 'COM', '− BLACK'],
+            [72,  '#b91c1c', '#fca5a5', 'VΩmA', '+ RED']
+        ]) {
+            const jy = top + 382;
+            // Outer molded safety recess ring
+            ctx.beginPath();
+            ctx.arc(jx, jy, 21.5, 0, Math.PI * 2);
+            ctx.fillStyle = '#070a10';
+            ctx.fill();
+
+            // Shrouded colored insulator collar
+            ctx.beginPath();
+            ctx.arc(jx, jy, 17.5, 0, Math.PI * 2);
+            ctx.fillStyle = bg;
+            ctx.fill();
+            ctx.strokeStyle = ring;
+            ctx.lineWidth = 2.8;
+            ctx.stroke();
+
+            // Inner brass split-contact sleeve
+            ctx.beginPath();
+            ctx.arc(jx, jy, 10.5, 0, Math.PI * 2);
+            ctx.fillStyle = '#b48a3e';
+            ctx.fill();
+
+            // Deep 4mm probe socket bore
+            ctx.beginPath();
+            ctx.arc(jx, jy, 6.8, 0, Math.PI * 2);
+            ctx.fillStyle = '#04060a';
+            ctx.fill();
+
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillStyle = '#e2e8f0';
+            ctx.font = '800 9px "JetBrains Mono", monospace';
+            ctx.fillText(tag, jx, top + 356);
+            ctx.fillStyle = '#94a3b8';
+            ctx.font = '700 7.8px "JetBrains Mono", monospace';
+            ctx.fillText(sub, jx, top + 407);
+        }
+
+        // Center CAT III / Fused Safety Triangle Emblem between Jacks
+        ctx.save();
+        ctx.translate(0, top + 368);
+        ctx.beginPath();
+        ctx.moveTo(0, -8);
+        ctx.lineTo(9, 7);
+        ctx.lineTo(-9, 7);
+        ctx.closePath();
+        ctx.strokeStyle = '#facc15';
+        ctx.lineWidth = 1.4;
+        ctx.stroke();
+        ctx.fillStyle = '#facc15';
+        ctx.font = '900 8.5px "Inter", sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('!', 0, 2);
+        ctx.restore();
+
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillStyle = '#94a3b8';
+        ctx.font = '800 7.5px "JetBrains Mono", monospace';
+        ctx.fillText('CAT III 600V', 0, top + 388);
+        ctx.fillStyle = '#64748b';
+        ctx.font = '700 7px "JetBrains Mono", monospace';
+        ctx.fillText('400mA FUSED', 0, top + 399);
+
+        if (isSelected) drawSelectionFrame(ctx, -hw - 8, top - 8, w + 16, h + 46);
+        return true;
+    }
+
+    // =========================================================================
+    // 11. BRUSHED 130-SIZE HOBBY DC MOTOR + MACHINED ENCODER SPINNER (MATTE)
     // =========================================================================
     // Exact pins: pos (-108, -18), neg (-108, +18)
     function drawMotor(ctx, comp, evalData, isSelected, animAngleRad = 0) {
         const st = evalData?.motorStates?.get(comp.id) || { rpm: 0, spinning: false, direction: 'IDLE', voltage: 0, currentMa: 0, overloaded: false };
 
-        // 1. Clean Red (+) and Black (−) Insulated Leads soldered to Copper Terminal Lugs -> (-108, ±18)
-        drawInsulatedLead(ctx, { x: -74, y: -18 }, { x: -88, y: -18 }, { x: -96, y: -18 }, { x: -108, y: -18 }, '#7f1d1d', '#ef4444', 4.2);
-        drawInsulatedLead(ctx, { x: -74, y: 18 },  { x: -88, y: 18 },  { x: -96, y: 18 },  { x: -108, y: 18 },  '#334155', '#1e293b', 4.2);
+        // 1. Clean Red (+) and Black (−) Matte Insulated Leads soldered to Copper Terminal Lugs -> (-108, ±18)
+        drawInsulatedLead(ctx, { x: -74, y: -18 }, { x: -88, y: -18 }, { x: -96, y: -18 }, { x: -108, y: -18 }, '#7f1d1d', '#dc2626', 4.4);
+        drawInsulatedLead(ctx, { x: -74, y: 18 },  { x: -88, y: 18 },  { x: -96, y: 18 },  { x: -108, y: 18 },  '#334155', '#1e293b', 4.4);
 
         // Copper-brass solder terminal lugs
-        ctx.fillStyle = '#d97706';
+        ctx.fillStyle = '#c27821';
         rRect(ctx, -78, -23, 12, 10, 2); ctx.fill();
         rRect(ctx, -78, 13, 12, 10, 2);  ctx.fill();
 
-        // 2. Main Brushed Galvanized-Steel Can + Molded Yellow Endbell (-68..+78, -42..+42)
+        // 2. Main Matte Galvanized-Steel Can + Molded Yellow Endbell (-68..+78, -42..+42)
         withPhysicalShadow(ctx, () => {
             rRect(ctx, -68, -42, 146, 84, 9);
             ctx.fillStyle = '#334155';
             ctx.fill();
-        }, 16, 6, 4, 2);
+        }, 14, 6, 4, 2);
 
         ctx.save();
         rRect(ctx, -68, -42, 146, 84, 9);
         ctx.clip();
 
-        // Cylindrical brushed steel housing gradient
+        // Clean matte cylindrical steel housing gradient (no harsh mirror glare)
         const canGrad = ctx.createLinearGradient(0, -42, 0, 42);
-        canGrad.addColorStop(0, '#64748b');
-        canGrad.addColorStop(0.22, '#e2e8f0');
-        canGrad.addColorStop(0.42, '#94a3b8');
-        canGrad.addColorStop(0.76, '#475569');
-        canGrad.addColorStop(1, '#1e293b');
+        canGrad.addColorStop(0, '#a7b4c4');
+        canGrad.addColorStop(0.52, '#8b99ab');
+        canGrad.addColorStop(1, '#586578');
         ctx.fillStyle = canGrad;
         ctx.fillRect(-50, -42, 128, 84);
 
         // Molded yellow-amber nylon endbell on left (-68..-48)
         const bellGrad = ctx.createLinearGradient(0, -42, 0, 42);
         bellGrad.addColorStop(0, '#eab308');
-        bellGrad.addColorStop(0.28, '#fef08a');
-        bellGrad.addColorStop(0.6, '#ca8a04');
-        bellGrad.addColorStop(1, '#713f12');
+        bellGrad.addColorStop(0.55, '#ca8a04');
+        bellGrad.addColorStop(1, '#854d0e');
         ctx.fillStyle = bellGrad;
         ctx.fillRect(-68, -42, 22, 84);
 
@@ -1587,24 +2734,20 @@
 
         // Subtle stamped housing markings
         ctx.font = '800 10px "JetBrains Mono", monospace';
-        ctx.fillStyle = 'rgba(15, 23, 42, 0.52)';
+        ctx.fillStyle = 'rgba(15, 23, 42, 0.62)';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.fillText('DC-130 · 9V', 6, 0);
         ctx.restore();
 
         rRect(ctx, -68, -42, 146, 84, 9);
-        ctx.strokeStyle = st.overloaded ? '#ef4444' : '#94a3b8';
+        ctx.strokeStyle = st.overloaded ? '#ef4444' : '#64748b';
         ctx.lineWidth = 1.5;
         ctx.stroke();
 
         // 3. Stepped Nose Bearing Boss + Machined Steel Shaft (+78..+110)
-        const noseGrad = ctx.createLinearGradient(0, -16, 0, 16);
-        noseGrad.addColorStop(0, '#94a3b8');
-        noseGrad.addColorStop(0.35, '#f1f5f9');
-        noseGrad.addColorStop(1, '#334155');
         rRect(ctx, 78, -16, 12, 32, 3);
-        ctx.fillStyle = noseGrad;
+        ctx.fillStyle = '#9aa7b8';
         ctx.fill();
         ctx.strokeStyle = '#475569';
         ctx.lineWidth = 1.1;
@@ -1612,8 +2755,11 @@
 
         // Machined steel drive shaft
         rRect(ctx, 90, -4.5, 18, 9, 2);
-        ctx.fillStyle = noseGrad;
+        ctx.fillStyle = '#b4c0ce';
         ctx.fill();
+        ctx.strokeStyle = '#475569';
+        ctx.lineWidth = 0.9;
+        ctx.stroke();
 
         // 4. Machined Rotating Slotted Encoder Hub / Spinner Disc at (+104, 0)
         ctx.save();
@@ -1796,13 +2942,9 @@
             ctx.fill();
         }, 16, 6, 4, 2);
 
-        // Light-silver perimeter frame (authentic 5161AS side flange)
-        const rimGrad = ctx.createLinearGradient(-dw / 2, -dh / 2, dw / 2, dh / 2);
-        rimGrad.addColorStop(0, '#e2e8f0');
-        rimGrad.addColorStop(0.5, '#cbd5e1');
-        rimGrad.addColorStop(1, '#94a3b8');
+        // Clean matte light-silver perimeter frame (authentic 5161AS side flange)
         rRect(ctx, -dw / 2, -dh / 2, dw, dh, 7);
-        ctx.fillStyle = rimGrad;
+        ctx.fillStyle = '#c2ccd8';
         ctx.fill();
         ctx.strokeStyle = '#475569';
         ctx.lineWidth = 1.4;
@@ -2196,6 +3338,8 @@
         drawBuzzer,
         drawAAHolder,
         drawBattery9V,
+        drawBenchPSU,
+        drawMultimeter,
         drawMotor,
         drawNpn,
         drawSeg7TenPin,

@@ -393,10 +393,12 @@ check('1.12: pages/electronics.html has visual 2D thumbnail cards, search, NO sc
     for (const t of requiredTools) {
         assert.ok(html.includes(`data-ic-tool="${t}"`), `Missing tool button ${t} in pages/electronics.html`);
     }
-    // Schematic GND, Logic Probe, and 1Hz Clock must NOT be in the 2D hardware Electronics Lab palette
+    // Schematic GND, Logic Probe, 1Hz Clock, DIP-4 Switch Bank, and Auto-Power must NOT be in the 2D hardware Electronics Lab UI
     assert.ok(!html.includes('data-ic-tool="gnd"'), 'Schematic GND should be removed from 2D Electronics Lab palette');
     assert.ok(!html.includes('data-ic-tool="probe"'), 'Logic Probe should be removed from Electronics Lab palette');
     assert.ok(!html.includes('data-ic-tool="clock"'), '1Hz Clock should be removed from Electronics Lab palette');
+    assert.ok(!html.includes('data-ic-tool="dip4"'), 'DIP-4 Switch Bank should be removed from Electronics Lab palette');
+    assert.ok(!html.includes('icAutoPowerToggle'), 'Auto-Power checkbox should be removed from Electronics Lab toolbar');
     assert.ok(html.includes('data-ic-tool="seg7_10"'), 'Realistic 10-pin 7-segment display must be in Electronics Lab palette');
     assert.ok(!html.includes('wokwi-layer') && !html.includes('wokwi-elements'), 'Leftover @wokwi/elements must be cleanly removed');
     // IEEE schematic thumbnail canvases must exist
@@ -489,7 +491,7 @@ check('1.15: Unified HardwareRenderer draws all 2.5D parts & white-ink schematic
     const expectedFns = [
         'drawBreadboard', 'drawSpdt', 'drawPotentiometer', 'drawPushButton', 'drawResistor',
         'drawLed', 'drawRgbLed', 'drawBuzzer', 'drawAAHolder', 'drawBattery9V',
-        'drawMotor', 'drawNpn', 'drawSeg7TenPin', 'drawIEEESymbolPreview'
+        'drawBenchPSU', 'drawMultimeter', 'drawMotor', 'drawNpn', 'drawSeg7TenPin', 'drawIEEESymbolPreview'
     ];
     for (const fn of expectedFns) {
         assert.equal(typeof HW[fn], 'function', `HardwareRenderer.${fn} must be a function`);
@@ -520,13 +522,22 @@ check('1.15: Unified HardwareRenderer draws all 2.5D parts & white-ink schematic
     for (let cells = 1; cells <= 4; cells++) {
         assert.equal(HW.drawAAHolder(mockCtx, Lab.createICComponent('battery', 0, 0, { cells }), dummyEval, false), true);
     }
-    assert.equal(HW.drawBattery9V(mockCtx, Lab.createICComponent('battery9v', 0, 0), dummyEval, true), true);
+    const bat9Comp = Lab.createICComponent('battery9v', 0, 0);
+    const bat9Pins = Lab.getComponentPins(bat9Comp);
+    assert.deepEqual(
+        bat9Pins.map(p => [p.pin, p.x, p.y]),
+        [['neg', -36, -180], ['pos', 36, -180]],
+        '9V PP3 battery must expose wire-free top snap terminals at (-36,-180) and (+36,-180)'
+    );
+    assert.equal(HW.drawBattery9V(mockCtx, bat9Comp, dummyEval, true), true);
+    assert.equal(HW.drawBenchPSU(mockCtx, Lab.createICComponent('psu', 0, 0, { voltage: 5.0 }), dummyEval, true), true);
+    assert.equal(HW.drawMultimeter(mockCtx, Lab.createICComponent('multimeter', 0, 0, { mode: 'V' }), dummyEval, true), true);
     assert.equal(HW.drawMotor(mockCtx, Lab.createICComponent('motor', 0, 0), dummyEval, true, 1.2), true);
     assert.equal(HW.drawNpn(mockCtx, Lab.createICComponent('npn', 0, 0), dummyEval, true), true);
     assert.equal(HW.drawSeg7TenPin(mockCtx, Lab.createICComponent('seg7_10', 0, 0), dummyEval, true), true);
 
     const thumbKinds = [...html.matchAll(/data-thumb-kind="([^"]+)"/g)].map(m => m[1]);
-    assert.ok(thumbKinds.length >= 16, `Expected >= 16 palette schematic cards, found ${thumbKinds.length}`);
+    assert.ok(thumbKinds.length >= 15, `Expected >= 15 palette schematic cards, found ${thumbKinds.length}`);
     for (const k of thumbKinds) {
         HW.drawIEEESymbolPreview({ width: 112, height: 68, closest: () => null, getBoundingClientRect: () => ({ width: 114, height: 62 }), getContext: () => mockCtx }, k);
     }

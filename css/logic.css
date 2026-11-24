@@ -1266,9 +1266,55 @@ button[aria-selected="true"] {
 }
 
 .ic-dyn-slider {
-  flex: 1 1 120px;
-  accent-color: #38bdf8;
-  cursor: pointer;
+  flex: 1 1 130px;
+  height: 22px;
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+  cursor: ew-resize;
+  touch-action: none;
+}
+
+.ic-dyn-slider::-webkit-slider-runnable-track {
+  height: 6px;
+  border-radius: 999px;
+  background: rgba(148, 163, 184, 0.28);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.ic-dyn-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  margin-top: -6px;
+  border-radius: 50%;
+  background: #38bdf8;
+  border: 2px solid #f8fafc;
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.55);
+  transition: transform 0.1s ease, background 0.1s ease;
+}
+
+.ic-dyn-slider::-webkit-slider-thumb:hover,
+.ic-dyn-slider:active::-webkit-slider-thumb {
+  transform: scale(1.16);
+  background: #7dd3fc;
+}
+
+.ic-dyn-slider::-moz-range-track {
+  height: 6px;
+  border-radius: 999px;
+  background: rgba(148, 163, 184, 0.28);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.ic-dyn-slider::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #38bdf8;
+  border: 2px solid #f8fafc;
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.55);
 }
 
 .ic-dyn-input,
@@ -1470,8 +1516,8 @@ button[aria-selected="true"] {
   border-color: rgba(232, 200, 156, 0.34) !important;
 }
 .ic-part-card[data-ic-tool="potentiometer"] {
-  background: linear-gradient(180deg, #214073, #15284a) !important;
-  border-color: rgba(138, 184, 246, 0.34) !important;
+  background: linear-gradient(180deg, #525c6b, #323945) !important;
+  border-color: rgba(208, 218, 232, 0.34) !important;
 }
 .ic-part-card[data-ic-tool="pushbutton"] {
   background: linear-gradient(180deg, #3f4652, #262b34) !important;
@@ -1480,10 +1526,6 @@ button[aria-selected="true"] {
 .ic-part-card[data-ic-tool="spdt"] {
   background: linear-gradient(180deg, #434c59, #29303a) !important;
   border-color: rgba(198, 210, 226, 0.32) !important;
-}
-.ic-part-card[data-ic-tool="dip4"] {
-  background: linear-gradient(180deg, #5e232a, #3a1419) !important;
-  border-color: rgba(238, 130, 140, 0.34) !important;
 }
 .ic-part-card[data-ic-tool="lamp"] {
   background: linear-gradient(180deg, #1a4b37, #103023) !important;
