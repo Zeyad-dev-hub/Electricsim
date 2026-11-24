@@ -403,11 +403,10 @@ check('1.12: pages/electronics.html has visual 2D thumbnail cards, search, NO sc
     assert.ok((html.match(/class="ic-part-thumb"/g) || []).length >= 14, 'Should render >=14 IEEE schematic component thumbnails');
     assert.ok(html.includes('electronics-solver.js'));
     assert.ok(html.includes('electronics-components.js'));
-    assert.ok(html.includes('fritzing-renderer.js'));
+    assert.ok(html.includes('hardware-renderer.js'));
     assert.ok(html.includes('schematic-io.js'));
     assert.ok(html.includes('electronics-export.js'));
-    // CC-BY-SA 3.0 visible footer credit
-    assert.ok(html.includes('CC-BY-SA 3.0') && html.includes('https://creativecommons.org/licenses/by-sa/3.0/'), 'Footer must contain CC-BY-SA 3.0 Fritzing attribution link');
+    assert.ok(!html.includes('fritzing-renderer.js') && !html.includes('CC-BY-SA 3.0'), 'Third-party Fritzing renderer & CC-BY-SA notice must be cleanly removed');
 
     // Separate Classic Logic IC Lab must exist cleanly
     const classicHtml = fs.readFileSync(path.join(__dirname, '..', 'pages', 'logic-ic.html'), 'utf8');
@@ -479,22 +478,57 @@ check('1.14: bb_7408_ic preset plugs 7408 across Row e/f center trough, powers c
     assert.equal(ev.lampStates.get('led1').lit, false, 'LED must turn OFF when IN A button is released');
 });
 
-// 15. Fritzing SVG Assets (CC-BY-SA 3.0 Compliance), FritzingRenderer & Realistic 10-Pin 7-Segment Display
-check('1.15: Fritzing SVGs, LICENSE.txt, SOURCES.md, FritzingRenderer, and 10-pin 7-segment display straddling breadboard trough', () => {
-    const fritzDir = path.join(__dirname, '..', 'assets', 'fritzing');
-    assert.ok(fs.existsSync(path.join(fritzDir, 'LICENSE.txt')), 'assets/fritzing/LICENSE.txt must exist');
-    assert.ok(fs.existsSync(path.join(fritzDir, 'SOURCES.md')), 'assets/fritzing/SOURCES.md must exist');
-    const lic = fs.readFileSync(path.join(fritzDir, 'LICENSE.txt'), 'utf8');
-    assert.ok(lic.includes('CC-BY-SA 3.0') && lic.includes('fritzing.org'));
+// 15. Unified Native-Vector 2.5D HardwareRenderer (Zero SVG Masking) & Realistic 10-Pin 7-Segment Display
+check('1.15: Unified HardwareRenderer draws all 2.5D parts & white-ink schematics cleanly + 10-pin 7-segment display straddles trough', () => {
+    const html = fs.readFileSync(path.join(__dirname, '..', 'pages', 'electronics.html'), 'utf8');
+    assert.ok(html.includes('hardware-renderer.js'), 'pages/electronics.html must load hardware-renderer.js');
+    assert.ok(!html.includes('fritzing-renderer.js'), 'pages/electronics.html must not load legacy fritzing-renderer.js');
+    assert.ok(!fs.existsSync(path.join(__dirname, '..', 'assets', 'fritzing')), 'Unused assets/fritzing/ folder should be removed');
 
-    const Fritz = require('../js/fritzing-renderer.js');
-    assert.equal(typeof Fritz.preloadAll, 'function');
-    assert.equal(typeof Fritz.drawIEEESymbolPreview, 'function');
-    for (const [k, fname] of Object.entries(Fritz.ASSET_MANIFEST)) {
-        const fpath = path.join(fritzDir, fname);
-        assert.ok(fs.existsSync(fpath), `Missing Fritzing SVG asset: ${fname} (${k})`);
-        const content = fs.readFileSync(fpath, 'utf8');
-        assert.ok(content.includes('<svg'), `Invalid SVG file: ${fname}`);
+    const HW = require('../js/hardware-renderer.js');
+    const expectedFns = [
+        'drawBreadboard', 'drawSpdt', 'drawPotentiometer', 'drawPushButton', 'drawResistor',
+        'drawLed', 'drawRgbLed', 'drawBuzzer', 'drawAAHolder', 'drawBattery9V',
+        'drawMotor', 'drawNpn', 'drawSeg7TenPin', 'drawIEEESymbolPreview'
+    ];
+    for (const fn of expectedFns) {
+        assert.equal(typeof HW[fn], 'function', `HardwareRenderer.${fn} must be a function`);
+    }
+
+    // Smoke-test every single 2.5D hardware draw function + all palette schematic thumbnails with a mock 2D context
+    const noop = () => {};
+    const mockGrad = { addColorStop: noop };
+    const mockCtx = new Proxy({}, {
+        get(_, prop) {
+            if (prop === 'createLinearGradient' || prop === 'createRadialGradient') return () => mockGrad;
+            if (prop === 'measureText') return txt => ({ width: String(txt).length * 6 });
+            if (prop === 'getTransform') return () => ({ a: 1, b: 0, c: 0, d: 1, e: 0, f: 0 });
+            return noop;
+        },
+        set() { return true; }
+    });
+    const dummyEval = Lab.evaluateICBench(Lab.BENCH_2D_PRESETS.bb_wirefree_demo.build());
+    assert.equal(HW.drawBreadboard(mockCtx, Lab.createICComponent('breadboard', 0, 0), Solver.getBreadboardSpec('half'), dummyEval, true, 'bb1:top_10'), true);
+    assert.equal(HW.drawBreadboard(mockCtx, Lab.createICComponent('breadboard_mini', 0, 0), Solver.getBreadboardSpec('mini'), dummyEval, false, null), true);
+    assert.equal(HW.drawSpdt(mockCtx, Lab.createICComponent('spdt', 0, 0, { positionThrow: 'right' }), dummyEval, true), true);
+    assert.equal(HW.drawPotentiometer(mockCtx, Lab.createICComponent('potentiometer', 0, 0, { wiper: 0.7 }), dummyEval, true, Solver), true);
+    assert.equal(HW.drawPushButton(mockCtx, Lab.createICComponent('pushbutton', 0, 0, { pressed: true }), dummyEval, true), true);
+    assert.equal(HW.drawResistor(mockCtx, Lab.createICComponent('resistor', 0, 0, { ohms: 470 }), dummyEval, true, Solver), true);
+    assert.equal(HW.drawLed(mockCtx, Lab.createICComponent('lamp', 0, 0, { color: 'emerald' }), dummyEval, true), true);
+    assert.equal(HW.drawRgbLed(mockCtx, Lab.createICComponent('rgb_led', 0, 0), dummyEval, true), true);
+    assert.equal(HW.drawBuzzer(mockCtx, Lab.createICComponent('buzzer', 0, 0), dummyEval, true, 0.5), true);
+    for (let cells = 1; cells <= 4; cells++) {
+        assert.equal(HW.drawAAHolder(mockCtx, Lab.createICComponent('battery', 0, 0, { cells }), dummyEval, false), true);
+    }
+    assert.equal(HW.drawBattery9V(mockCtx, Lab.createICComponent('battery9v', 0, 0), dummyEval, true), true);
+    assert.equal(HW.drawMotor(mockCtx, Lab.createICComponent('motor', 0, 0), dummyEval, true, 1.2), true);
+    assert.equal(HW.drawNpn(mockCtx, Lab.createICComponent('npn', 0, 0), dummyEval, true), true);
+    assert.equal(HW.drawSeg7TenPin(mockCtx, Lab.createICComponent('seg7_10', 0, 0), dummyEval, true), true);
+
+    const thumbKinds = [...html.matchAll(/data-thumb-kind="([^"]+)"/g)].map(m => m[1]);
+    assert.ok(thumbKinds.length >= 16, `Expected >= 16 palette schematic cards, found ${thumbKinds.length}`);
+    for (const k of thumbKinds) {
+        HW.drawIEEESymbolPreview({ width: 112, height: 68, closest: () => null, getBoundingClientRect: () => ({ width: 114, height: 62 }), getContext: () => mockCtx }, k);
     }
 
     // Verify realistic 10-pin 7-segment display (seg7_10) has 10 pins, plugs into breadboard Rows d & g, and lights segments!

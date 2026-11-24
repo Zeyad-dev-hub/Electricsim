@@ -1439,91 +1439,92 @@ button[aria-selected="true"] {
   border-radius: 10px !important;
   border: 1px solid rgba(255, 255, 255, 0.16) !important;
   background: linear-gradient(180deg, rgba(30, 36, 48, 0.94), rgba(18, 22, 30, 0.98)) !important;
-  color: #f8fafc !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.14), 0 2px 6px rgba(0, 0, 0, 0.28);
+  color: #ffffff !important;
   text-align: center !important;
   white-space: normal !important;
   cursor: grab;
   transition: transform 0.14s ease, border-color 0.14s ease, box-shadow 0.14s ease, filter 0.14s ease;
 }
 
-/* Component-matched card backgrounds (same color family as each physical hardware component) */
+/* Studio component-matched card backgrounds (seamlessly matching each component's physical hardware color) */
 .ic-part-card[data-ic-tool="breadboard"],
 .ic-part-card[data-ic-tool="breadboard_mini"] {
-  background: linear-gradient(180deg, #43423c, #2d2c27) !important;
-  border-color: rgba(232, 230, 220, 0.26) !important;
+  background: linear-gradient(180deg, #4b4a43, #33322c) !important;
+  border-color: rgba(240, 238, 228, 0.28) !important;
 }
 .ic-part-card[data-ic-tool="battery"] {
-  background: linear-gradient(180deg, #4b331e, #2f1f12) !important;
-  border-color: rgba(224, 162, 100, 0.30) !important;
+  background: linear-gradient(180deg, #523720, #342213) !important;
+  border-color: rgba(232, 168, 102, 0.34) !important;
 }
 .ic-part-card[data-ic-tool="battery9v"] {
-  background: linear-gradient(180deg, #42311d, #231d17) !important;
-  border-color: rgba(218, 164, 92, 0.28) !important;
+  background: linear-gradient(180deg, #4a351d, #261f18) !important;
+  border-color: rgba(226, 170, 96, 0.32) !important;
 }
 .ic-part-card[data-ic-tool="psu"] {
-  background: linear-gradient(180deg, #27384d, #182433) !important;
-  border-color: rgba(154, 188, 224, 0.28) !important;
+  background: linear-gradient(180deg, #283b52, #182536) !important;
+  border-color: rgba(158, 194, 232, 0.30) !important;
 }
 .ic-part-card[data-ic-tool="resistor"] {
-  background: linear-gradient(180deg, #52412b, #35291a) !important;
-  border-color: rgba(224, 194, 152, 0.32) !important;
+  background: linear-gradient(180deg, #5c482f, #3b2d1c) !important;
+  border-color: rgba(232, 200, 156, 0.34) !important;
 }
 .ic-part-card[data-ic-tool="potentiometer"] {
-  background: linear-gradient(180deg, #213752, #142336) !important;
-  border-color: rgba(138, 184, 232, 0.30) !important;
+  background: linear-gradient(180deg, #214073, #15284a) !important;
+  border-color: rgba(138, 184, 246, 0.34) !important;
 }
 .ic-part-card[data-ic-tool="pushbutton"] {
-  background: linear-gradient(180deg, #353b46, #22262e) !important;
-  border-color: rgba(182, 194, 210, 0.26) !important;
+  background: linear-gradient(180deg, #3f4652, #262b34) !important;
+  border-color: rgba(196, 208, 224, 0.30) !important;
 }
 .ic-part-card[data-ic-tool="spdt"] {
-  background: linear-gradient(180deg, #2e333c, #1d2027) !important;
-  border-color: rgba(168, 180, 196, 0.24) !important;
+  background: linear-gradient(180deg, #434c59, #29303a) !important;
+  border-color: rgba(198, 210, 226, 0.32) !important;
 }
 .ic-part-card[data-ic-tool="dip4"] {
-  background: linear-gradient(180deg, #572228, #361418) !important;
-  border-color: rgba(232, 126, 136, 0.32) !important;
+  background: linear-gradient(180deg, #5e232a, #3a1419) !important;
+  border-color: rgba(238, 130, 140, 0.34) !important;
 }
 .ic-part-card[data-ic-tool="lamp"] {
-  background: linear-gradient(180deg, #194433, #102c21) !important;
-  border-color: rgba(116, 216, 174, 0.32) !important;
+  background: linear-gradient(180deg, #1a4b37, #103023) !important;
+  border-color: rgba(118, 224, 178, 0.34) !important;
 }
 .ic-part-card[data-ic-tool="rgb_led"] {
-  background: linear-gradient(180deg, #332852, #201936) !important;
-  border-color: rgba(178, 158, 236, 0.30) !important;
+  background: linear-gradient(180deg, #372b59, #221a3a) !important;
+  border-color: rgba(186, 164, 242, 0.32) !important;
 }
 .ic-part-card[data-ic-tool="motor"] {
-  background: linear-gradient(180deg, #3e4652, #272d36) !important;
-  border-color: rgba(192, 204, 218, 0.30) !important;
+  background: linear-gradient(180deg, #46505e, #2b323c) !important;
+  border-color: rgba(202, 214, 228, 0.32) !important;
 }
 .ic-part-card[data-ic-tool="buzzer"] {
-  background: linear-gradient(180deg, #1e3e32, #132820) !important;
-  border-color: rgba(124, 202, 168, 0.28) !important;
+  background: linear-gradient(180deg, #2e333d, #1b1e25) !important;
+  border-color: rgba(176, 186, 204, 0.28) !important;
 }
 .ic-part-card[data-ic-tool="npn"] {
-  background: linear-gradient(180deg, #2b2f38, #1a1d24) !important;
-  border-color: rgba(166, 176, 192, 0.26) !important;
+  background: linear-gradient(180deg, #292e38, #181b22) !important;
+  border-color: rgba(168, 178, 196, 0.28) !important;
 }
 .ic-part-card[data-ic-tool="multimeter"] {
-  background: linear-gradient(180deg, #544418, #362b0e) !important;
-  border-color: rgba(236, 206, 102, 0.34) !important;
+  background: linear-gradient(180deg, #5c4918, #3b2f0e) !important;
+  border-color: rgba(242, 212, 104, 0.36) !important;
 }
 .ic-part-card[data-ic-tool="seg7_10"] {
-  background: linear-gradient(180deg, #481f24, #2c1216) !important;
-  border-color: rgba(224, 128, 140, 0.32) !important;
+  background: linear-gradient(180deg, #4c2026, #2e1216) !important;
+  border-color: rgba(232, 132, 144, 0.34) !important;
 }
 
 .ic-part-card:hover {
   transform: translateY(-1px);
-  filter: brightness(1.14);
-  border-color: rgba(255, 255, 255, 0.52) !important;
-  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.45);
+  filter: brightness(1.13);
+  border-color: rgba(255, 255, 255, 0.56) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22), 0 6px 16px rgba(0, 0, 0, 0.45);
 }
 
 .ic-part-card[aria-pressed="true"] {
   filter: brightness(1.18);
-  border-color: #f8fafc !important;
-  box-shadow: 0 0 0 1px rgba(248, 250, 252, 0.45), 0 0 14px rgba(255, 255, 255, 0.22) !important;
+  border-color: #ffffff !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.26), 0 0 0 1px rgba(255, 255, 255, 0.48), 0 0 14px rgba(255, 255, 255, 0.22) !important;
 }
 
 .ic-part-thumb {
@@ -1541,23 +1542,6 @@ button[aria-selected="true"] {
   height: 64px;
 }
 
-.ic-fritzing-credit {
-  font-size: 10.5px;
-  color: #64748b;
-  margin-left: auto;
-  white-space: nowrap;
-}
-
-.ic-fritzing-credit a {
-  color: #94a3b8;
-  text-decoration: underline;
-  text-underline-offset: 2px;
-}
-
-.ic-fritzing-credit a:hover {
-  color: #38bdf8;
-}
-
 .ic-part-name {
   font-size: 11.5px;
   font-weight: 700;
@@ -1570,8 +1554,8 @@ button[aria-selected="true"] {
   font-size: 9.8px;
   font-weight: 600;
   font-family: "JetBrains Mono", Consolas, monospace;
-  color: rgba(226, 232, 240, 0.78);
-  opacity: 0.92;
+  color: rgba(255, 255, 255, 0.72);
+  opacity: 0.94;
   line-height: 1.15;
 }
 

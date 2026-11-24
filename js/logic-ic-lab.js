@@ -27,10 +27,10 @@
         return null;
     }
 
-    function getFritzingMod() {
-        if (root.FritzingRenderer) return root.FritzingRenderer;
+    function getHardwareMod() {
+        if (root.HardwareRenderer) return root.HardwareRenderer;
         if (typeof require === 'function') {
-            try { return require('./fritzing-renderer.js'); } catch (_) { return null; }
+            try { return require('./hardware-renderer.js'); } catch (_) { return null; }
         }
         return null;
     }
@@ -2723,9 +2723,9 @@
 
                 doc.components.push(bb, bat, ic, btnA, btnB, res, led);
 
-                // Supply 3×AA (4.5V) into Top Rails & bridge to Bottom Rails
+                // Supply 3×AA (4.5V) into Top Rails & bridge to Bottom Rails (route negative cleanly below AA pack!)
                 connectICWire(doc, 'bat1:pos', 'bb1:tp1', [], { color: 'red', label: '+4.5V' });
-                connectICWire(doc, 'bat1:neg', 'bb1:tn1', [], { color: 'black', label: '0V' });
+                connectICWire(doc, 'bat1:neg', 'bb1:tn1', [{ x: -882, y: -198 }, { x: -504, y: -198 }], { color: 'black', label: '0V' });
                 connectICWire(doc, 'bb1:tp2', 'bb1:bp2', [], { color: 'red' });
                 connectICWire(doc, 'bb1:tn2', 'bb1:bn2', [], { color: 'black' });
 
@@ -3664,7 +3664,7 @@
 
         drawBenchComponent(comp, evalData, isSelected, uiState = {}) {
             const ctx = this.ctx;
-            const fritz = getFritzingMod();
+            const hw = getHardwareMod();
             const art = getArtMod();
             const solverMod = getSolverMod();
             ctx.save();
@@ -3673,47 +3673,41 @@
                 ctx.rotate((comp.rotation * Math.PI) / 180);
             }
 
-            // 1. Primary Fritzing SVG Hardware Realism Pipeline (CC-BY-SA 3.0) with graceful fallback while preloading
-            if (fritz && !this.offscreen) {
+            // 1. Unified Native-Vector 2.5D Studio Hardware Renderer (zero SVG masking, instant render, safe for offscreen PNG export!)
+            if (hw) {
                 let drawn = false;
                 if (comp.kind === 'breadboard') {
                     const spec = solverMod ? solverMod.getBreadboardSpec(comp.variant || 'half') : null;
-                    if (spec) drawn = fritz.drawFritzingBreadboard(ctx, comp, spec, evalData, isSelected, uiState.hoverStripId || null);
+                    if (spec) drawn = hw.drawBreadboard(ctx, comp, spec, evalData, isSelected, uiState.hoverStripId || null);
                 } else if (comp.kind === 'lamp') {
-                    drawn = fritz.drawFritzingLed(ctx, comp, evalData, isSelected);
+                    drawn = hw.drawLed(ctx, comp, evalData, isSelected);
                 } else if (comp.kind === 'rgb_led') {
-                    drawn = fritz.drawFritzingRgbLed(ctx, comp, evalData, isSelected);
+                    drawn = hw.drawRgbLed(ctx, comp, evalData, isSelected);
                 } else if (comp.kind === 'resistor') {
-                    drawn = fritz.drawFritzingResistor(ctx, comp, evalData, isSelected, solverMod);
+                    drawn = hw.drawResistor(ctx, comp, evalData, isSelected, solverMod);
                 } else if (comp.kind === 'motor') {
-                    drawn = fritz.drawFritzingMotor(ctx, comp, evalData, isSelected, this.motorAngles.get(comp.id) || 0);
+                    drawn = hw.drawMotor(ctx, comp, evalData, isSelected, this.motorAngles.get(comp.id) || 0);
                 } else if (comp.kind === 'battery9v') {
-                    drawn = fritz.drawFritzingBattery9V(ctx, comp, evalData, isSelected);
+                    drawn = hw.drawBattery9V(ctx, comp, evalData, isSelected);
                 } else if (comp.kind === 'battery') {
-                    drawn = fritz.drawFritzingAAHolder(ctx, comp, evalData, isSelected);
+                    drawn = hw.drawAAHolder(ctx, comp, evalData, isSelected);
                 } else if (comp.kind === 'pushbutton') {
-                    drawn = fritz.drawFritzingPushButton(ctx, comp, evalData, isSelected);
+                    drawn = hw.drawPushButton(ctx, comp, evalData, isSelected);
                 } else if (comp.kind === 'spdt') {
-                    drawn = fritz.drawFritzingSpdt(ctx, comp, evalData, isSelected);
+                    drawn = hw.drawSpdt(ctx, comp, evalData, isSelected);
                 } else if (comp.kind === 'potentiometer') {
-                    drawn = fritz.drawFritzingPotentiometer(ctx, comp, evalData, isSelected, solverMod);
+                    drawn = hw.drawPotentiometer(ctx, comp, evalData, isSelected, solverMod);
                 } else if (comp.kind === 'buzzer') {
-                    drawn = fritz.drawFritzingBuzzer(ctx, comp, evalData, isSelected, this.animTimeSec);
+                    drawn = hw.drawBuzzer(ctx, comp, evalData, isSelected, this.animTimeSec);
                 } else if (comp.kind === 'npn') {
-                    drawn = fritz.drawFritzingNpn(ctx, comp, evalData, isSelected);
+                    drawn = hw.drawNpn(ctx, comp, evalData, isSelected);
                 } else if (comp.kind === 'seg7_10') {
-                    drawn = fritz.drawFritzingSeg7TenPin(ctx, comp, evalData, isSelected);
+                    drawn = hw.drawSeg7TenPin(ctx, comp, evalData, isSelected);
                 }
                 if (drawn) {
                     ctx.restore();
                     return;
                 }
-            }
-
-            if (comp.kind === 'seg7_10' && fritz) {
-                fritz.drawFritzingSeg7TenPin(ctx, comp, evalData, isSelected);
-                ctx.restore();
-                return;
             }
 
             if (art) {
@@ -4475,10 +4469,6 @@
         const icTopControls = $('icTopControls');
 
         const renderer = new ICRenderer(canvas);
-        const fritzMod = getFritzingMod();
-        if (fritzMod && typeof fritzMod.preloadAll === 'function') {
-            fritzMod.preloadAll(() => scheduleRender());
-        }
         let currentDoc = blankICDoc();
         const undoStack = [];
         const redoStack = [];
@@ -5000,15 +4990,15 @@
             scheduleRender();
         });
 
-        // Render crisp high-contrast IEEE standard schematic diagrams inside the Component Gallery!
+        // Render pure-white technical IEEE schematic diagrams seamlessly inside each component card!
         function renderPaletteThumbnails() {
-            const fritz = getFritzingMod();
+            const hw = getHardwareMod();
             const thumbs = document.querySelectorAll('#icToolsNav canvas.ic-part-thumb[data-thumb-kind]');
             if (!thumbs.length) return;
             for (const c of thumbs) {
                 const kind = c.dataset.thumbKind;
-                if (fritz && typeof fritz.drawIEEESymbolPreview === 'function') {
-                    fritz.drawIEEESymbolPreview(c, kind);
+                if (hw && typeof hw.drawIEEESymbolPreview === 'function') {
+                    hw.drawIEEESymbolPreview(c, kind);
                 }
             }
         }
