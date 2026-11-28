@@ -4206,9 +4206,15 @@
 
         drawPinPad(pin, val, isHovered, isWireStart) {
             const ctx = this.ctx;
+            const zoom = this.view.zoom || 1;
             ctx.save();
             ctx.beginPath();
-            const r = isHovered || isWireStart ? 5.6 : 4.0;
+            let r = 4.0;
+            if (isHovered || isWireStart) {
+                const targetScreenR = 6.5 + Math.min(2.2, zoom * 1.1);
+                const maxWorldR = pin.isBreadboardHole ? 9.5 : 18;
+                r = Math.max(4.6, Math.min(maxWorldR, targetScreenR / zoom));
+            }
             ctx.arc(pin.x, pin.y, r, 0, Math.PI * 2);
             ctx.fillStyle = isHovered || isWireStart
                 ? '#f6b944'
@@ -4218,7 +4224,7 @@
                 ? '#243247'
                 : '#141824';
             ctx.fill();
-            ctx.lineWidth = 1.6;
+            ctx.lineWidth = (isHovered || isWireStart) ? Math.max(1.2, Math.min(4.5, 2.0 / zoom)) : 1.6;
             ctx.strokeStyle = isHovered || isWireStart
                 ? '#ffffff'
                 : val === 1
@@ -4396,11 +4402,65 @@
                 this.drawPinPad(pin, val, isHovered, isStart);
             }
 
-            // 5. Viewport-clamped hover pin or wire tooltip on canvas (with live real voltage, never clips off-edge!)
-            const vMinX = (-this.width / 2 - this.view.panX) / this.view.zoom + 10;
-            const vMaxX = (this.width / 2 - this.view.panX) / this.view.zoom - 10;
-            const vMinY = (-this.height / 2 - this.view.panY) / this.view.zoom + 10;
-            const vMaxY = (this.height / 2 - this.view.panY) / this.view.zoom - 10;
+            // Exit world-space zoom/pan transform so hover indicators render at crisp, zoom-compensated screen scale
+            ctx.restore();
+
+            // 5. Zoom-scaled, viewport-clamped hover pin or wire indicator (always sharp & legible at any zoom level!)
+            const zoom = this.view.zoom || 1;
+            const toScreen = (wx, wy) => ({
+                x: this.width / 2 + this.view.panX + wx * zoom,
+                y: this.height / 2 + this.view.panY + wy * zoom
+            });
+            const drawScreenTooltip = (anchorX, anchorY, label, fontSpec, borderColor, textColor, pinOffset) => {
+                ctx.save();
+                ctx.font = fontSpec;
+                const padX = 10;
+                const tw = Math.ceil(ctx.measureText(label).width) + padX * 2;
+                const th = 26;
+                const margin = 10;
+                const tx = Math.max(margin, Math.min(this.width - margin - tw, anchorX - tw / 2));
+                const aboveY = anchorY - pinOffset - th - 7;
+                const placeBelow = aboveY < margin;
+                const ty = placeBelow
+                    ? Math.min(this.height - margin - th, anchorY + pinOffset + 7)
+                    : Math.min(this.height - margin - th, aboveY);
+
+                // Subtle drop shadow for crisp contrast over bright breadboard or meter bodies
+                ctx.shadowColor = 'rgba(0, 0, 0, 0.48)';
+                ctx.shadowBlur = 10;
+                ctx.shadowOffsetY = 3;
+                roundedRect(ctx, tx, ty, tw, th, 6);
+                ctx.fillStyle = 'rgba(9, 14, 24, 0.96)';
+                ctx.fill();
+                ctx.shadowColor = 'transparent';
+                ctx.strokeStyle = borderColor;
+                ctx.lineWidth = 1.25;
+                ctx.stroke();
+
+                // Small pointer caret aimed at the hovered terminal/wire (seamless join with pill border)
+                const caretX = Math.max(tx + 9, Math.min(tx + tw - 9, anchorX));
+                ctx.beginPath();
+                if (placeBelow) {
+                    ctx.moveTo(caretX - 5.5, ty + 1);
+                    ctx.lineTo(caretX, ty - 5);
+                    ctx.lineTo(caretX + 5.5, ty + 1);
+                } else {
+                    ctx.moveTo(caretX - 5.5, ty + th - 1);
+                    ctx.lineTo(caretX, ty + th + 5);
+                    ctx.lineTo(caretX + 5.5, ty + th - 1);
+                }
+                ctx.fillStyle = 'rgba(9, 14, 24, 0.96)';
+                ctx.fill();
+                ctx.strokeStyle = borderColor;
+                ctx.lineWidth = 1.25;
+                ctx.stroke();
+
+                ctx.fillStyle = textColor;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(label, tx + tw / 2, ty + th / 2 + 0.5);
+                ctx.restore();
+            };
 
             if (uiState.hoverPinKey && evalData.pins.has(uiState.hoverPinKey)) {
                 const hp = evalData.pins.get(uiState.hoverPinKey);
@@ -4413,22 +4473,17 @@
                     ? ' · Plugged'
                     : '';
                 const label = `${hp.title} · ${vStr}${pluggedTag}`;
-                ctx.font = '600 11px "Inter", sans-serif';
-                const tw = ctx.measureText(label).width + 14;
-                const th = 21;
-                const tx = Math.max(vMinX, Math.min(vMaxX - tw, hp.x - tw / 2));
-                const rawTy = hp.y - 30;
-                const ty = rawTy < vMinY ? Math.min(vMaxY - th, hp.y + 14) : Math.min(vMaxY - th, rawTy);
-                roundedRect(ctx, tx, ty, tw, th, 5);
-                ctx.fillStyle = 'rgba(10, 14, 24, 0.95)';
-                ctx.fill();
-                ctx.strokeStyle = 'rgba(61, 217, 255, 0.6)';
-                ctx.lineWidth = 1;
-                ctx.stroke();
-                ctx.fillStyle = '#f4f7fb';
-                ctx.textAlign = 'center';
-                ctx.textBaseline = 'middle';
-                ctx.fillText(label, tx + tw / 2, ty + th / 2);
+                const sp = toScreen(hp.x, hp.y);
+                const pinScreenOffset = Math.max(8, Math.min(13, 6.5 + zoom * 1.4));
+                drawScreenTooltip(
+                    sp.x,
+                    sp.y,
+                    label,
+                    '600 12px "Inter", system-ui, sans-serif',
+                    'rgba(61, 217, 255, 0.72)',
+                    '#f4f7fb',
+                    pinScreenOffset
+                );
             } else if (uiState.hoverWireId && uiState.cursorWorld) {
                 const hw = doc.wires.find(x => x.id === uiState.hoverWireId);
                 if (hw) {
@@ -4440,26 +4495,19 @@
                     const iStr = wc && wc.currentMa >= 0.15 ? ` · ${wc.currentMa.toFixed(1)} mA` : ' · 0 mA (Open)';
                     const tag = hw.label ? `[${hw.label}] ` : '';
                     const label = `${tag}${vStr}${iStr} · Drag to route`;
-                    ctx.font = '600 10.5px "JetBrains Mono", monospace';
-                    const tw = ctx.measureText(label).width + 14;
-                    const th = 20;
-                    const tx = Math.max(vMinX, Math.min(vMaxX - tw, uiState.cursorWorld.x - tw / 2));
-                    const rawTy = uiState.cursorWorld.y - 26;
-                    const ty = rawTy < vMinY ? Math.min(vMaxY - th, uiState.cursorWorld.y + 14) : Math.min(vMaxY - th, rawTy);
-                    roundedRect(ctx, tx, ty, tw, th, 5);
-                    ctx.fillStyle = 'rgba(10, 14, 24, 0.94)';
-                    ctx.fill();
-                    ctx.strokeStyle = 'rgba(56, 189, 248, 0.55)';
-                    ctx.lineWidth = 1;
-                    ctx.stroke();
-                    ctx.fillStyle = '#e2e8f0';
-                    ctx.textAlign = 'center';
-                    ctx.textBaseline = 'middle';
-                    ctx.fillText(label, tx + tw / 2, ty + th / 2);
+                    const sp = toScreen(uiState.cursorWorld.x, uiState.cursorWorld.y);
+                    drawScreenTooltip(
+                        sp.x,
+                        sp.y,
+                        label,
+                        '600 11.5px "JetBrains Mono", ui-monospace, monospace',
+                        'rgba(56, 189, 248, 0.65)',
+                        '#e2e8f0',
+                        10
+                    );
                 }
             }
 
-            ctx.restore();
             ctx.restore();
         }
     }

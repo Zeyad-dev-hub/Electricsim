@@ -391,10 +391,28 @@
         refreshMeasurements(true);
     };
     {
-        const sc=$('scopeCanvas'),panel=sc?.closest('details');
+        const sc=$('scopeCanvas'),panel=$('scopePanel')||sc?.closest('details'),toggleBtn=$('scopeToggleBtn');
         const redrawScope=()=>drawScope(simulation.error?null:simulation.state?.acceptedSolution);
+        const syncScopeToggleUI=()=>{
+            const isOpen=Boolean(panel?.open);
+            if(toggleBtn){
+                toggleBtn.setAttribute('aria-pressed',String(isOpen));
+                const badge=toggleBtn.querySelector('.dc-scope-btn-state');
+                if(badge)badge.textContent=isOpen?'ON':'OFF';
+            }
+        };
+        if(toggleBtn&&panel){
+            toggleBtn.onclick=()=>{panel.open=!panel.open;};
+        }
         if(sc&&typeof ResizeObserver==='function')new ResizeObserver(redrawScope).observe(sc);
-        if(panel)panel.addEventListener('toggle',()=>{if(panel.open)requestAnimationFrame(redrawScope);});
+        if(panel)panel.addEventListener('toggle',()=>{
+            syncScopeToggleUI();
+            requestAnimationFrame(()=>{
+                requestDraw();
+                if(panel.open)redrawScope();
+            });
+        });
+        syncScopeToggleUI();
         if(sc){
             sc.addEventListener('pointermove',e=>{
                 const rect=sc.getBoundingClientRect();
@@ -694,6 +712,8 @@
     }
     function drawScope(solution){
         const sc=$('scopeCanvas');if(!sc)return;
+        const panel=$('scopePanel')||sc.closest('details');
+        if(panel&&!panel.open)return;
         const {w,h,dpr}=ensureScopeCanvasSize(sc);
         const ctx=sc.getContext('2d');
         ctx.setTransform(dpr,0,0,dpr,0,0);

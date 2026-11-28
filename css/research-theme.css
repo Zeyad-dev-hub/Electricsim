@@ -537,118 +537,6 @@ kbd {
     font-size: clamp(0.95rem, 2vw, 1.12rem) !important;
 }
 
-.cards-wrapper {
-    gap: 0.75rem !important;
-}
-
-.nav-card {
-    align-items: center !important;
-    justify-content: center !important;
-    text-align: center !important;
-    min-height: 92px;
-    padding: 1rem 1.25rem !important;
-    border-radius: 8px !important;
-    background:
-        linear-gradient(180deg, rgba(255, 255, 255, 0.045), transparent 34%),
-        linear-gradient(135deg, rgba(61, 217, 255, 0.07), transparent 42%),
-        rgba(7, 9, 13, 0.9) !important;
-    border: 1px solid rgba(255, 255, 255, 0.11) !important;
-    border-top: 1px solid color-mix(in srgb, var(--hover-color, #3dd9ff) 52%, rgba(255, 255, 255, 0.12)) !important;
-    box-shadow: var(--shadow-deep), inset 0 1px 0 rgba(255, 255, 255, 0.055) !important;
-    transform: none;
-}
-
-.nav-card::before {
-    background:
-        linear-gradient(90deg, color-mix(in srgb, var(--hover-color, #3dd9ff) 28%, transparent), transparent 58%),
-        repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.035) 0, rgba(255, 255, 255, 0.035) 1px, transparent 1px, transparent 20px) !important;
-    opacity: 0.34 !important;
-}
-
-.nav-card:hover,
-.nav-card:active {
-    transform: translateY(-4px) !important;
-    border-color: color-mix(in srgb, var(--hover-color, #3dd9ff) 55%, rgba(255, 255, 255, 0.18)) !important;
-    box-shadow: var(--shadow-deep) !important;
-}
-
-.nav-card:hover .card-icon,
-.nav-card:active .card-icon {
-    transform: none !important;
-}
-
-.card-icon {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 46px;
-    height: 46px;
-    margin-bottom: 1.2rem !important;
-    border-radius: 8px;
-    background: rgba(255, 255, 255, 0.06);
-    border: 1px solid color-mix(in srgb, var(--hover-color, #3dd9ff) 35%, rgba(255, 255, 255, 0.15));
-    color: #f8fbff;
-    font-size: 1.45rem !important;
-    filter: none !important;
-}
-
-.card-meta {
-    text-align: center !important;
-    margin-bottom: 8px !important;
-}
-
-.nav-card .card-title,
-.card-title {
-    font-size: clamp(1.35rem, 1.9vw, 1.65rem) !important;
-    line-height: 1.28 !important;
-    margin-bottom: 0 !important;
-    padding-bottom: 0 !important;
-    border-bottom: none !important;
-    text-transform: none !important;
-    letter-spacing: -0.01em !important;
-    text-align: center !important;
-    color: #f8fbff !important;
-    background: linear-gradient(135deg, #ffffff 20%, color-mix(in srgb, var(--hover-color, #3dd9ff) 88%, #ffffff) 100%);
-    -webkit-background-clip: text;
-    background-clip: text;
-    -webkit-text-fill-color: transparent !important;
-}
-
-.nav-card .card-title::after {
-    content: "";
-    display: block;
-    width: 36px;
-    height: 3px;
-    margin: 8px auto 0;
-    border-radius: 999px;
-    background: linear-gradient(90deg, transparent, var(--hover-color, #3dd9ff), transparent);
-    opacity: 0.82;
-    transition: width 0.25s ease, opacity 0.25s ease;
-}
-
-.nav-card:hover .card-title::after,
-.nav-card:active .card-title::after {
-    width: 68px;
-    opacity: 1;
-}
-
-.card-desc {
-    display: none !important;
-}
-
-.card-btn {
-    display: none !important;
-}
-
-.nav-card:hover .card-btn,
-.nav-card:active .card-btn {
-    background: color-mix(in srgb, var(--hover-color, #3dd9ff) 18%, rgba(255, 255, 255, 0.08)) !important;
-    color: #ffffff !important;
-    border-color: color-mix(in srgb, var(--hover-color, #3dd9ff) 55%, rgba(255, 255, 255, 0.2)) !important;
-    box-shadow: 0 1.5px 3px rgba(0, 0, 0, 0.35) !important;
-    transform: translateY(-1px) !important;
-}
-
 .footer-text {
     color: rgba(244, 247, 251, 0.44) !important;
 }
@@ -778,17 +666,6 @@ body:has(#gaussCanvas) {
         display: none;
     }
 
-    .nav-card {
-        min-height: 78px;
-        padding: 0.85rem 1rem !important;
-    }
-
-    .card-icon {
-        width: 40px;
-        height: 40px;
-        font-size: 1.2rem !important;
-    }
-
     .top-nav,
     .top-bar {
         min-height: 52px;
@@ -860,31 +737,6 @@ body:has(#gaussCanvas) {
     .side-panel,
     .hud-panel {
         padding: 0.65rem !important;
-    }
-
-    /* Hub cards go single-column (already handled, but reinforce) */
-    .nav-card {
-        padding: 0.85rem 1rem !important;
-        min-height: 74px !important;
-    }
-
-    .card-meta {
-        text-align: center !important;
-    }
-
-    .nav-card .card-title,
-    .card-title {
-        font-size: 1.3rem !important;
-        line-height: 1.28 !important;
-        text-align: center !important;
-    }
-
-    .card-desc {
-        display: none !important;
-    }
-
-    .card-btn {
-        display: none !important;
     }
 }
 
