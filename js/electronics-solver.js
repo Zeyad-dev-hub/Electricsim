@@ -198,6 +198,48 @@
         return `${ma.toFixed(1)} mA`;
     }
 
+    function formatFarads(farads) {
+        const v = Math.abs(Number(farads));
+        if (!Number.isFinite(v) || v <= 0) return '—';
+        if (v >= 1e-3) return `${+(v * 1e3).toPrecision(3)} mF`;
+        if (v >= 1e-6) return `${+(v * 1e6).toPrecision(3)} µF`;
+        if (v >= 1e-9) return `${+(v * 1e9).toPrecision(3)} nF`;
+        return `${+(v * 1e12).toPrecision(3)} pF`;
+    }
+
+    function formatHenrys(henrys) {
+        const v = Math.abs(Number(henrys));
+        if (!Number.isFinite(v) || v <= 0) return '—';
+        if (v >= 1) return `${+v.toPrecision(3)} H`;
+        if (v >= 1e-3) return `${+(v * 1e3).toPrecision(3)} mH`;
+        return `${+(v * 1e6).toPrecision(3)} µH`;
+    }
+
+    function getCapacitorEIA(farads) {
+        const pf = Math.max(10, Math.round((Number(farads) || 100e-9) * 1e12));
+        let exp = Math.floor(Math.log10(pf)) - 1;
+        let sig = Math.round(pf / Math.pow(10, exp));
+        if (sig >= 100) { sig = Math.round(sig / 10); exp += 1; }
+        if (sig < 10) { sig *= 10; exp -= 1; }
+        return `${String(sig).padStart(2, '0')}${Math.max(0, Math.min(9, exp))}`;
+    }
+
+    function computeLdrOhms(lightPct) {
+        const pct = Math.max(0, Math.min(100, Number(lightPct ?? 50)));
+        return 100000 * Math.pow(200 / 100000, pct / 100);
+    }
+
+    function computeThermistorOhms(tempC, r25 = 10000, beta = 3950) {
+        const c = Math.max(-40, Math.min(150, Number(tempC ?? 25)));
+        const tK = c + 273.15;
+        return r25 * Math.exp(beta * (1 / tK - 1 / 298.15));
+    }
+
+    function computeTmp36Volts(tempC) {
+        const c = Math.max(-40, Math.min(125, Number(tempC ?? 25)));
+        return Math.max(0.1, Math.min(1.75, 0.5 + 0.01 * c));
+    }
+
     // -------------------------------------------------------------------------
     // 3. LINEAR SOLVER (Gaussian Elimination with Partial Pivoting)
     // -------------------------------------------------------------------------
@@ -267,8 +309,9 @@
      * @param {object} doc - Electronics bench document
      * @param {object} helpers - { IC_CATALOG, evalSingleGate, allICPins, getComponentPins, evalMsiIC }
      */
-    function evaluateHybridBench(doc, helpers) {
+    function evaluateHybridBench(doc, helpers, simOpts = {}) {
         const { IC_CATALOG, evalSingleGate, allICPins } = helpers;
+        const dt = Math.max(0, Number(simOpts?.dt) || 0);
         const pins = allICPins(doc);
 
         // 4.1 Build topological ideal-wire equivalence classes (wires + closed switches + breadboard strips + plug-in snapped pins)
@@ -394,6 +437,18 @@
                 const isRight = (comp.positionThrow || comp.throwPos) === 'right';
                 const targetKey = isRight ? `${comp.id}:t2` : `${comp.id}:t1`;
                 union(comKey, targetKey);
+            } else if (comp.kind === 'dip4_bb') {
+                const bits = Array.isArray(comp.bits) ? comp.bits : [0, 0, 0, 0];
+                for (let bi = 0; bi < 4; bi++) {
+                    if (bits[bi]) union(`${comp.id}:a${bi}`, `${comp.id}:b${bi}`);
+                }
+            } else if (comp.kind === 'tilt') {
+                if (!comp.tilted) union(`${comp.id}:a`, `${comp.id}:b`);
+            } else if (comp.kind === 'l293d') {
+                // Real L293D internally bonds pins 4, 5, 12, 13 to the common ground leadframe
+                union(`${comp.id}:4`, `${comp.id}:5`);
+                union(`${comp.id}:4`, `${comp.id}:12`);
+                union(`${comp.id}:4`, `${comp.id}:13`);
             }
         }
 
@@ -430,24 +485,65 @@
         };
 
         for (const comp of (doc.components || [])) {
-            if (comp.kind === 'battery' || comp.kind === 'battery9v' || comp.kind === 'psu') {
+            if (comp.kind === 'battery' || comp.kind === 'battery9v' || comp.kind === 'psu' || comp.kind === 'coin3v') {
                 iUnion(netOf(`${comp.id}:pos`), netOf(`${comp.id}:neg`));
-            } else if (comp.kind === 'resistor') {
+            } else if (comp.kind === 'resistor' || comp.kind === 'fuse' || comp.kind === 'capacitor' || comp.kind === 'inductor' || comp.kind === 'ldr' || comp.kind === 'thermistor' || comp.kind === 'bulb') {
                 iUnion(netOf(`${comp.id}:a`), netOf(`${comp.id}:b`));
+            } else if (comp.kind === 'capacitor_elec') {
+                iUnion(netOf(`${comp.id}:pos`), netOf(`${comp.id}:neg`));
+            } else if (comp.kind === 'diode' || comp.kind === 'zener' || comp.kind === 'schottky') {
+                iUnion(netOf(`${comp.id}:anode`), netOf(`${comp.id}:cathode`));
             } else if (comp.kind === 'potentiometer') {
                 iUnion(netOf(`${comp.id}:t1`), netOf(`${comp.id}:wiper`));
                 iUnion(netOf(`${comp.id}:wiper`), netOf(`${comp.id}:t2`));
             } else if (comp.kind === 'lamp') {
                 iUnion(netOf(`${comp.id}:anode`), netOf(`${comp.id}:cathode`));
+            } else if (comp.kind === 'led_bar') {
+                for (let bi = 0; bi < 8; bi++) iUnion(netOf(`${comp.id}:a${bi}`), netOf(`${comp.id}:k${bi}`));
             } else if (comp.kind === 'rgb_led') {
                 iUnion(netOf(`${comp.id}:r`), netOf(`${comp.id}:gnd`));
                 iUnion(netOf(`${comp.id}:g`), netOf(`${comp.id}:gnd`));
                 iUnion(netOf(`${comp.id}:b`), netOf(`${comp.id}:gnd`));
-            } else if (comp.kind === 'motor' || comp.kind === 'buzzer' || comp.kind === 'multimeter') {
+            } else if (comp.kind === 'motor' || comp.kind === 'buzzer' || comp.kind === 'multimeter' || comp.kind === 'vib_motor' || comp.kind === 'scope_mini') {
                 iUnion(netOf(`${comp.id}:pos`), netOf(`${comp.id}:neg`));
-            } else if (comp.kind === 'npn') {
+            } else if (comp.kind === 'npn' || comp.kind === 'pnp') {
                 iUnion(netOf(`${comp.id}:e`), netOf(`${comp.id}:b`));
                 iUnion(netOf(`${comp.id}:c`), netOf(`${comp.id}:e`));
+            } else if (comp.kind === 'nmos' || comp.kind === 'pmos') {
+                iUnion(netOf(`${comp.id}:g`), netOf(`${comp.id}:s`));
+                iUnion(netOf(`${comp.id}:d`), netOf(`${comp.id}:s`));
+            } else if (comp.kind === 'reg7805' || comp.kind === 'reg33') {
+                iUnion(netOf(`${comp.id}:in`), netOf(`${comp.id}:gnd`));
+                iUnion(netOf(`${comp.id}:out`), netOf(`${comp.id}:gnd`));
+            } else if (comp.kind === 'relay') {
+                // Galvanic isolation: coil island stays separate from SPDT contact island!
+                iUnion(netOf(`${comp.id}:coil1`), netOf(`${comp.id}:coil2`));
+                iUnion(netOf(`${comp.id}:com`), netOf(`${comp.id}:nc`));
+                iUnion(netOf(`${comp.id}:com`), netOf(`${comp.id}:no`));
+            } else if (comp.kind === 'optocoupler') {
+                // Galvanic isolation: IR LED island stays separate from phototransistor island!
+                iUnion(netOf(`${comp.id}:anode`), netOf(`${comp.id}:cathode`));
+                iUnion(netOf(`${comp.id}:col`), netOf(`${comp.id}:emit`));
+            } else if (comp.kind === 'pir') {
+                iUnion(netOf(`${comp.id}:vcc`), netOf(`${comp.id}:gnd`));
+                iUnion(netOf(`${comp.id}:out`), netOf(`${comp.id}:gnd`));
+            } else if (comp.kind === 'tmp36') {
+                iUnion(netOf(`${comp.id}:vcc`), netOf(`${comp.id}:gnd`));
+                iUnion(netOf(`${comp.id}:vout`), netOf(`${comp.id}:gnd`));
+            } else if (comp.kind === 'servo') {
+                iUnion(netOf(`${comp.id}:vcc`), netOf(`${comp.id}:gnd`));
+                iUnion(netOf(`${comp.id}:sig`), netOf(`${comp.id}:gnd`));
+            } else if (comp.kind === 'l293d') {
+                const ng = netOf(`${comp.id}:4`);
+                for (const p of ['16', '8', '3', '6', '11', '14']) iUnion(netOf(`${comp.id}:${p}`), ng);
+            } else if (comp.kind === 'ic555') {
+                iUnion(netOf(`${comp.id}:8`), netOf(`${comp.id}:1`));
+                iUnion(netOf(`${comp.id}:3`), netOf(`${comp.id}:1`));
+                iUnion(netOf(`${comp.id}:7`), netOf(`${comp.id}:1`));
+                iUnion(netOf(`${comp.id}:5`), netOf(`${comp.id}:1`));
+            } else if (comp.kind === 'opamp') {
+                iUnion(netOf(`${comp.id}:7`), netOf(`${comp.id}:4`));
+                iUnion(netOf(`${comp.id}:6`), netOf(`${comp.id}:4`));
             } else if (comp.kind === 'ic') {
                 const spec = IC_CATALOG[comp.model];
                 if (spec) iUnion(netOf(`${comp.id}:${spec.vccPin || 14}`), netOf(`${comp.id}:${spec.gndPin || 7}`));
@@ -456,7 +552,7 @@
 
         // Determine reference (0V) nets:
         // 1) Every 'gnd' component net is 0V.
-        // 2) For every battery/battery9v/psu whose 'neg' is NOT tied to another battery's 'pos' AND whose island doesn't already have an explicit 'gnd' tied elsewhere, or if no other source drives 'neg', tie 'neg' to 0V so standalone battery circuits have a clean 0V return!
+        // 2) For every battery/battery9v/psu/coin3v whose 'neg' is NOT tied to another source's 'pos' AND whose island doesn't already have an explicit 'gnd' tied elsewhere, tie 'neg' to 0V so standalone source circuits have a clean 0V return!
         const sourcePosNets = new Set();
         const explicitGndNets = new Set();
         const islandsWithExplicitGnd = new Set();
@@ -468,7 +564,7 @@
                     explicitGndNets.add(n);
                     islandsWithExplicitGnd.add(iFind(n));
                 }
-            } else if (comp.kind === 'battery' || comp.kind === 'battery9v' || comp.kind === 'psu') {
+            } else if (comp.kind === 'battery' || comp.kind === 'battery9v' || comp.kind === 'psu' || comp.kind === 'coin3v') {
                 if (comp.kind === 'psu' && comp.enabled === false) continue;
                 const np = netOf(`${comp.id}:pos`);
                 if (np !== undefined) sourcePosNets.add(np);
@@ -485,7 +581,7 @@
         const gndRefNets = new Set(explicitGndNets);
         const groundedIslands = new Set(islandsWithExplicitGnd);
         for (const comp of (doc.components || [])) {
-            if (comp.kind === 'battery' || comp.kind === 'battery9v' || comp.kind === 'psu') {
+            if (comp.kind === 'battery' || comp.kind === 'battery9v' || comp.kind === 'psu' || comp.kind === 'coin3v') {
                 const nn = netOf(`${comp.id}:neg`);
                 const np = netOf(`${comp.id}:pos`);
                 if (nn === undefined) continue;
@@ -536,11 +632,62 @@
         const segStates = new Map();
         const probeStates = new Map();
         const sourceStates = new Map();
+        const diodeStates = new Map();
+        const zenerStates = new Map();
+        const fuseStates = new Map();
+        const capStates = new Map();
+        const indStates = new Map();
+        const pnpStates = new Map();
+        const nmosStates = new Map();
+        const regStates = new Map();
+        const relayStates = new Map();
+        const ldrStates = new Map();
+        const thermistorStates = new Map();
+        const bulbStates = new Map();
+        const ic555States = new Map();
+        const opampStates = new Map();
+        const pmosStates = new Map();
+        const optocouplerStates = new Map();
+        const pirStates = new Map();
+        const tmp36States = new Map();
+        const ledBarStates = new Map();
+        const vibMotorStates = new Map();
+        const servoStates = new Map();
+        const l293dStates = new Map();
+        const scopeStates = new Map();
 
         // PWL state variables
         const ledOn = new Map();          // compId -> bool
         const rgbOn = new Map();          // "compId:ch" -> bool
         const npnState = new Map();       // compId -> { beOn: bool, gCe: number, icTarget: number }
+        const pnpState = new Map();       // compId -> { ebOn: bool, gEc: number }
+        const diodeOn = new Map();        // compId -> bool
+        const zenerMode = new Map();      // compId -> 'OFF' | 'FWD' | 'ZENER'
+        const nmosState = new Map();      // compId -> { gDs: number, on: bool }
+        const pmosState = new Map();      // compId -> { gSd: number, on: bool }
+        const regOutState = new Map();    // compId -> { active: bool, vOut: number }
+        const relayEngaged = new Map();   // compId -> bool
+        const ic555State = new Map();     // compId -> { powered: bool, q: 0|1, vVcc: number, vGnd: number }
+        const opampMode = new Map();      // compId -> { powered: bool, mode: 'LINEAR'|'SAT_HIGH'|'SAT_LOW', vPlus: number, vMinus: number }
+        const optoState = new Map();      // compId -> { ledOn: bool, gCe: number }
+        const ledBarOn = new Map();       // "compId:idx" -> bool
+        const pirState = new Map();       // compId -> { powered: bool, vOut: number }
+        const tmp36State = new Map();     // compId -> { powered: bool, vOut: number }
+        const l293dState = new Map();     // compId -> { powered: bool, en12: bool, en34: bool, vVcc2: number, outs: [null|0|1 x4] }
+
+        // Initialize stateful memory from components (hysteresis & transient)
+        for (const comp of (doc.components || [])) {
+            if (comp.kind === 'relay') {
+                relayEngaged.set(comp.id, Boolean(comp._relayOn));
+            } else if (comp.kind === 'ic555') {
+                const initQ = comp._q555 === undefined ? 1 : (comp._q555 ? 1 : 0);
+                ic555State.set(comp.id, { powered: false, q: initQ, vVcc: 5, vGnd: 0 });
+            } else if (comp.kind === 'opamp') {
+                opampMode.set(comp.id, { powered: false, mode: 'LINEAR', vPlus: 9, vMinus: 0 });
+            } else if (comp.kind === 'l293d') {
+                l293dState.set(comp.id, { powered: false, en12: false, en34: false, vVcc2: 0, outs: [null, null, null, null] });
+            }
+        }
 
         // Helper to solve one MNA pass given current PWL states & IC output drivers
         function runAnalogPass() {
@@ -592,9 +739,288 @@
                     } else {
                         stampG(netOf(`${comp.id}:pos`), netOf(`${comp.id}:neg`), 1e-6);
                     }
+                } else if (comp.kind === 'coin3v') {
+                    stampVsrc(netOf(`${comp.id}:pos`), netOf(`${comp.id}:neg`), 3.0, 15.0);
                 } else if (comp.kind === 'resistor') {
                     const ohms = Math.max(0.5, Number(comp.ohms) || 220);
                     stampG(netOf(`${comp.id}:a`), netOf(`${comp.id}:b`), 1 / ohms);
+                } else if (comp.kind === 'ldr') {
+                    const ohms = computeLdrOhms(comp.lightPct ?? 50);
+                    stampG(netOf(`${comp.id}:a`), netOf(`${comp.id}:b`), 1 / ohms);
+                } else if (comp.kind === 'thermistor') {
+                    const ohms = computeThermistorOhms(comp.tempC ?? 25, Number(comp.r25) || 10000, Number(comp.beta) || 3950);
+                    stampG(netOf(`${comp.id}:a`), netOf(`${comp.id}:b`), 1 / ohms);
+                } else if (comp.kind === 'bulb') {
+                    const na = netOf(`${comp.id}:a`);
+                    const nb = netOf(`${comp.id}:b`);
+                    const rFil = Math.max(4, Number(comp.ohms) || 24);
+                    stampG(na, nb, 1 / rFil);
+                } else if (comp.kind === 'fuse') {
+                    const na = netOf(`${comp.id}:a`);
+                    const nb = netOf(`${comp.id}:b`);
+                    if (comp.blown) {
+                        stampG(na, nb, 1e-9);
+                    } else {
+                        stampG(na, nb, 1 / 0.2); // 0.2 Ohm intact cartridge fuse
+                    }
+                } else if (comp.kind === 'diode' || comp.kind === 'schottky') {
+                    const na = netOf(`${comp.id}:anode`);
+                    const nc = netOf(`${comp.id}:cathode`);
+                    const vf = comp.kind === 'schottky' ? 0.3 : 0.7;
+                    const ron = comp.kind === 'schottky' ? 1.2 : 2.0;
+                    if (diodeOn.get(comp.id)) {
+                        stampVsrc(na, nc, vf, ron);
+                    } else {
+                        stampG(na, nc, 1e-8);
+                    }
+                } else if (comp.kind === 'zener') {
+                    const na = netOf(`${comp.id}:anode`);
+                    const nc = netOf(`${comp.id}:cathode`);
+                    const vz = Math.max(2.0, Number(comp.vz) || 5.1);
+                    const mode = zenerMode.get(comp.id) || 'OFF';
+                    if (mode === 'FWD') {
+                        stampVsrc(na, nc, 0.7, 2.0);
+                    } else if (mode === 'ZENER') {
+                        // Reverse breakdown holds V(cathode) - V(anode) = Vz + I * 8 Ohm
+                        stampVsrc(nc, na, vz, 8.0);
+                    } else {
+                        stampG(na, nc, 1e-8);
+                    }
+                } else if (comp.kind === 'capacitor' || comp.kind === 'capacitor_elec') {
+                    const isElec = comp.kind === 'capacitor_elec';
+                    const n1 = netOf(isElec ? `${comp.id}:pos` : `${comp.id}:a`);
+                    const n2 = netOf(isElec ? `${comp.id}:neg` : `${comp.id}:b`);
+                    const capF = Math.max(1e-12, Number(comp.farads) || (isElec ? 100e-6 : 100e-9));
+                    const vPrev = Number.isFinite(comp._vc) ? comp._vc : 0;
+                    if (dt > 0) {
+                        const rEff = dt / capF + 0.5; // Backward-Euler companion + 0.5 Ohm ESR
+                        stampVsrc(n1, n2, vPrev, rEff);
+                    } else {
+                        // DC steady-state: open circuit with realistic 100 MOhm insulation leakage
+                        stampG(n1, n2, 1e-8);
+                    }
+                } else if (comp.kind === 'inductor') {
+                    const na = netOf(`${comp.id}:a`);
+                    const nb = netOf(`${comp.id}:b`);
+                    const indH = Math.max(1e-6, Number(comp.henrys) || 0.1);
+                    const rW = Math.max(0.5, Number(comp.rw) || 2.0);
+                    const iPrev = Number.isFinite(comp._il) ? comp._il : 0;
+                    if (dt > 0) {
+                        const lOverDt = indH / dt;
+                        const rEff = rW + lOverDt;
+                        const gEff = 1 / rEff;
+                        const iEq = (lOverDt / rEff) * iPrev;
+                        stampG(na, nb, gEff);
+                        stampI(na, nb, iEq);
+                    } else {
+                        // DC steady-state: winding resistance only
+                        stampG(na, nb, 1 / rW);
+                    }
+                } else if (comp.kind === 'pnp') {
+                    const ne = netOf(`${comp.id}:e`);
+                    const nb = netOf(`${comp.id}:b`);
+                    const nc = netOf(`${comp.id}:c`);
+                    const st = pnpState.get(comp.id) || { ebOn: false, gEc: 1e-8 };
+                    if (st.ebOn) {
+                        stampVsrc(ne, nb, 0.7, 35);
+                    } else {
+                        stampG(ne, nb, 1e-8);
+                    }
+                    if (st.gEc > 1e-6) {
+                        stampVsrc(ne, nc, 0.2, 1 / st.gEc);
+                    } else {
+                        stampG(ne, nc, 1e-8);
+                    }
+                } else if (comp.kind === 'nmos') {
+                    const ng = netOf(`${comp.id}:g`);
+                    const nd = netOf(`${comp.id}:d`);
+                    const ns = netOf(`${comp.id}:s`);
+                    const st = nmosState.get(comp.id) || { gDs: 1e-8, on: false };
+                    stampG(ng, ns, 1e-7); // 10 MOhm insulated MOSFET gate
+                    stampG(nd, ns, Math.max(1e-8, st.gDs));
+                } else if (comp.kind === 'pmos') {
+                    const ng = netOf(`${comp.id}:g`);
+                    const nd = netOf(`${comp.id}:d`);
+                    const ns = netOf(`${comp.id}:s`);
+                    const st = pmosState.get(comp.id) || { gSd: 1e-8, on: false };
+                    stampG(ng, ns, 1e-7); // 10 MOhm insulated MOSFET gate
+                    stampG(ns, nd, Math.max(1e-8, st.gSd));
+                } else if (comp.kind === 'reg7805' || comp.kind === 'reg33') {
+                    const nIn = netOf(`${comp.id}:in`);
+                    const nGnd = netOf(`${comp.id}:gnd`);
+                    const nOut = netOf(`${comp.id}:out`);
+                    const st = regOutState.get(comp.id);
+                    stampG(nIn, nGnd, 1 / 1800); // ~5 mA quiescent bias
+                    if (st && st.active) {
+                        stampVsrc(nOut, nGnd, st.vOut, 0.08);
+                    } else {
+                        stampG(nOut, nGnd, 1e-7);
+                    }
+                } else if (comp.kind === 'relay') {
+                    const nc1 = netOf(`${comp.id}:coil1`);
+                    const nc2 = netOf(`${comp.id}:coil2`);
+                    const nCom = netOf(`${comp.id}:com`);
+                    const nNc = netOf(`${comp.id}:nc`);
+                    const nNo = netOf(`${comp.id}:no`);
+                    stampG(nc1, nc2, 1 / 70); // 70 Ohm 5V sugar-cube coil (~71 mA at 5V)
+                    const eng = Boolean(relayEngaged.get(comp.id));
+                    if (eng) {
+                        stampG(nCom, nNo, 1 / 0.05);
+                        stampG(nCom, nNc, 1e-9);
+                    } else {
+                        stampG(nCom, nNc, 1 / 0.05);
+                        stampG(nCom, nNo, 1e-9);
+                    }
+                } else if (comp.kind === 'ic555') {
+                    const nGnd = netOf(`${comp.id}:1`);
+                    const nOut = netOf(`${comp.id}:3`);
+                    const nCtrl = netOf(`${comp.id}:5`);
+                    const nDisch = netOf(`${comp.id}:7`);
+                    const nVcc = netOf(`${comp.id}:8`);
+                    const st = ic555State.get(comp.id);
+                    // Internal 5k - 5k - 5k voltage divider (VCC -> CTRL = 5k, CTRL -> GND = 10k)
+                    if (wireConnectedPins.has(`${comp.id}:8`) && wireConnectedPins.has(`${comp.id}:1`)) {
+                        stampG(nVcc, nCtrl, 1 / 5000);
+                        stampG(nCtrl, nGnd, 1 / 10000);
+                    }
+                    if (st && st.powered) {
+                        if (st.q === 1) {
+                            const vHi = Math.max(0, (st.vVcc - st.vGnd) - 0.8);
+                            stampVsrc(nOut, nGnd, vHi, 25);
+                            stampG(nDisch, nGnd, 1e-8); // Discharge transistor OFF
+                        } else {
+                            stampVsrc(nOut, nGnd, 0.1, 15);
+                            stampG(nDisch, nGnd, 1 / 15); // Discharge transistor ON (sinks to GND)
+                        }
+                    } else {
+                        stampG(nOut, nGnd, 1e-7);
+                        stampG(nDisch, nGnd, 1e-8);
+                    }
+                } else if (comp.kind === 'opamp') {
+                    const nInN = netOf(`${comp.id}:2`);
+                    const nInP = netOf(`${comp.id}:3`);
+                    const nVneg = netOf(`${comp.id}:4`);
+                    const nOut = netOf(`${comp.id}:6`);
+                    const nVpos = netOf(`${comp.id}:7`);
+                    const st = opampMode.get(comp.id);
+                    stampG(nInP, nInN, 1e-7); // High-Z differential input (10 MOhm)
+                    if (wireConnectedPins.has(`${comp.id}:7`) && wireConnectedPins.has(`${comp.id}:4`)) {
+                        stampG(nVpos, nVneg, 1 / 3000); // ~3 mA quiescent bias
+                    }
+                    if (st && st.powered) {
+                        const vMax = st.vPlus - 0.5;
+                        const vMin = st.vMinus + 0.5;
+                        const vMid = (st.vPlus + st.vMinus) * 0.5;
+                        if (st.mode === 'SAT_HIGH') {
+                            stampVsrc(nOut, nVneg, Math.max(0.2, vMax - st.vMinus), 50);
+                        } else if (st.mode === 'SAT_LOW') {
+                            stampVsrc(nOut, nVneg, Math.max(0.1, vMin - st.vMinus), 50);
+                        } else {
+                            // Linearized MNA VCVS stamp: G_out*(V_out - V_mid - A_ol*(V_inP - V_inN)) = 0
+                            const gOut = 1 / 50;
+                            const aOl = 2000;
+                            const iOut = netToMatIdx.get(nOut);
+                            const iP = netToMatIdx.get(nInP);
+                            const iN = netToMatIdx.get(nInN);
+                            if (iOut !== undefined) {
+                                A[iOut][iOut] += gOut;
+                                if (iP !== undefined) A[iOut][iP] -= gOut * aOl;
+                                if (iN !== undefined) A[iOut][iN] += gOut * aOl;
+                                b[iOut] += gOut * vMid;
+                            }
+                        }
+                    } else {
+                        stampG(nOut, nVneg, 1e-7);
+                    }
+                } else if (comp.kind === 'optocoupler') {
+                    const na = netOf(`${comp.id}:anode`);
+                    const nk = netOf(`${comp.id}:cathode`);
+                    const nc = netOf(`${comp.id}:col`);
+                    const ne = netOf(`${comp.id}:emit`);
+                    const st = optoState.get(comp.id) || { ledOn: false, gCe: 1e-8 };
+                    if (st.ledOn) {
+                        stampVsrc(na, nk, 1.2, 20.0);
+                    } else {
+                        stampG(na, nk, 1e-8);
+                    }
+                    if (st.gCe > 1e-6) {
+                        stampVsrc(nc, ne, 0.2, 1 / st.gCe);
+                    } else {
+                        stampG(nc, ne, 1e-8);
+                    }
+                } else if (comp.kind === 'pir') {
+                    const nVcc = netOf(`${comp.id}:vcc`);
+                    const nOut = netOf(`${comp.id}:out`);
+                    const nGnd = netOf(`${comp.id}:gnd`);
+                    const st = pirState.get(comp.id);
+                    if (wireConnectedPins.has(`${comp.id}:vcc`) && wireConnectedPins.has(`${comp.id}:gnd`)) {
+                        stampG(nVcc, nGnd, 1 / 10000);
+                    }
+                    if (st && st.powered) {
+                        stampVsrc(nOut, nGnd, st.vOut, 100);
+                    } else {
+                        stampG(nOut, nGnd, 1e-7);
+                    }
+                } else if (comp.kind === 'tmp36') {
+                    const nVcc = netOf(`${comp.id}:vcc`);
+                    const nOut = netOf(`${comp.id}:vout`);
+                    const nGnd = netOf(`${comp.id}:gnd`);
+                    const st = tmp36State.get(comp.id);
+                    if (wireConnectedPins.has(`${comp.id}:vcc`) && wireConnectedPins.has(`${comp.id}:gnd`)) {
+                        stampG(nVcc, nGnd, 1 / 50000);
+                    }
+                    if (st && st.powered) {
+                        stampVsrc(nOut, nGnd, st.vOut, 50);
+                    } else {
+                        stampG(nOut, nGnd, 1e-7);
+                    }
+                } else if (comp.kind === 'led_bar') {
+                    const BAR_VF = [2.2, 2.2, 2.2, 2.2, 2.1, 2.1, 2.0, 2.0];
+                    for (let bi = 0; bi < 8; bi++) {
+                        const na = netOf(`${comp.id}:a${bi}`);
+                        const nk = netOf(`${comp.id}:k${bi}`);
+                        if (ledBarOn.get(`${comp.id}:${bi}`)) {
+                            stampVsrc(na, nk, BAR_VF[bi], 15);
+                        } else {
+                            stampG(na, nk, 1e-8);
+                        }
+                    }
+                } else if (comp.kind === 'vib_motor') {
+                    stampG(netOf(`${comp.id}:pos`), netOf(`${comp.id}:neg`), 1 / 30);
+                } else if (comp.kind === 'servo') {
+                    const nVcc = netOf(`${comp.id}:vcc`);
+                    const nGnd = netOf(`${comp.id}:gnd`);
+                    const nSig = netOf(`${comp.id}:sig`);
+                    stampG(nSig, nGnd, 1e-7); // High-Z PWM/analog control input
+                    if (wireConnectedPins.has(`${comp.id}:vcc`) && wireConnectedPins.has(`${comp.id}:gnd`)) {
+                        stampG(nVcc, nGnd, 1 / 120); // ~42 mA at 5V
+                    }
+                } else if (comp.kind === 'l293d') {
+                    const nGnd = netOf(`${comp.id}:4`);
+                    const nVcc1 = netOf(`${comp.id}:16`);
+                    const nVcc2 = netOf(`${comp.id}:8`);
+                    const st = l293dState.get(comp.id);
+                    if (wireConnectedPins.has(`${comp.id}:16`)) stampG(nVcc1, nGnd, 1 / 400);
+                    if (wireConnectedPins.has(`${comp.id}:8`)) stampG(nVcc2, nGnd, 1 / 2000);
+                    // High-Z logic inputs (EN12=1, IN1=2, IN2=7, EN34=9, IN3=10, IN4=15)
+                    for (const inp of ['1', '2', '7', '9', '10', '15']) {
+                        stampG(netOf(`${comp.id}:${inp}`), nGnd, 1e-7);
+                    }
+                    const outPins = ['3', '6', '11', '14'];
+                    for (let oi = 0; oi < 4; oi++) {
+                        const nOut = netOf(`${comp.id}:${outPins[oi]}`);
+                        const drv = st?.powered ? st.outs[oi] : null;
+                        if (drv === 1) {
+                            const vHi = Math.max(0.2, (st.vVcc2 || 0) - 1.2);
+                            stampVsrc(nOut, nGnd, vHi, 2.5);
+                        } else if (drv === 0) {
+                            stampVsrc(nOut, nGnd, 0.2, 2.5);
+                        } else {
+                            stampG(nOut, nGnd, 1e-7);
+                        }
+                    }
+                } else if (comp.kind === 'scope_mini') {
+                    stampG(netOf(`${comp.id}:pos`), netOf(`${comp.id}:neg`), 1e-7); // 10 MOhm scope probe
                 } else if (comp.kind === 'potentiometer') {
                     const total = Math.max(10, Number(comp.ohms) || 10000);
                     const pos = Math.max(0, Math.min(1, comp.wiper ?? comp.knob ?? 0.5));
@@ -731,7 +1157,7 @@
         function computeDrivenNets() {
             const driven = new Set(gndRefNets);
             for (const comp of (doc.components || [])) {
-                if (comp.kind === 'battery' || comp.kind === 'battery9v' || (comp.kind === 'psu' && comp.enabled !== false)) {
+                if (comp.kind === 'battery' || comp.kind === 'battery9v' || comp.kind === 'coin3v' || (comp.kind === 'psu' && comp.enabled !== false)) {
                     driven.add(netOf(`${comp.id}:pos`));
                     driven.add(netOf(`${comp.id}:neg`));
                 } else if (comp.kind === 'clock') {
@@ -763,16 +1189,30 @@
                     if (driven.has(b) && !driven.has(a)) { driven.add(a); changed = true; }
                 };
                 for (const comp of (doc.components || [])) {
-                    if (comp.kind === 'resistor') prop(netOf(`${comp.id}:a`), netOf(`${comp.id}:b`));
-                    else if (comp.kind === 'potentiometer') {
+                    if (comp.kind === 'resistor' || comp.kind === 'ldr' || comp.kind === 'thermistor' || comp.kind === 'bulb' || comp.kind === 'inductor') {
+                        prop(netOf(`${comp.id}:a`), netOf(`${comp.id}:b`));
+                    } else if (comp.kind === 'fuse' && !comp.blown) {
+                        prop(netOf(`${comp.id}:a`), netOf(`${comp.id}:b`));
+                    } else if ((comp.kind === 'capacitor' || comp.kind === 'capacitor_elec') && dt > 0) {
+                        const isElec = comp.kind === 'capacitor_elec';
+                        prop(netOf(isElec ? `${comp.id}:pos` : `${comp.id}:a`), netOf(isElec ? `${comp.id}:neg` : `${comp.id}:b`));
+                    } else if ((comp.kind === 'diode' || comp.kind === 'schottky') && diodeOn.get(comp.id)) {
+                        prop(netOf(`${comp.id}:anode`), netOf(`${comp.id}:cathode`));
+                    } else if (comp.kind === 'zener' && (zenerMode.get(comp.id) === 'FWD' || zenerMode.get(comp.id) === 'ZENER')) {
+                        prop(netOf(`${comp.id}:anode`), netOf(`${comp.id}:cathode`));
+                    } else if (comp.kind === 'potentiometer') {
                         prop(netOf(`${comp.id}:t1`), netOf(`${comp.id}:wiper`));
                         prop(netOf(`${comp.id}:wiper`), netOf(`${comp.id}:t2`));
-                    } else if (comp.kind === 'motor' || comp.kind === 'buzzer') {
+                    } else if (comp.kind === 'motor' || comp.kind === 'buzzer' || comp.kind === 'vib_motor') {
                         prop(netOf(`${comp.id}:pos`), netOf(`${comp.id}:neg`));
                     } else if (comp.kind === 'multimeter' && (comp.mode === 'mA' || comp.mode === 'ohm')) {
                         prop(netOf(`${comp.id}:pos`), netOf(`${comp.id}:neg`));
                     } else if (comp.kind === 'lamp' && ledOn.get(comp.id)) {
                         prop(netOf(`${comp.id}:anode`), netOf(`${comp.id}:cathode`));
+                    } else if (comp.kind === 'led_bar') {
+                        for (let bi = 0; bi < 8; bi++) {
+                            if (ledBarOn.get(`${comp.id}:${bi}`)) prop(netOf(`${comp.id}:a${bi}`), netOf(`${comp.id}:k${bi}`));
+                        }
                     } else if (comp.kind === 'rgb_led') {
                         for (const ch of ['r', 'g', 'b']) {
                             if (rgbOn.get(`${comp.id}:${ch}`)) prop(netOf(`${comp.id}:${ch}`), netOf(`${comp.id}:gnd`));
@@ -781,6 +1221,56 @@
                         const st = npnState.get(comp.id);
                         if (st?.beOn) prop(netOf(`${comp.id}:b`), netOf(`${comp.id}:e`));
                         if (st?.gCe > 1e-6) prop(netOf(`${comp.id}:c`), netOf(`${comp.id}:e`));
+                    } else if (comp.kind === 'pnp') {
+                        const st = pnpState.get(comp.id);
+                        if (st?.ebOn) prop(netOf(`${comp.id}:e`), netOf(`${comp.id}:b`));
+                        if (st?.gEc > 1e-6) prop(netOf(`${comp.id}:e`), netOf(`${comp.id}:c`));
+                    } else if (comp.kind === 'nmos') {
+                        const st = nmosState.get(comp.id);
+                        if (st?.gDs > 1e-5) prop(netOf(`${comp.id}:d`), netOf(`${comp.id}:s`));
+                    } else if (comp.kind === 'pmos') {
+                        const st = pmosState.get(comp.id);
+                        if (st?.gSd > 1e-5) prop(netOf(`${comp.id}:s`), netOf(`${comp.id}:d`));
+                    } else if (comp.kind === 'reg7805' || comp.kind === 'reg33') {
+                        const st = regOutState.get(comp.id);
+                        prop(netOf(`${comp.id}:in`), netOf(`${comp.id}:gnd`));
+                        if (st?.active) prop(netOf(`${comp.id}:out`), netOf(`${comp.id}:gnd`));
+                    } else if (comp.kind === 'relay') {
+                        prop(netOf(`${comp.id}:coil1`), netOf(`${comp.id}:coil2`));
+                        const eng = Boolean(relayEngaged.get(comp.id));
+                        prop(netOf(`${comp.id}:com`), netOf(eng ? `${comp.id}:no` : `${comp.id}:nc`));
+                    } else if (comp.kind === 'optocoupler') {
+                        const st = optoState.get(comp.id);
+                        if (st?.ledOn) prop(netOf(`${comp.id}:anode`), netOf(`${comp.id}:cathode`));
+                        if (st?.gCe > 1e-6) prop(netOf(`${comp.id}:col`), netOf(`${comp.id}:emit`));
+                    } else if (comp.kind === 'pir') {
+                        const st = pirState.get(comp.id);
+                        if (st?.powered) prop(netOf(`${comp.id}:out`), netOf(`${comp.id}:gnd`));
+                    } else if (comp.kind === 'tmp36') {
+                        const st = tmp36State.get(comp.id);
+                        if (st?.powered) prop(netOf(`${comp.id}:vout`), netOf(`${comp.id}:gnd`));
+                    } else if (comp.kind === 'l293d') {
+                        const st = l293dState.get(comp.id);
+                        if (st?.powered) {
+                            const nGnd = netOf(`${comp.id}:4`);
+                            const outPins = ['3', '6', '11', '14'];
+                            for (let oi = 0; oi < 4; oi++) {
+                                if (st.outs[oi] !== null) prop(netOf(`${comp.id}:${outPins[oi]}`), nGnd);
+                            }
+                        }
+                    } else if (comp.kind === 'ic555') {
+                        const st = ic555State.get(comp.id);
+                        if (wireConnectedPins.has(`${comp.id}:8`) && wireConnectedPins.has(`${comp.id}:1`)) {
+                            prop(netOf(`${comp.id}:8`), netOf(`${comp.id}:5`));
+                            prop(netOf(`${comp.id}:5`), netOf(`${comp.id}:1`));
+                        }
+                        if (st?.powered) {
+                            prop(netOf(`${comp.id}:3`), netOf(`${comp.id}:1`));
+                            if (st.q === 0) prop(netOf(`${comp.id}:7`), netOf(`${comp.id}:1`));
+                        }
+                    } else if (comp.kind === 'opamp') {
+                        const st = opampMode.get(comp.id);
+                        if (st?.powered) prop(netOf(`${comp.id}:6`), netOf(`${comp.id}:4`));
                     }
                 }
             }
@@ -799,17 +1289,69 @@
                     if (ret.has(b) && !ret.has(a)) { ret.add(a); changed = true; }
                 };
                 for (const comp of (doc.components || [])) {
-                    if (comp.kind === 'resistor') prop(netOf(`${comp.id}:a`), netOf(`${comp.id}:b`));
-                    else if (comp.kind === 'potentiometer') {
+                    if (comp.kind === 'resistor' || comp.kind === 'ldr' || comp.kind === 'thermistor' || comp.kind === 'bulb' || comp.kind === 'inductor') {
+                        prop(netOf(`${comp.id}:a`), netOf(`${comp.id}:b`));
+                    } else if (comp.kind === 'fuse' && !comp.blown) {
+                        prop(netOf(`${comp.id}:a`), netOf(`${comp.id}:b`));
+                    } else if ((comp.kind === 'capacitor' || comp.kind === 'capacitor_elec') && dt > 0) {
+                        const isElec = comp.kind === 'capacitor_elec';
+                        prop(netOf(isElec ? `${comp.id}:pos` : `${comp.id}:a`), netOf(isElec ? `${comp.id}:neg` : `${comp.id}:b`));
+                    } else if ((comp.kind === 'diode' || comp.kind === 'schottky') && diodeOn.get(comp.id)) {
+                        prop(netOf(`${comp.id}:anode`), netOf(`${comp.id}:cathode`));
+                    } else if (comp.kind === 'zener' && (zenerMode.get(comp.id) === 'FWD' || zenerMode.get(comp.id) === 'ZENER')) {
+                        prop(netOf(`${comp.id}:anode`), netOf(`${comp.id}:cathode`));
+                    } else if (comp.kind === 'potentiometer') {
                         prop(netOf(`${comp.id}:t1`), netOf(`${comp.id}:wiper`));
                         prop(netOf(`${comp.id}:wiper`), netOf(`${comp.id}:t2`));
-                    } else if (comp.kind === 'motor' || comp.kind === 'buzzer') {
+                    } else if (comp.kind === 'motor' || comp.kind === 'buzzer' || comp.kind === 'vib_motor') {
                         prop(netOf(`${comp.id}:pos`), netOf(`${comp.id}:neg`));
                     } else if (comp.kind === 'multimeter' && comp.mode === 'mA') {
                         prop(netOf(`${comp.id}:pos`), netOf(`${comp.id}:neg`));
                     } else if (comp.kind === 'npn') {
                         const st = npnState.get(comp.id);
                         if (st?.gCe > 1e-6) prop(netOf(`${comp.id}:c`), netOf(`${comp.id}:e`));
+                    } else if (comp.kind === 'pnp') {
+                        const st = pnpState.get(comp.id);
+                        if (st?.gEc > 1e-6) prop(netOf(`${comp.id}:e`), netOf(`${comp.id}:c`));
+                    } else if (comp.kind === 'nmos') {
+                        const st = nmosState.get(comp.id);
+                        if (st?.gDs > 1e-5) prop(netOf(`${comp.id}:d`), netOf(`${comp.id}:s`));
+                    } else if (comp.kind === 'pmos') {
+                        const st = pmosState.get(comp.id);
+                        if (st?.gSd > 1e-5) prop(netOf(`${comp.id}:s`), netOf(`${comp.id}:d`));
+                    } else if (comp.kind === 'reg7805' || comp.kind === 'reg33') {
+                        const st = regOutState.get(comp.id);
+                        if (st?.active) prop(netOf(`${comp.id}:out`), netOf(`${comp.id}:gnd`));
+                    } else if (comp.kind === 'relay') {
+                        const eng = Boolean(relayEngaged.get(comp.id));
+                        prop(netOf(`${comp.id}:com`), netOf(eng ? `${comp.id}:no` : `${comp.id}:nc`));
+                    } else if (comp.kind === 'optocoupler') {
+                        const st = optoState.get(comp.id);
+                        if (st?.gCe > 1e-6) prop(netOf(`${comp.id}:col`), netOf(`${comp.id}:emit`));
+                    } else if (comp.kind === 'pir') {
+                        const st = pirState.get(comp.id);
+                        if (st?.powered) prop(netOf(`${comp.id}:out`), netOf(`${comp.id}:gnd`));
+                    } else if (comp.kind === 'tmp36') {
+                        const st = tmp36State.get(comp.id);
+                        if (st?.powered) prop(netOf(`${comp.id}:vout`), netOf(`${comp.id}:gnd`));
+                    } else if (comp.kind === 'l293d') {
+                        const st = l293dState.get(comp.id);
+                        if (st?.powered) {
+                            const nGnd = netOf(`${comp.id}:4`);
+                            const outPins = ['3', '6', '11', '14'];
+                            for (let oi = 0; oi < 4; oi++) {
+                                if (st.outs[oi] !== null) prop(netOf(`${comp.id}:${outPins[oi]}`), nGnd);
+                            }
+                        }
+                    } else if (comp.kind === 'ic555') {
+                        const st = ic555State.get(comp.id);
+                        if (st?.powered) {
+                            prop(netOf(`${comp.id}:3`), netOf(`${comp.id}:1`));
+                            if (st.q === 0) prop(netOf(`${comp.id}:7`), netOf(`${comp.id}:1`));
+                        }
+                    } else if (comp.kind === 'opamp') {
+                        const st = opampMode.get(comp.id);
+                        if (st?.powered) prop(netOf(`${comp.id}:6`), netOf(`${comp.id}:4`));
                     }
                 }
             }
@@ -877,6 +1419,281 @@
                     }
                     if (nextBeOn !== prev.beOn || Math.abs(nextGCe - prev.gCe) > Math.max(1e-5, prev.gCe * 0.08)) {
                         npnState.set(comp.id, { beOn: nextBeOn, gCe: nextGCe, vceFloor: 0.2 });
+                        stateChanged = true;
+                    }
+                } else if (comp.kind === 'diode' || comp.kind === 'schottky') {
+                    const na = netOf(`${comp.id}:anode`);
+                    const nc = netOf(`${comp.id}:cathode`);
+                    const vf = comp.kind === 'schottky' ? 0.3 : 0.7;
+                    const bothDriven = drivenNets.has(na) && drivenNets.has(nc);
+                    const vd = nodeV[na] - nodeV[nc];
+                    const wasOn = Boolean(diodeOn.get(comp.id));
+                    const nextOn = bothDriven && (wasOn ? vd > vf - 0.05 : vd >= vf);
+                    if (nextOn !== wasOn) {
+                        diodeOn.set(comp.id, nextOn);
+                        stateChanged = true;
+                    }
+                } else if (comp.kind === 'zener') {
+                    const na = netOf(`${comp.id}:anode`);
+                    const nc = netOf(`${comp.id}:cathode`);
+                    const vz = Math.max(2.0, Number(comp.vz) || 5.1);
+                    const bothDriven = drivenNets.has(na) && drivenNets.has(nc);
+                    const vd = nodeV[na] - nodeV[nc]; // positive = forward, negative = reverse
+                    const prevM = zenerMode.get(comp.id) || 'OFF';
+                    let nextM = 'OFF';
+                    if (bothDriven) {
+                        if (prevM === 'FWD' ? vd > 0.65 : vd >= 0.7) nextM = 'FWD';
+                        else if (prevM === 'ZENER' ? -vd > vz - 0.05 : -vd >= vz) nextM = 'ZENER';
+                    }
+                    if (nextM !== prevM) {
+                        zenerMode.set(comp.id, nextM);
+                        stateChanged = true;
+                    }
+                } else if (comp.kind === 'pnp') {
+                    const ne = netOf(`${comp.id}:e`);
+                    const nb = netOf(`${comp.id}:b`);
+                    const nc = netOf(`${comp.id}:c`);
+                    const prev = pnpState.get(comp.id) || { ebOn: false, gEc: 1e-8 };
+                    const veb = nodeV[ne] - nodeV[nb];
+                    const vec = nodeV[ne] - nodeV[nc];
+                    const ebDriven = drivenNets.has(ne) && drivenNets.has(nb);
+                    const nextEbOn = ebDriven && (prev.ebOn ? veb > 0.65 : veb >= 0.7);
+                    const ib = nextEbOn ? Math.max(0, (veb - 0.7) / 35) : 0;
+                    let nextGEc = 1e-8;
+                    if (nextEbOn && ib > 1e-6 && vec > 0.15) {
+                        const icDesired = Math.min(0.8, 100 * ib);
+                        const vOver = Math.max(0.05, vec - 0.2);
+                        const targetG = Math.min(0.5, icDesired / vOver);
+                        nextGEc = prev.gEc > 1e-5 ? (0.5 * prev.gEc + 0.5 * targetG) : targetG;
+                    }
+                    if (nextEbOn !== prev.ebOn || Math.abs(nextGEc - prev.gEc) > Math.max(1e-5, prev.gEc * 0.08)) {
+                        pnpState.set(comp.id, { ebOn: nextEbOn, gEc: nextGEc });
+                        stateChanged = true;
+                    }
+                } else if (comp.kind === 'nmos') {
+                    const ng = netOf(`${comp.id}:g`);
+                    const nd = netOf(`${comp.id}:d`);
+                    const ns = netOf(`${comp.id}:s`);
+                    const vth = Math.max(0.8, Math.min(5.0, Number(comp.vth) || 2.0));
+                    const prev = nmosState.get(comp.id) || { gDs: 1e-8, on: false };
+                    const gsDriven = drivenNets.has(ng) && drivenNets.has(ns);
+                    const vgs = gsDriven ? (nodeV[ng] - nodeV[ns]) : 0;
+                    let nextG = 1e-8;
+                    let nextOn = false;
+                    if (vgs >= vth) {
+                        nextOn = true;
+                        const overdrive = Math.min(3.0, vgs - vth);
+                        // Smoothly ramps up to R_ds(on) = 0.2 Ohm (G = 5.0 S)
+                        const targetG = Math.min(5.0, 0.05 + overdrive * overdrive * 1.6);
+                        nextG = prev.gDs > 1e-4 ? (0.55 * prev.gDs + 0.45 * targetG) : targetG;
+                    }
+                    if (nextOn !== prev.on || Math.abs(nextG - prev.gDs) > Math.max(1e-4, prev.gDs * 0.08)) {
+                        nmosState.set(comp.id, { gDs: nextG, on: nextOn });
+                        stateChanged = true;
+                    }
+                } else if (comp.kind === 'reg7805' || comp.kind === 'reg33') {
+                    const is33 = comp.kind === 'reg33';
+                    const nIn = netOf(`${comp.id}:in`);
+                    const nGnd = netOf(`${comp.id}:gnd`);
+                    const inWired = wireConnectedPins.has(`${comp.id}:in`) && drivenNets.has(nIn);
+                    const gndWired = wireConnectedPins.has(`${comp.id}:gnd`) && curGndRet.has(nGnd);
+                    const vIn = (inWired && gndWired) ? (nodeV[nIn] - nodeV[nGnd]) : 0;
+                    const minIn = is33 ? 1.8 : 2.2;
+                    const dropout = is33 ? 1.1 : 1.8;
+                    const vTarget = is33 ? 3.3 : 5.0;
+                    const active = inWired && gndWired && vIn >= minIn;
+                    const vOut = active ? Math.min(vTarget, Math.max(0, vIn - dropout)) : 0;
+                    const prev = regOutState.get(comp.id) || { active: false, vOut: 0 };
+                    if (active !== prev.active || Math.abs(vOut - prev.vOut) > 0.02) {
+                        regOutState.set(comp.id, { active, vOut });
+                        stateChanged = true;
+                    }
+                } else if (comp.kind === 'pmos') {
+                    const ng = netOf(`${comp.id}:g`);
+                    const ns = netOf(`${comp.id}:s`);
+                    const vth = Math.max(0.8, Math.min(5.0, Number(comp.vth) || 2.0));
+                    const prev = pmosState.get(comp.id) || { gSd: 1e-8, on: false };
+                    const gsDriven = drivenNets.has(ng) && drivenNets.has(ns);
+                    const vsg = gsDriven ? (nodeV[ns] - nodeV[ng]) : 0;
+                    let nextG = 1e-8;
+                    let nextOn = false;
+                    if (vsg >= vth) {
+                        nextOn = true;
+                        const overdrive = Math.min(3.0, vsg - vth);
+                        const targetG = Math.min(5.0, 0.05 + overdrive * overdrive * 1.6);
+                        nextG = prev.gSd > 1e-4 ? (0.55 * prev.gSd + 0.45 * targetG) : targetG;
+                    }
+                    if (nextOn !== prev.on || Math.abs(nextG - prev.gSd) > Math.max(1e-4, prev.gSd * 0.08)) {
+                        pmosState.set(comp.id, { gSd: nextG, on: nextOn });
+                        stateChanged = true;
+                    }
+                } else if (comp.kind === 'optocoupler') {
+                    const na = netOf(`${comp.id}:anode`);
+                    const nk = netOf(`${comp.id}:cathode`);
+                    const nc = netOf(`${comp.id}:col`);
+                    const ne = netOf(`${comp.id}:emit`);
+                    const prev = optoState.get(comp.id) || { ledOn: false, gCe: 1e-8 };
+                    const ledDriven = drivenNets.has(na) && drivenNets.has(nk);
+                    const vLed = ledDriven ? (nodeV[na] - nodeV[nk]) : 0;
+                    const nextLedOn = ledDriven && (prev.ledOn ? vLed > 1.15 : vLed >= 1.2);
+                    const iLedMa = nextLedOn ? Math.max(0, ((vLed - 1.2) / 20.0) * 1000) : 0;
+                    const vce = (drivenNets.has(nc) && drivenNets.has(ne)) ? (nodeV[nc] - nodeV[ne]) : 0;
+                    let nextGCe = 1e-8;
+                    if (nextLedOn && iLedMa >= 1.0 && vce > 0.15) {
+                        const targetG = Math.min(0.35, 0.02 * iLedMa);
+                        nextGCe = prev.gCe > 1e-5 ? (0.5 * prev.gCe + 0.5 * targetG) : targetG;
+                    }
+                    if (nextLedOn !== prev.ledOn || Math.abs(nextGCe - prev.gCe) > Math.max(1e-5, prev.gCe * 0.08)) {
+                        optoState.set(comp.id, { ledOn: nextLedOn, gCe: nextGCe });
+                        stateChanged = true;
+                    }
+                } else if (comp.kind === 'led_bar') {
+                    const BAR_VF = [2.2, 2.2, 2.2, 2.2, 2.1, 2.1, 2.0, 2.0];
+                    for (let bi = 0; bi < 8; bi++) {
+                        const na = netOf(`${comp.id}:a${bi}`);
+                        const nk = netOf(`${comp.id}:k${bi}`);
+                        const key = `${comp.id}:${bi}`;
+                        const bothDriven = drivenNets.has(na) && drivenNets.has(nk) && curGndRet.has(nk);
+                        const vf = BAR_VF[bi];
+                        const vd = nodeV[na] - nodeV[nk];
+                        const wasOn = Boolean(ledBarOn.get(key));
+                        const nextOn = bothDriven && (wasOn ? vd > vf - 0.05 : vd >= vf);
+                        if (nextOn !== wasOn) {
+                            ledBarOn.set(key, nextOn);
+                            stateChanged = true;
+                        }
+                    }
+                } else if (comp.kind === 'pir') {
+                    const nVcc = netOf(`${comp.id}:vcc`);
+                    const nGnd = netOf(`${comp.id}:gnd`);
+                    const vccConn = wireConnectedPins.has(`${comp.id}:vcc`) && drivenNets.has(nVcc);
+                    const gndConn = wireConnectedPins.has(`${comp.id}:gnd`) && curGndRet.has(nGnd);
+                    const sup = (vccConn && gndConn) ? (nodeV[nVcc] - nodeV[nGnd]) : 0;
+                    const powered = vccConn && gndConn && sup >= 4.2 && sup <= 13.5;
+                    const vOut = powered ? (comp.motion ? 3.3 : 0.0) : 0;
+                    const prev = pirState.get(comp.id) || { powered: false, vOut: 0 };
+                    if (powered !== prev.powered || Math.abs(vOut - prev.vOut) > 0.02) {
+                        pirState.set(comp.id, { powered, vOut });
+                        stateChanged = true;
+                    }
+                } else if (comp.kind === 'tmp36') {
+                    const nVcc = netOf(`${comp.id}:vcc`);
+                    const nGnd = netOf(`${comp.id}:gnd`);
+                    const vccConn = wireConnectedPins.has(`${comp.id}:vcc`) && drivenNets.has(nVcc);
+                    const gndConn = wireConnectedPins.has(`${comp.id}:gnd`) && curGndRet.has(nGnd);
+                    const sup = (vccConn && gndConn) ? (nodeV[nVcc] - nodeV[nGnd]) : 0;
+                    const powered = vccConn && gndConn && sup >= 2.6 && sup <= 6.0;
+                    const vOut = powered ? Math.min(sup - 0.1, computeTmp36Volts(comp.tempC ?? 25)) : 0;
+                    const prev = tmp36State.get(comp.id) || { powered: false, vOut: 0 };
+                    if (powered !== prev.powered || Math.abs(vOut - prev.vOut) > 0.005) {
+                        tmp36State.set(comp.id, { powered, vOut });
+                        stateChanged = true;
+                    }
+                } else if (comp.kind === 'l293d') {
+                    const nGnd = netOf(`${comp.id}:4`);
+                    const nVcc1 = netOf(`${comp.id}:16`);
+                    const nVcc2 = netOf(`${comp.id}:8`);
+                    const gndConn = (wireConnectedPins.has(`${comp.id}:4`) || wireConnectedPins.has(`${comp.id}:5`) || wireConnectedPins.has(`${comp.id}:12`) || wireConnectedPins.has(`${comp.id}:13`)) && curGndRet.has(nGnd);
+                    const vcc1Conn = wireConnectedPins.has(`${comp.id}:16`) && drivenNets.has(nVcc1);
+                    const vcc2Conn = wireConnectedPins.has(`${comp.id}:8`) && drivenNets.has(nVcc2);
+                    const vGnd = gndConn ? nodeV[nGnd] : 0;
+                    const vVcc1 = (vcc1Conn && gndConn) ? (nodeV[nVcc1] - vGnd) : 0;
+                    const vVcc2 = (vcc2Conn && gndConn) ? (nodeV[nVcc2] - vGnd) : 0;
+                    const powered = vcc1Conn && gndConn && vVcc1 >= 4.2 && vVcc1 <= 7.0;
+                    const readHi = pin => {
+                        const n = netOf(`${comp.id}:${pin}`);
+                        return wireConnectedPins.has(`${comp.id}:${pin}`) && drivenNets.has(n) && (nodeV[n] - vGnd) >= 2.0;
+                    };
+                    const en12 = powered && readHi('1');
+                    const en34 = powered && readHi('9');
+                    const outs = [
+                        en12 ? (readHi('2') ? 1 : 0) : null,
+                        en12 ? (readHi('7') ? 1 : 0) : null,
+                        en34 ? (readHi('10') ? 1 : 0) : null,
+                        en34 ? (readHi('15') ? 1 : 0) : null
+                    ];
+                    const prev = l293dState.get(comp.id) || { powered: false, en12: false, en34: false, vVcc2: 0, outs: [null, null, null, null] };
+                    const outsDiff = outs.some((v, idx) => v !== prev.outs[idx]);
+                    if (powered !== prev.powered || en12 !== prev.en12 || en34 !== prev.en34 || Math.abs(vVcc2 - prev.vVcc2) > 0.05 || outsDiff) {
+                        l293dState.set(comp.id, { powered, en12, en34, vVcc2, outs });
+                        stateChanged = true;
+                    }
+                } else if (comp.kind === 'relay') {
+                    const nc1 = netOf(`${comp.id}:coil1`);
+                    const nc2 = netOf(`${comp.id}:coil2`);
+                    const coilConn = wireConnectedPins.has(`${comp.id}:coil1`) && wireConnectedPins.has(`${comp.id}:coil2`) && drivenNets.has(nc1) && drivenNets.has(nc2);
+                    const vCoil = coilConn ? Math.abs(nodeV[nc1] - nodeV[nc2]) : 0;
+                    const wasEng = Boolean(relayEngaged.get(comp.id));
+                    const nextEng = wasEng ? vCoil >= 2.0 : vCoil >= 3.5;
+                    if (nextEng !== wasEng) {
+                        relayEngaged.set(comp.id, nextEng);
+                        stateChanged = true;
+                    }
+                } else if (comp.kind === 'ic555') {
+                    const nGnd = netOf(`${comp.id}:1`);
+                    const nTrig = netOf(`${comp.id}:2`);
+                    const nRst = netOf(`${comp.id}:4`);
+                    const nCtrl = netOf(`${comp.id}:5`);
+                    const nThres = netOf(`${comp.id}:6`);
+                    const nVcc = netOf(`${comp.id}:8`);
+                    const vccConn = wireConnectedPins.has(`${comp.id}:8`) && drivenNets.has(nVcc);
+                    const gndConn = wireConnectedPins.has(`${comp.id}:1`) && curGndRet.has(nGnd);
+                    const vVcc = vccConn ? nodeV[nVcc] : 0;
+                    const vGnd = gndConn ? nodeV[nGnd] : 0;
+                    const sup = (vccConn && gndConn) ? (vVcc - vGnd) : 0;
+                    const powered = vccConn && gndConn && sup >= 4.0 && sup <= 16.0;
+                    const prev = ic555State.get(comp.id) || { powered: false, q: 1, vVcc: 5, vGnd: 0 };
+                    let nextQ = prev.q;
+                    if (powered) {
+                        const vCtrl = drivenNets.has(nCtrl) ? (nodeV[nCtrl] - vGnd) : (sup * 2 / 3);
+                        const vHi = Math.max(0.5, vCtrl);
+                        const vLo = vHi * 0.5;
+                        const rstWired = wireConnectedPins.has(`${comp.id}:4`) && drivenNets.has(nRst);
+                        const rstLow = rstWired && ((nodeV[nRst] - vGnd) < 0.7);
+                        const trigWired = wireConnectedPins.has(`${comp.id}:2`) && drivenNets.has(nTrig);
+                        const thresWired = wireConnectedPins.has(`${comp.id}:6`) && drivenNets.has(nThres);
+                        const vTrig = trigWired ? (nodeV[nTrig] - vGnd) : vHi;
+                        const vThres = thresWired ? (nodeV[nThres] - vGnd) : vLo;
+                        if (rstLow) nextQ = 0;
+                        else if (trigWired && vTrig < vLo) nextQ = 1;
+                        else if (thresWired && vThres > vHi) nextQ = 0;
+                    }
+                    if (powered !== prev.powered || nextQ !== prev.q || Math.abs(vVcc - prev.vVcc) > 0.05) {
+                        ic555State.set(comp.id, { powered, q: nextQ, vVcc, vGnd });
+                        stateChanged = true;
+                    }
+                } else if (comp.kind === 'opamp') {
+                    const nInN = netOf(`${comp.id}:2`);
+                    const nInP = netOf(`${comp.id}:3`);
+                    const nVneg = netOf(`${comp.id}:4`);
+                    const nOut = netOf(`${comp.id}:6`);
+                    const nVpos = netOf(`${comp.id}:7`);
+                    const vpConn = wireConnectedPins.has(`${comp.id}:7`) && drivenNets.has(nVpos);
+                    const vnConn = wireConnectedPins.has(`${comp.id}:4`) && drivenNets.has(nVneg);
+                    const vPlus = vpConn ? nodeV[nVpos] : 0;
+                    const vMinus = vnConn ? nodeV[nVneg] : 0;
+                    const sup = (vpConn && vnConn) ? (vPlus - vMinus) : 0;
+                    const powered = vpConn && vnConn && sup >= 3.0 && sup <= 36.0;
+                    const prev = opampMode.get(comp.id) || { powered: false, mode: 'LINEAR', vPlus: 9, vMinus: 0 };
+                    let nextMode = prev.mode;
+                    if (!powered) {
+                        nextMode = 'LINEAR';
+                    } else {
+                        const vMax = vPlus - 0.5;
+                        const vMin = vMinus + 0.5;
+                        const vOut = nodeV[nOut];
+                        const vDiff = (drivenNets.has(nInP) ? nodeV[nInP] : 0) - (drivenNets.has(nInN) ? nodeV[nInN] : 0);
+                        if (prev.mode === 'LINEAR') {
+                            if (vOut > vMax + 0.02) nextMode = 'SAT_HIGH';
+                            else if (vOut < vMin - 0.02) nextMode = 'SAT_LOW';
+                        } else if (prev.mode === 'SAT_HIGH') {
+                            if (vDiff < -0.002) nextMode = 'LINEAR';
+                        } else if (prev.mode === 'SAT_LOW') {
+                            if (vDiff > 0.002) nextMode = 'LINEAR';
+                        }
+                    }
+                    if (powered !== prev.powered || nextMode !== prev.mode || Math.abs(vPlus - prev.vPlus) > 0.05 || Math.abs(vMinus - prev.vMinus) > 0.05) {
+                        opampMode.set(comp.id, { powered, mode: nextMode, vPlus, vMinus });
                         stateChanged = true;
                     }
                 }
@@ -1049,6 +1866,26 @@
         // Final solve with settled PWL + IC states
         nodeV = runAnalogPass();
         drivenNets = computeDrivenNets();
+
+        // Fuse overcurrent trip check: if an intact fuse exceeds its rated current, blow it immediately and re-solve!
+        let fuseJustBlew = false;
+        for (const comp of (doc.components || [])) {
+            if (comp.kind !== 'fuse' || comp.blown) continue;
+            const na = netOf(`${comp.id}:a`);
+            const nb = netOf(`${comp.id}:b`);
+            if (drivenNets.has(na) && drivenNets.has(nb)) {
+                const iMa = Math.abs((nodeV[na] - nodeV[nb]) / 0.2) * 1000;
+                const ratedMa = Math.max(10, Number(comp.ratedMa) || 250);
+                if (iMa > ratedMa * 1.05) {
+                    comp.blown = true;
+                    fuseJustBlew = true;
+                }
+            }
+        }
+        if (fuseJustBlew) {
+            nodeV = runAnalogPass();
+            drivenNets = computeDrivenNets();
+        }
         const gndReturnNets = computeGroundReturnNets();
 
         // ---------------------------------------------------------------------
@@ -1125,7 +1962,7 @@
         let maxDelayNs = 0;
 
         for (const comp of (doc.components || [])) {
-            if (comp.kind === 'battery' || comp.kind === 'battery9v' || comp.kind === 'psu') {
+            if (comp.kind === 'battery' || comp.kind === 'battery9v' || comp.kind === 'psu' || comp.kind === 'coin3v') {
                 const np = netOf(`${comp.id}:pos`);
                 const nn = netOf(`${comp.id}:neg`);
                 const cells = comp.kind === 'battery'
@@ -1133,13 +1970,19 @@
                     : 0;
                 const nominalV = comp.kind === 'battery9v'
                     ? 9.0
+                    : comp.kind === 'coin3v'
+                    ? 3.0
                     : comp.kind === 'psu'
                     ? (comp.enabled === false ? 0 : Math.max(0, Math.min(12, Number(comp.voltage ?? 5.0))))
                     : (comp.voltage && !comp.cells ? Number(comp.voltage) : cells * 1.5);
-                const rInt = comp.kind === 'battery9v' ? 1.5 : comp.kind === 'psu' ? 0.05 : 0.2 * cells;
+                const rInt = comp.kind === 'battery9v' ? 1.5
+                    : comp.kind === 'coin3v' ? 15.0
+                    : comp.kind === 'psu' ? 0.05
+                    : 0.2 * cells;
                 const vTerm = nodeV[np] - nodeV[nn];
                 const iMa = Math.max(0, ((nominalV - vTerm) / rInt) * 1000);
-                const shorted = iMa > 2500 || Boolean(nets[np]?.conflict && nets[nn]?.conflict);
+                const directShort = (np === nn) && nominalV > 0.2;
+                const shorted = directShort || (comp.kind !== 'coin3v' && iMa > 2500) || Boolean(nets[np]?.conflict && nets[nn]?.conflict);
                 if (shorted) {
                     anyShort = true;
                     faults.push({
@@ -1519,6 +2362,500 @@
                 const v = pinVoltages.get(tipKey);
                 const conflict = Boolean(pinConflicts.get(tipKey));
                 probeStates.set(comp.id, { value: val, val, voltage: v, conflict });
+            } else if (comp.kind === 'diode' || comp.kind === 'schottky') {
+                const isSch = comp.kind === 'schottky';
+                const na = netOf(`${comp.id}:anode`);
+                const nc = netOf(`${comp.id}:cathode`);
+                const conducting = Boolean(diodeOn.get(comp.id));
+                const vf = isSch ? 0.3 : 0.7;
+                const ron = isSch ? 1.2 : 2.0;
+                const vd = (drivenNets.has(na) && drivenNets.has(nc)) ? (nodeV[na] - nodeV[nc]) : 0;
+                const iMa = conducting ? Math.max(0, ((vd - vf) / ron) * 1000) : 0;
+                const overloaded = iMa > 1000;
+                let faultText = null;
+                if (overloaded) {
+                    faultText = `${isSch ? 'Schottky 1N5819' : 'Diode 1N4007'} forward current ${formatCurrentMa(iMa)} > 1.0 A max! Add series resistance.`;
+                    faults.push({ compId: comp.id, label: comp.label || (isSch ? '1N5819' : '1N4007'), kind: 'DIODE_OVERCURRENT', severity: 'error', title: 'Diode Overcurrent!', detail: faultText, message: faultText });
+                }
+                diodeStates.set(comp.id, { voltage: vd, currentMa: iMa, conducting, vf, isSchottky: isSch, overloaded, corrupted: overloaded, faultText });
+            } else if (comp.kind === 'zener') {
+                const na = netOf(`${comp.id}:anode`);
+                const nc = netOf(`${comp.id}:cathode`);
+                const vz = Math.max(2.0, Number(comp.vz) || 5.1);
+                const mode = zenerMode.get(comp.id) || 'OFF';
+                const vd = (drivenNets.has(na) && drivenNets.has(nc)) ? (nodeV[na] - nodeV[nc]) : 0;
+                let iMa = 0;
+                if (mode === 'FWD') iMa = Math.max(0, ((vd - 0.7) / 2.0) * 1000);
+                else if (mode === 'ZENER') iMa = -Math.max(0, ((-vd - vz) / 8.0) * 1000); // negative = cathode -> anode (reverse regulation)
+                const powerW = Math.abs((iMa / 1000) * vd);
+                const overloaded = powerW > 0.55;
+                let faultText = null;
+                if (overloaded) {
+                    faultText = `Zener dissipating ${(powerW * 1000).toFixed(0)} mW > 500 mW max! Increase series limiting resistor.`;
+                    faults.push({ compId: comp.id, label: comp.label || `Zener ${vz}V`, kind: 'ZENER_OVERHEAT', severity: 'error', title: 'Zener Diode Overheating!', detail: faultText, message: faultText });
+                }
+                zenerStates.set(comp.id, { vz, mode, voltage: vd, vReverse: -vd, currentMa: iMa, powerW, powerMw: powerW * 1000, overloaded, corrupted: overloaded, faultText });
+            } else if (comp.kind === 'fuse') {
+                const na = netOf(`${comp.id}:a`);
+                const nb = netOf(`${comp.id}:b`);
+                const ratedMa = Math.max(10, Number(comp.ratedMa) || 250);
+                const blown = Boolean(comp.blown);
+                const v = (drivenNets.has(na) && drivenNets.has(nb)) ? (nodeV[na] - nodeV[nb]) : 0;
+                const iMa = blown ? 0 : (v / 0.2) * 1000;
+                let faultText = null;
+                if (blown) {
+                    faultText = `Fuse blown (exceeded ${formatCurrentMa(ratedMa)} rating). Fix overcurrent and click Replace Fuse.`;
+                    faults.push({ compId: comp.id, label: comp.label || 'Fuse', kind: 'FUSE_BLOWN', severity: 'error', title: `Fuse Blown (${formatCurrentMa(ratedMa)})`, detail: faultText, message: faultText });
+                }
+                fuseStates.set(comp.id, { ratedMa, blown, currentMa: Math.abs(iMa), signedMa: iMa, voltage: v, overloaded: blown, corrupted: blown, faultText });
+            } else if (comp.kind === 'capacitor' || comp.kind === 'capacitor_elec') {
+                const isElec = comp.kind === 'capacitor_elec';
+                const n1 = netOf(isElec ? `${comp.id}:pos` : `${comp.id}:a`);
+                const n2 = netOf(isElec ? `${comp.id}:neg` : `${comp.id}:b`);
+                const capF = Math.max(1e-12, Number(comp.farads) || (isElec ? 100e-6 : 100e-9));
+                const ratedV = Number(comp.ratedV) || (isElec ? 16 : 50);
+                const vPrev = Number.isFinite(comp._vc) ? comp._vc : 0;
+                const bothConn = wireConnectedPins.has(isElec ? `${comp.id}:pos` : `${comp.id}:a`) && wireConnectedPins.has(isElec ? `${comp.id}:neg` : `${comp.id}:b`);
+                const vNow = (bothConn && drivenNets.has(n1) && drivenNets.has(n2)) ? (nodeV[n1] - nodeV[n2]) : vPrev;
+                const iMa = (dt > 0 && bothConn && drivenNets.has(n1) && drivenNets.has(n2))
+                    ? ((vNow - vPrev) / (dt / capF + 0.5)) * 1000
+                    : 0;
+                if (dt > 0 && bothConn && drivenNets.has(n1) && drivenNets.has(n2)) {
+                    comp._vc = vNow;
+                }
+                const energyMj = 0.5 * capF * vNow * vNow * 1000;
+                const chargePct = Math.min(1, Math.abs(vNow) / Math.max(1, Math.min(12, ratedV)));
+                const reversePol = isElec && vNow < -1.0;
+                const overVolt = Math.abs(vNow) > ratedV;
+                const overloaded = reversePol || overVolt;
+                let faultText = null;
+                if (reversePol) {
+                    faultText = `Electrolytic Capacitor Reverse Polarity (${vNow.toFixed(1)} V)! Connect + to higher voltage and − stripe to return.`;
+                    faults.push({ compId: comp.id, label: comp.label || 'C-Elec', kind: 'CAP_REVERSE', severity: 'error', title: 'Electrolytic Reverse Polarity!', detail: faultText, message: faultText });
+                } else if (overVolt) {
+                    faultText = `Capacitor Overvoltage (${Math.abs(vNow).toFixed(1)} V > ${ratedV} V rated)!`;
+                    faults.push({ compId: comp.id, label: comp.label || 'Cap', kind: 'CAP_OVERVOLTAGE', severity: 'error', title: 'Capacitor Overvoltage!', detail: faultText, message: faultText });
+                }
+                capStates.set(comp.id, { farads: capF, ratedV, voltage: vNow, currentMa: iMa, energyMj, chargePct, isElec, reversePol, overloaded, corrupted: overloaded, faultText });
+            } else if (comp.kind === 'inductor') {
+                const na = netOf(`${comp.id}:a`);
+                const nb = netOf(`${comp.id}:b`);
+                const indH = Math.max(1e-6, Number(comp.henrys) || 0.1);
+                const rW = Math.max(0.5, Number(comp.rw) || 2.0);
+                const iPrev = Number.isFinite(comp._il) ? comp._il : 0;
+                const bothConn = wireConnectedPins.has(`${comp.id}:a`) && wireConnectedPins.has(`${comp.id}:b`);
+                const vL = (bothConn && drivenNets.has(na) && drivenNets.has(nb)) ? (nodeV[na] - nodeV[nb]) : 0;
+                let iA = 0;
+                if (bothConn && drivenNets.has(na) && drivenNets.has(nb)) {
+                    if (dt > 0) {
+                        const lOverDt = indH / dt;
+                        const rEff = rW + lOverDt;
+                        iA = (vL + lOverDt * iPrev) / rEff;
+                        comp._il = iA;
+                    } else {
+                        iA = vL / rW;
+                    }
+                } else if (dt > 0) {
+                    comp._il = iPrev * 0.5; // rapid decay when disconnected
+                }
+                const iMa = iA * 1000;
+                const energyMj = 0.5 * indH * iA * iA * 1000;
+                const overloaded = Math.abs(iMa) > 1500;
+                let faultText = null;
+                if (overloaded) {
+                    faultText = `Inductor winding current ${formatCurrentMa(iMa)} > 1.5 A max! Add series resistance.`;
+                    faults.push({ compId: comp.id, label: comp.label || 'Inductor', kind: 'IND_OVERCURRENT', severity: 'error', title: 'Inductor Overcurrent!', detail: faultText, message: faultText });
+                }
+                indStates.set(comp.id, { henrys: indH, rw: rW, voltage: vL, currentMa: iMa, energyMj, overloaded, corrupted: overloaded, faultText });
+            } else if (comp.kind === 'pnp') {
+                const ne = netOf(`${comp.id}:e`);
+                const nb = netOf(`${comp.id}:b`);
+                const nc = netOf(`${comp.id}:c`);
+                const st = pnpState.get(comp.id) || { ebOn: false, gEc: 1e-8 };
+                const veb = (drivenNets.has(ne) && drivenNets.has(nb)) ? (nodeV[ne] - nodeV[nb]) : 0;
+                const vec = (drivenNets.has(ne) && drivenNets.has(nc)) ? (nodeV[ne] - nodeV[nc]) : 0;
+                const ibMa = st.ebOn ? Math.max(0, ((veb - 0.7) / 35) * 1000) : 0;
+                const icMa = st.gEc > 1e-6 ? Math.max(0, ((vec - 0.2) * st.gEc) * 1000) : 0;
+                const region = !st.ebOn || ibMa < 0.01 ? 'CUTOFF' : (vec < 0.5 ? 'SATURATED' : 'ACTIVE');
+                const corrupted = ibMa > 50 || icMa > 600;
+                let pnpFault = null;
+                if (ibMa > 50) {
+                    pnpFault = `PNP Base current ${ibMa.toFixed(0)} mA > 50 mA max! Add a 1 kΩ – 10 kΩ base resistor.`;
+                    faults.push({ compId: comp.id, label: comp.label || '2N3906', kind: 'PNP_BASE_OVERCURRENT', severity: 'error', title: '2N3906 Base Overcurrent!', detail: pnpFault, message: pnpFault });
+                } else if (icMa > 600) {
+                    pnpFault = `PNP Collector current ${icMa.toFixed(0)} mA > 600 mA max!`;
+                    faults.push({ compId: comp.id, label: comp.label || '2N3906', kind: 'PNP_COLLECTOR_OVERCURRENT', severity: 'error', title: '2N3906 Collector Overcurrent!', detail: pnpFault, message: pnpFault });
+                }
+                pnpStates.set(comp.id, { veb, vec, ibMa, icMa, region, mode: corrupted ? 'OVERLOAD' : region, conducting: region !== 'CUTOFF', corrupted, overloaded: corrupted, faultText: pnpFault });
+            } else if (comp.kind === 'nmos') {
+                const ng = netOf(`${comp.id}:g`);
+                const nd = netOf(`${comp.id}:d`);
+                const ns = netOf(`${comp.id}:s`);
+                const vth = Math.max(0.8, Math.min(5.0, Number(comp.vth) || 2.0));
+                const st = nmosState.get(comp.id) || { gDs: 1e-8, on: false };
+                const vgs = (drivenNets.has(ng) && drivenNets.has(ns)) ? (nodeV[ng] - nodeV[ns]) : 0;
+                const vds = (drivenNets.has(nd) && drivenNets.has(ns)) ? (nodeV[nd] - nodeV[ns]) : 0;
+                const idMa = st.on ? (vds * st.gDs) * 1000 : 0;
+                const mode = !st.on ? 'CUTOFF' : (Math.abs(vds) < Math.max(0.5, vgs - vth) ? 'TRIODE (ON)' : 'SATURATION');
+                const overloaded = Math.abs(idMa) > 5000;
+                let faultText = null;
+                if (overloaded) {
+                    faultText = `MOSFET Drain current ${formatCurrentMa(idMa)} > 5 A max!`;
+                    faults.push({ compId: comp.id, label: comp.label || 'IRF540N', kind: 'MOSFET_OVERCURRENT', severity: 'error', title: 'MOSFET Overcurrent!', detail: faultText, message: faultText });
+                }
+                nmosStates.set(comp.id, { vth, vgs, vds, idMa: Math.abs(idMa), signedIdMa: idMa, on: st.on, mode: overloaded ? 'OVERLOAD' : mode, overloaded, corrupted: overloaded, faultText });
+            } else if (comp.kind === 'reg7805' || comp.kind === 'reg33') {
+                const is33 = comp.kind === 'reg33';
+                const nIn = netOf(`${comp.id}:in`);
+                const nGnd = netOf(`${comp.id}:gnd`);
+                const nOut = netOf(`${comp.id}:out`);
+                const st = regOutState.get(comp.id) || { active: false, vOut: 0 };
+                const vIn = (drivenNets.has(nIn) && drivenNets.has(nGnd)) ? (nodeV[nIn] - nodeV[nGnd]) : 0;
+                const vOutActual = (drivenNets.has(nOut) && drivenNets.has(nGnd)) ? (nodeV[nOut] - nodeV[nGnd]) : 0;
+                const iOutMa = st.active ? Math.max(0, ((st.vOut - vOutActual) / 0.08) * 1000) : 0;
+                const powerW = Math.max(0, (vIn - vOutActual) * (iOutMa / 1000));
+                const reverseIn = vIn < -0.5;
+                const maxMa = is33 ? 800 : 1200;
+                const overVoltIn = is33 && vIn > 15.5;
+                const thermalFault = powerW > 2.0 || iOutMa > maxMa;
+                const overloaded = reverseIn || thermalFault || overVoltIn;
+                const regName = is33 ? 'LD33V (3.3V)' : '7805';
+                let faultText = null;
+                if (reverseIn) {
+                    faultText = `${regName} Reverse Input Polarity (${vIn.toFixed(1)} V)!`;
+                    faults.push({ compId: comp.id, label: regName, kind: 'REG_REVERSE', severity: 'error', title: `${regName} Reverse Polarity!`, detail: faultText, message: faultText });
+                } else if (overVoltIn) {
+                    faultText = `LD33V Input Overvoltage (${vIn.toFixed(1)} V > 15 V max)!`;
+                    faults.push({ compId: comp.id, label: regName, kind: 'REG_OVERVOLTAGE', severity: 'error', title: 'LD33V Input Overvoltage!', detail: faultText, message: faultText });
+                } else if (thermalFault) {
+                    faultText = `${regName} Thermal Overload (${powerW.toFixed(2)} W, ${formatCurrentMa(iOutMa)})! Reduce load current.`;
+                    faults.push({ compId: comp.id, label: regName, kind: 'REG_THERMAL', severity: 'error', title: `${regName} Thermal Overload!`, detail: faultText, message: faultText });
+                }
+                const targetV = is33 ? 3.3 : 5.0;
+                const regThresh = is33 ? 4.4 : 7.0;
+                const status = overloaded ? 'FAULT' : (!st.active ? 'OFF' : (vIn >= regThresh ? `REGULATING ${targetV.toFixed(1)}V` : 'DROPOUT'));
+                regStates.set(comp.id, { active: st.active, targetV, vIn, vOut: vOutActual, iOutMa, powerW, status, overloaded, corrupted: overloaded, faultText });
+            } else if (comp.kind === 'relay') {
+                const nc1 = netOf(`${comp.id}:coil1`);
+                const nc2 = netOf(`${comp.id}:coil2`);
+                const nCom = netOf(`${comp.id}:com`);
+                const nNo = netOf(`${comp.id}:no`);
+                const nNc = netOf(`${comp.id}:nc`);
+                const coilConn = wireConnectedPins.has(`${comp.id}:coil1`) && wireConnectedPins.has(`${comp.id}:coil2`) && drivenNets.has(nc1) && drivenNets.has(nc2);
+                const vCoil = coilConn ? (nodeV[nc1] - nodeV[nc2]) : 0;
+                const iCoilMa = coilConn ? (vCoil / 70) * 1000 : 0;
+                const engaged = Boolean(relayEngaged.get(comp.id));
+                comp._relayOn = engaged;
+                const targetNet = engaged ? nNo : nNc;
+                const contactIMa = (drivenNets.has(nCom) && drivenNets.has(targetNet)) ? ((nodeV[nCom] - nodeV[targetNet]) / 0.05) * 1000 : 0;
+                const overloaded = Math.abs(vCoil) > 7.5;
+                let faultText = null;
+                if (overloaded) {
+                    faultText = `5V Relay Coil Overvoltage (${Math.abs(vCoil).toFixed(1)} V > 7.5 V max)! Power coil from 5V.`;
+                    faults.push({ compId: comp.id, label: comp.label || 'Relay', kind: 'RELAY_OVERVOLTAGE', severity: 'error', title: '5V Relay Coil Overvoltage!', detail: faultText, message: faultText });
+                }
+                if (Math.abs(iCoilMa) > 0) {
+                    totalCurrentMa += Math.abs(iCoilMa);
+                    totalPowerMw += Math.abs(iCoilMa * vCoil);
+                }
+                relayStates.set(comp.id, { vCoil, iCoilMa, engaged, contactIMa, stateLabel: engaged ? 'NO CLOSED' : 'NC CLOSED', overloaded, corrupted: overloaded, faultText });
+            } else if (comp.kind === 'ldr') {
+                const na = netOf(`${comp.id}:a`);
+                const nb = netOf(`${comp.id}:b`);
+                const lightPct = Math.max(0, Math.min(100, Number(comp.lightPct ?? 50)));
+                const ohms = computeLdrOhms(lightPct);
+                const v = (drivenNets.has(na) && drivenNets.has(nb)) ? (nodeV[na] - nodeV[nb]) : 0;
+                const iMa = Math.abs((v / ohms) * 1000);
+                ldrStates.set(comp.id, { lightPct, ohms, voltage: v, currentMa: iMa, powerMw: Math.abs(v * iMa) });
+            } else if (comp.kind === 'thermistor') {
+                const na = netOf(`${comp.id}:a`);
+                const nb = netOf(`${comp.id}:b`);
+                const tempC = Math.max(-40, Math.min(150, Number(comp.tempC ?? 25)));
+                const ohms = computeThermistorOhms(tempC, Number(comp.r25) || 10000, Number(comp.beta) || 3950);
+                const v = (drivenNets.has(na) && drivenNets.has(nb)) ? (nodeV[na] - nodeV[nb]) : 0;
+                const iMa = Math.abs((v / ohms) * 1000);
+                thermistorStates.set(comp.id, { tempC, ohms, voltage: v, currentMa: iMa, powerMw: Math.abs(v * iMa) });
+            } else if (comp.kind === 'bulb') {
+                const na = netOf(`${comp.id}:a`);
+                const nb = netOf(`${comp.id}:b`);
+                const rFil = Math.max(4, Number(comp.ohms) || 24);
+                const bothConn = wireConnectedPins.has(`${comp.id}:a`) && wireConnectedPins.has(`${comp.id}:b`);
+                const v = (bothConn && drivenNets.has(na) && drivenNets.has(nb)) ? (nodeV[na] - nodeV[nb]) : 0;
+                const absV = Math.abs(v);
+                const overloaded = absV > 12.5;
+                const iMa = (absV / rFil) * 1000;
+                const powerW = (absV * absV) / rFil;
+                const brightness = overloaded ? 0 : Math.min(1, Math.pow(Math.max(0, (absV - 0.8) / 8.2), 0.85));
+                const lit = !overloaded && brightness > 0.04;
+                let faultText = null;
+                if (overloaded) {
+                    faultText = `Bulb Filament Burnout (${absV.toFixed(1)} V > 12 V max)! Lower supply voltage.`;
+                    faults.push({ compId: comp.id, label: comp.label || 'Bulb', kind: 'BULB_BURNOUT', severity: 'error', title: 'Bulb Filament Overvoltage!', detail: faultText, message: faultText });
+                }
+                if (iMa > 0) {
+                    totalCurrentMa += iMa;
+                    totalPowerMw += powerW * 1000;
+                }
+                bulbStates.set(comp.id, { voltage: v, currentMa: iMa, powerW, brightness, lit, overloaded, corrupted: overloaded, faultText });
+            } else if (comp.kind === 'ic555') {
+                const st = ic555State.get(comp.id) || { powered: false, q: 1, vVcc: 5, vGnd: 0 };
+                comp._q555 = st.q;
+                const nVcc = netOf(`${comp.id}:8`);
+                const nGnd = netOf(`${comp.id}:1`);
+                const nOut = netOf(`${comp.id}:3`);
+                const nThres = netOf(`${comp.id}:6`);
+                const sup = (drivenNets.has(nVcc) && drivenNets.has(nGnd)) ? (nodeV[nVcc] - nodeV[nGnd]) : 0;
+                const vOut = (drivenNets.has(nOut) && drivenNets.has(nGnd)) ? (nodeV[nOut] - nodeV[nGnd]) : 0;
+                const vThres = (drivenNets.has(nThres) && drivenNets.has(nGnd)) ? (nodeV[nThres] - nodeV[nGnd]) : 0;
+                const reversePower = sup < -0.3;
+                const overVolt = sup > 16.0;
+                const overloaded = reversePower || overVolt;
+                let faultText = null;
+                if (reversePower) {
+                    faultText = `NE555 Reverse Polarity (${sup.toFixed(1)} V)! Pin 8=VCC, Pin 1=GND.`;
+                    faults.push({ compId: comp.id, label: 'NE555', kind: 'IC555_REVERSE', severity: 'error', title: 'NE555 Reverse Polarity!', detail: faultText, message: faultText });
+                } else if (overVolt) {
+                    faultText = `NE555 Overvoltage (${sup.toFixed(1)} V > 16 V max)!`;
+                    faults.push({ compId: comp.id, label: 'NE555', kind: 'IC555_OVERVOLTAGE', severity: 'error', title: 'NE555 Overvoltage!', detail: faultText, message: faultText });
+                }
+                if (st.powered) {
+                    totalCurrentMa += 5;
+                    totalPowerMw += 5 * sup;
+                }
+                ic555States.set(comp.id, { powered: st.powered, q: st.q, supplyV: sup, vOut, vThres, overloaded, corrupted: overloaded, faultText });
+            } else if (comp.kind === 'opamp') {
+                const st = opampMode.get(comp.id) || { powered: false, mode: 'LINEAR', vPlus: 9, vMinus: 0 };
+                const nInN = netOf(`${comp.id}:2`);
+                const nInP = netOf(`${comp.id}:3`);
+                const nVneg = netOf(`${comp.id}:4`);
+                const nOut = netOf(`${comp.id}:6`);
+                const nVpos = netOf(`${comp.id}:7`);
+                const vInP = drivenNets.has(nInP) ? nodeV[nInP] : 0;
+                const vInN = drivenNets.has(nInN) ? nodeV[nInN] : 0;
+                const vOut = drivenNets.has(nOut) ? nodeV[nOut] : 0;
+                const sup = (drivenNets.has(nVpos) && drivenNets.has(nVneg)) ? (nodeV[nVpos] - nodeV[nVneg]) : 0;
+                if (st.powered) {
+                    totalCurrentMa += 3;
+                    totalPowerMw += 3 * Math.max(0, sup);
+                }
+                opampStates.set(comp.id, { powered: st.powered, mode: st.mode, supplyV: sup, vInP, vInN, vDiff: vInP - vInN, vOut });
+            } else if (comp.kind === 'pmos') {
+                const ng = netOf(`${comp.id}:g`);
+                const nd = netOf(`${comp.id}:d`);
+                const ns = netOf(`${comp.id}:s`);
+                const vth = Math.max(0.8, Math.min(5.0, Number(comp.vth) || 2.0));
+                const st = pmosState.get(comp.id) || { gSd: 1e-8, on: false };
+                const vgs = (drivenNets.has(ng) && drivenNets.has(ns)) ? (nodeV[ng] - nodeV[ns]) : 0;
+                const vsg = -vgs;
+                const vsd = (drivenNets.has(ns) && drivenNets.has(nd)) ? (nodeV[ns] - nodeV[nd]) : 0;
+                const idMa = st.on ? (vsd * st.gSd) * 1000 : 0; // positive = S -> D
+                const mode = !st.on ? 'CUTOFF' : (Math.abs(vsd) < Math.max(0.5, vsg - vth) ? 'TRIODE (ON)' : 'SATURATION');
+                const overloaded = Math.abs(idMa) > 5000;
+                let faultText = null;
+                if (overloaded) {
+                    faultText = `P-MOSFET current ${formatCurrentMa(idMa)} > 5 A max!`;
+                    faults.push({ compId: comp.id, label: comp.label || 'IRF9540N', kind: 'PMOS_OVERCURRENT', severity: 'error', title: 'P-MOSFET Overcurrent!', detail: faultText, message: faultText });
+                }
+                pmosStates.set(comp.id, { vth, vgs, vsg, vsd, idMa: Math.abs(idMa), signedIdMa: idMa, on: st.on, conducting: st.on, mode: overloaded ? 'OVERLOAD' : mode, overloaded, corrupted: overloaded, faultText });
+            } else if (comp.kind === 'optocoupler') {
+                const na = netOf(`${comp.id}:anode`);
+                const nk = netOf(`${comp.id}:cathode`);
+                const nc = netOf(`${comp.id}:col`);
+                const ne = netOf(`${comp.id}:emit`);
+                const st = optoState.get(comp.id) || { ledOn: false, gCe: 1e-8 };
+                const vLed = (drivenNets.has(na) && drivenNets.has(nk)) ? (nodeV[na] - nodeV[nk]) : 0;
+                const iLedMa = st.ledOn ? Math.max(0, ((vLed - 1.2) / 20.0) * 1000) : 0;
+                const vce = (drivenNets.has(nc) && drivenNets.has(ne)) ? (nodeV[nc] - nodeV[ne]) : 0;
+                const icMa = st.gCe > 1e-6 ? Math.max(0, ((vce - 0.2) * st.gCe) * 1000) : 0;
+                const overloaded = iLedMa > 55;
+                let faultText = null;
+                if (overloaded) {
+                    faultText = `PC817 IR LED overcurrent (${iLedMa.toFixed(0)} mA > 50 mA max)! Add a 220 Ω – 470 Ω input resistor.`;
+                    faults.push({ compId: comp.id, label: comp.label || 'PC817', kind: 'OPTO_OVERCURRENT', severity: 'error', title: 'Optocoupler LED Overcurrent!', detail: faultText, message: faultText });
+                }
+                if (iLedMa > 0) {
+                    totalCurrentMa += iLedMa;
+                    totalPowerMw += iLedMa * Math.max(0, vLed);
+                }
+                optocouplerStates.set(comp.id, { ledOn: st.ledOn, iLedMa, vLed, vce, icMa, conducting: st.gCe > 1e-6, overloaded, corrupted: overloaded, faultText });
+            } else if (comp.kind === 'pir') {
+                const nVcc = netOf(`${comp.id}:vcc`);
+                const nOut = netOf(`${comp.id}:out`);
+                const nGnd = netOf(`${comp.id}:gnd`);
+                const st = pirState.get(comp.id) || { powered: false, vOut: 0 };
+                const sup = (drivenNets.has(nVcc) && drivenNets.has(nGnd)) ? (nodeV[nVcc] - nodeV[nGnd]) : 0;
+                const vOutActual = (drivenNets.has(nOut) && drivenNets.has(nGnd)) ? (nodeV[nOut] - nodeV[nGnd]) : 0;
+                const reversePower = sup < -0.3;
+                const overVolt = sup > 13.5;
+                const overloaded = reversePower || overVolt;
+                let faultText = null;
+                if (reversePower) {
+                    faultText = `PIR HC-SR501 Reverse Polarity (${sup.toFixed(1)} V)!`;
+                    faults.push({ compId: comp.id, label: 'PIR Sensor', kind: 'PIR_REVERSE', severity: 'error', title: 'PIR Reverse Polarity!', detail: faultText, message: faultText });
+                } else if (overVolt) {
+                    faultText = `PIR HC-SR501 Overvoltage (${sup.toFixed(1)} V > 12 V max)!`;
+                    faults.push({ compId: comp.id, label: 'PIR Sensor', kind: 'PIR_OVERVOLTAGE', severity: 'error', title: 'PIR Overvoltage!', detail: faultText, message: faultText });
+                }
+                pirStates.set(comp.id, { powered: st.powered, motion: Boolean(comp.motion), supplyV: sup, vOut: vOutActual, overloaded, corrupted: overloaded, faultText });
+            } else if (comp.kind === 'tmp36') {
+                const nVcc = netOf(`${comp.id}:vcc`);
+                const nOut = netOf(`${comp.id}:vout`);
+                const nGnd = netOf(`${comp.id}:gnd`);
+                const st = tmp36State.get(comp.id) || { powered: false, vOut: 0 };
+                const tempC = Math.max(-40, Math.min(125, Number(comp.tempC ?? 25)));
+                const sup = (drivenNets.has(nVcc) && drivenNets.has(nGnd)) ? (nodeV[nVcc] - nodeV[nGnd]) : 0;
+                const vOutActual = (drivenNets.has(nOut) && drivenNets.has(nGnd)) ? (nodeV[nOut] - nodeV[nGnd]) : 0;
+                const reversePower = sup < -0.3;
+                const overVolt = sup > 6.0;
+                const overloaded = reversePower || overVolt;
+                let faultText = null;
+                if (reversePower) {
+                    faultText = `TMP36 Reverse Polarity (${sup.toFixed(1)} V)! Check VCC/VOUT/GND pinout.`;
+                    faults.push({ compId: comp.id, label: 'TMP36', kind: 'TMP36_REVERSE', severity: 'error', title: 'TMP36 Reverse Polarity!', detail: faultText, message: faultText });
+                } else if (overVolt) {
+                    faultText = `TMP36 Overvoltage (${sup.toFixed(1)} V > 5.5 V max)! Power from 3.3V or 5V.`;
+                    faults.push({ compId: comp.id, label: 'TMP36', kind: 'TMP36_OVERVOLTAGE', severity: 'error', title: 'TMP36 Overvoltage!', detail: faultText, message: faultText });
+                }
+                tmp36States.set(comp.id, { powered: st.powered, tempC, supplyV: sup, vOut: vOutActual, overloaded, corrupted: overloaded, faultText });
+            } else if (comp.kind === 'led_bar') {
+                const BAR_VF = [2.2, 2.2, 2.2, 2.2, 2.1, 2.1, 2.0, 2.0];
+                const BAR_COLORS = ['emerald', 'emerald', 'emerald', 'emerald', 'amber', 'amber', 'red', 'red'];
+                const segments = [];
+                let litCount = 0;
+                let anyOver = false;
+                let maxMa = 0;
+                for (let bi = 0; bi < 8; bi++) {
+                    const ak = `${comp.id}:a${bi}`;
+                    const kk = `${comp.id}:k${bi}`;
+                    const na = netOf(ak);
+                    const nk = netOf(kk);
+                    const wired = wireConnectedPins.has(ak) && wireConnectedPins.has(kk) && drivenNets.has(na) && drivenNets.has(nk) && gndReturnNets.has(nk);
+                    const vd = wired ? (nodeV[na] - nodeV[nk]) : 0;
+                    const isOn = Boolean(ledBarOn.get(`${comp.id}:${bi}`));
+                    const iMa = isOn ? Math.max(0, ((vd - BAR_VF[bi]) / 15) * 1000) : 0;
+                    const bright = Math.min(1, iMa / 18);
+                    const over = iMa > 35;
+                    if (over) anyOver = true;
+                    if (iMa > 0.2 && !over) litCount++;
+                    maxMa = Math.max(maxMa, iMa);
+                    totalCurrentMa += iMa;
+                    totalPowerMw += iMa * Math.max(0, vd);
+                    segments.push({ on: isOn, lit: iMa > 0.2 && !over, currentMa: iMa, brightness: over ? 0 : bright, voltage: vd, overloaded: over, color: BAR_COLORS[bi] });
+                }
+                let faultText = null;
+                if (anyOver) {
+                    faultText = `LED Bar Graph segment overcurrent (${maxMa.toFixed(0)} mA > 35 mA max)! Add 220 Ω resistors.`;
+                    faults.push({ compId: comp.id, label: comp.label || 'LED Bar', kind: 'LEDBAR_OVERCURRENT', severity: 'error', title: 'LED Bar Graph Overcurrent!', detail: faultText, message: faultText });
+                }
+                ledBarStates.set(comp.id, { segments, litCount, anyOverloaded: anyOver, overloaded: anyOver, corrupted: anyOver, faultText });
+            } else if (comp.kind === 'vib_motor') {
+                const np = netOf(`${comp.id}:pos`);
+                const nn = netOf(`${comp.id}:neg`);
+                const bothConn = wireConnectedPins.has(`${comp.id}:pos`) && wireConnectedPins.has(`${comp.id}:neg`);
+                const v = (bothConn && drivenNets.has(np) && drivenNets.has(nn)) ? (nodeV[np] - nodeV[nn]) : 0;
+                const absV = Math.abs(v);
+                const iMa = (absV / 30) * 1000;
+                const overloaded = absV > 6.2;
+                const vibrating = !overloaded && absV >= 1.5;
+                const intensity = vibrating ? Math.min(1, (absV - 1.2) / 3.3) : 0;
+                let faultText = null;
+                if (overloaded) {
+                    faultText = `Vibration Motor Overvoltage (${absV.toFixed(1)} V > 6 V max)! Use 3V–5V.`;
+                    faults.push({ compId: comp.id, label: comp.label || 'Vib Motor', kind: 'VIB_OVERVOLTAGE', severity: 'error', title: 'Vibration Motor Overvoltage!', detail: faultText, message: faultText });
+                }
+                if (iMa > 0) {
+                    totalCurrentMa += iMa;
+                    totalPowerMw += absV * iMa;
+                }
+                vibMotorStates.set(comp.id, { voltage: v, currentMa: iMa, powerMw: absV * iMa, vibrating, intensity, overloaded, corrupted: overloaded, faultText });
+            } else if (comp.kind === 'servo') {
+                const nVcc = netOf(`${comp.id}:vcc`);
+                const nGnd = netOf(`${comp.id}:gnd`);
+                const nSig = netOf(`${comp.id}:sig`);
+                const vccConn = wireConnectedPins.has(`${comp.id}:vcc`) && drivenNets.has(nVcc);
+                const gndConn = wireConnectedPins.has(`${comp.id}:gnd`) && gndReturnNets.has(nGnd);
+                const sigConn = wireConnectedPins.has(`${comp.id}:sig`) && drivenNets.has(nSig);
+                const sup = (vccConn && gndConn) ? (nodeV[nVcc] - nodeV[nGnd]) : 0;
+                const vSig = (sigConn && gndConn) ? (nodeV[nSig] - nodeV[nGnd]) : 0;
+                const reversePower = sup < -0.3;
+                const overVolt = sup > 7.0;
+                const overloaded = reversePower || overVolt;
+                const powered = !overloaded && vccConn && gndConn && sup >= 4.0 && sup <= 7.0;
+                const angleDeg = powered
+                    ? (sigConn ? Math.max(0, Math.min(180, (vSig / 5.0) * 180)) : Math.max(0, Math.min(180, Number(comp.angleDeg ?? 90))))
+                    : Number(comp._servoAngle ?? 90);
+                comp._servoAngle = angleDeg;
+                const iMa = powered ? (sup / 120) * 1000 : 0;
+                let faultText = null;
+                if (reversePower) {
+                    faultText = `Micro Servo Reverse Polarity (${sup.toFixed(1)} V)! Check GND/VCC/SIG.`;
+                    faults.push({ compId: comp.id, label: 'SG90 Servo', kind: 'SERVO_REVERSE', severity: 'error', title: 'Servo Reverse Polarity!', detail: faultText, message: faultText });
+                } else if (overVolt) {
+                    faultText = `Micro Servo Overvoltage (${sup.toFixed(1)} V > 6.5 V max)! Power from 5V.`;
+                    faults.push({ compId: comp.id, label: 'SG90 Servo', kind: 'SERVO_OVERVOLTAGE', severity: 'error', title: 'Servo Overvoltage!', detail: faultText, message: faultText });
+                }
+                if (iMa > 0) {
+                    totalCurrentMa += iMa;
+                    totalPowerMw += sup * iMa;
+                }
+                servoStates.set(comp.id, { powered, supplyV: sup, vSig, sigConnected: sigConn, angleDeg, currentMa: iMa, overloaded, corrupted: overloaded, faultText });
+            } else if (comp.kind === 'l293d') {
+                const st = l293dState.get(comp.id) || { powered: false, en12: false, en34: false, vVcc2: 0, outs: [null, null, null, null] };
+                const nGnd = netOf(`${comp.id}:4`);
+                const nVcc1 = netOf(`${comp.id}:16`);
+                const nVcc2 = netOf(`${comp.id}:8`);
+                const vGnd = drivenNets.has(nGnd) ? nodeV[nGnd] : 0;
+                const vVcc1 = (drivenNets.has(nVcc1) && drivenNets.has(nGnd)) ? (nodeV[nVcc1] - vGnd) : 0;
+                const vVcc2 = (drivenNets.has(nVcc2) && drivenNets.has(nGnd)) ? (nodeV[nVcc2] - vGnd) : 0;
+                const reversePower = vVcc1 < -0.3 || vVcc2 < -0.3;
+                const overVolt = vVcc1 > 7.0 || vVcc2 > 36.0;
+                const overloaded = reversePower || overVolt;
+                let faultText = null;
+                if (reversePower) {
+                    faultText = `L293D Reverse Supply Polarity (VCC1=${vVcc1.toFixed(1)}V, VCC2=${vVcc2.toFixed(1)}V)!`;
+                    faults.push({ compId: comp.id, label: 'L293D', kind: 'L293D_REVERSE', severity: 'error', title: 'L293D Reverse Polarity!', detail: faultText, message: faultText });
+                } else if (overVolt) {
+                    faultText = `L293D Overvoltage (VCC1=${vVcc1.toFixed(1)}V max 7V, VCC2=${vVcc2.toFixed(1)}V max 36V)!`;
+                    faults.push({ compId: comp.id, label: 'L293D', kind: 'L293D_OVERVOLTAGE', severity: 'error', title: 'L293D Overvoltage!', detail: faultText, message: faultText });
+                }
+                const outV = ['3', '6', '11', '14'].map(p => {
+                    const n = netOf(`${comp.id}:${p}`);
+                    return drivenNets.has(n) ? (nodeV[n] - vGnd) : 0;
+                });
+                if (st.powered) {
+                    totalCurrentMa += 15;
+                    totalPowerMw += 15 * Math.max(0, vVcc1);
+                }
+                l293dStates.set(comp.id, {
+                    powered: st.powered && !overloaded,
+                    vVcc1, vVcc2, en12: st.en12, en34: st.en34,
+                    outs: st.outs, outV,
+                    overloaded, corrupted: overloaded, faultText
+                });
+            } else if (comp.kind === 'scope_mini') {
+                const np = netOf(`${comp.id}:pos`);
+                const nn = netOf(`${comp.id}:neg`);
+                const connected = wireConnectedPins.has(`${comp.id}:pos`) && wireConnectedPins.has(`${comp.id}:neg`);
+                const v = (connected && drivenNets.has(np) && drivenNets.has(nn)) ? (nodeV[np] - nodeV[nn]) : 0;
+                if (!Array.isArray(comp._wave)) comp._wave = [];
+                if (simOpts?.recordWave !== false) {
+                    comp._wave.push(v);
+                    if (comp._wave.length > 120) comp._wave.shift();
+                }
+                let vMin = v, vMax = v;
+                for (const s of comp._wave) {
+                    if (s < vMin) vMin = s;
+                    if (s > vMax) vMax = s;
+                }
+                scopeStates.set(comp.id, {
+                    connected,
+                    voltage: v,
+                    vMin,
+                    vMax,
+                    vpp: Math.max(0, vMax - vMin),
+                    vDiv: Number(comp.vDiv) || 2.0,
+                    samples: comp._wave
+                });
             }
         }
 
@@ -1542,7 +2879,7 @@
         };
 
         for (const comp of (doc.components || [])) {
-            if (comp.kind === 'battery' || comp.kind === 'battery9v' || (comp.kind === 'psu' && comp.enabled !== false)) {
+            if (comp.kind === 'battery' || comp.kind === 'battery9v' || comp.kind === 'coin3v' || (comp.kind === 'psu' && comp.enabled !== false)) {
                 markNetSourcePin(`${comp.id}:pos`);
                 markNetSourcePin(`${comp.id}:neg`);
             } else if (comp.kind === 'gnd') {
@@ -1622,6 +2959,170 @@
                     addPinI(`${comp.id}:${spec.vccPin || 14}`, -qMa);
                     addPinI(`${comp.id}:${spec.gndPin || 7}`, +qMa);
                 }
+            } else if (comp.kind === 'diode' || comp.kind === 'schottky') {
+                const st = diodeStates.get(comp.id);
+                if (st && st.currentMa > 0) {
+                    addPinI(`${comp.id}:anode`, -st.currentMa);
+                    addPinI(`${comp.id}:cathode`, +st.currentMa);
+                }
+            } else if (comp.kind === 'zener') {
+                const st = zenerStates.get(comp.id);
+                if (st && Math.abs(st.currentMa) > 0) {
+                    addPinI(`${comp.id}:anode`, -st.currentMa);
+                    addPinI(`${comp.id}:cathode`, +st.currentMa);
+                }
+            } else if (comp.kind === 'fuse') {
+                const st = fuseStates.get(comp.id);
+                if (st && !st.blown && Math.abs(st.signedMa) > 0) {
+                    addPinI(`${comp.id}:a`, -st.signedMa);
+                    addPinI(`${comp.id}:b`, +st.signedMa);
+                }
+            } else if (comp.kind === 'capacitor' || comp.kind === 'capacitor_elec') {
+                const st = capStates.get(comp.id);
+                if (st && Math.abs(st.currentMa) > 0) {
+                    const p1 = comp.kind === 'capacitor_elec' ? `${comp.id}:pos` : `${comp.id}:a`;
+                    const p2 = comp.kind === 'capacitor_elec' ? `${comp.id}:neg` : `${comp.id}:b`;
+                    addPinI(p1, -st.currentMa);
+                    addPinI(p2, +st.currentMa);
+                }
+            } else if (comp.kind === 'inductor') {
+                const st = indStates.get(comp.id);
+                if (st && Math.abs(st.currentMa) > 0) {
+                    addPinI(`${comp.id}:a`, -st.currentMa);
+                    addPinI(`${comp.id}:b`, +st.currentMa);
+                }
+            } else if (comp.kind === 'pnp') {
+                const st = pnpStates.get(comp.id);
+                if (st) {
+                    if (st.ibMa > 0) {
+                        addPinI(`${comp.id}:e`, -st.ibMa);
+                        addPinI(`${comp.id}:b`, +st.ibMa);
+                    }
+                    if (st.icMa > 0) {
+                        addPinI(`${comp.id}:e`, -st.icMa);
+                        addPinI(`${comp.id}:c`, +st.icMa);
+                    }
+                }
+            } else if (comp.kind === 'nmos') {
+                const st = nmosStates.get(comp.id);
+                if (st && Math.abs(st.signedIdMa) > 0) {
+                    addPinI(`${comp.id}:d`, -st.signedIdMa);
+                    addPinI(`${comp.id}:s`, +st.signedIdMa);
+                }
+            } else if (comp.kind === 'reg7805' || comp.kind === 'reg33') {
+                const st = regStates.get(comp.id);
+                if (st && st.active) {
+                    markNetSourcePin(`${comp.id}:out`);
+                    markNetSourcePin(`${comp.id}:gnd`);
+                    const iInMa = st.iOutMa + 5;
+                    addPinI(`${comp.id}:in`, -iInMa);
+                    addPinI(`${comp.id}:gnd`, +5);
+                }
+            } else if (comp.kind === 'relay') {
+                const st = relayStates.get(comp.id);
+                if (st) {
+                    if (Math.abs(st.iCoilMa) > 0) {
+                        addPinI(`${comp.id}:coil1`, -st.iCoilMa);
+                        addPinI(`${comp.id}:coil2`, +st.iCoilMa);
+                    }
+                    if (Math.abs(st.contactIMa) > 0) {
+                        addPinI(`${comp.id}:com`, -st.contactIMa);
+                        addPinI(st.engaged ? `${comp.id}:no` : `${comp.id}:nc`, +st.contactIMa);
+                    }
+                }
+            } else if (comp.kind === 'ldr') {
+                const st = ldrStates.get(comp.id);
+                if (st && Math.abs(st.voltage) > 1e-4) {
+                    const iSigned = (st.voltage / st.ohms) * 1000;
+                    addPinI(`${comp.id}:a`, -iSigned);
+                    addPinI(`${comp.id}:b`, +iSigned);
+                }
+            } else if (comp.kind === 'thermistor') {
+                const st = thermistorStates.get(comp.id);
+                if (st && Math.abs(st.voltage) > 1e-4) {
+                    const iSigned = (st.voltage / st.ohms) * 1000;
+                    addPinI(`${comp.id}:a`, -iSigned);
+                    addPinI(`${comp.id}:b`, +iSigned);
+                }
+            } else if (comp.kind === 'bulb') {
+                const st = bulbStates.get(comp.id);
+                if (st && Math.abs(st.voltage) > 1e-4) {
+                    const iSigned = (st.voltage / (Number(comp.ohms) || 24)) * 1000;
+                    addPinI(`${comp.id}:a`, -iSigned);
+                    addPinI(`${comp.id}:b`, +iSigned);
+                }
+            } else if (comp.kind === 'ic555') {
+                const st = ic555States.get(comp.id);
+                if (st && st.powered) {
+                    markNetSourcePin(`${comp.id}:3`);
+                    markNetSourcePin(`${comp.id}:1`);
+                    if (st.q === 0) markNetSourcePin(`${comp.id}:7`);
+                }
+            } else if (comp.kind === 'opamp') {
+                const st = opampStates.get(comp.id);
+                if (st && st.powered) {
+                    markNetSourcePin(`${comp.id}:6`);
+                    markNetSourcePin(`${comp.id}:4`);
+                }
+            } else if (comp.kind === 'pmos') {
+                const st = pmosStates.get(comp.id);
+                if (st && Math.abs(st.signedIdMa) > 0) {
+                    addPinI(`${comp.id}:s`, -st.signedIdMa);
+                    addPinI(`${comp.id}:d`, +st.signedIdMa);
+                }
+            } else if (comp.kind === 'optocoupler') {
+                const st = optocouplerStates.get(comp.id);
+                if (st) {
+                    if (st.iLedMa > 0) {
+                        addPinI(`${comp.id}:anode`, -st.iLedMa);
+                        addPinI(`${comp.id}:cathode`, +st.iLedMa);
+                    }
+                    if (st.icMa > 0) {
+                        addPinI(`${comp.id}:col`, -st.icMa);
+                        addPinI(`${comp.id}:emit`, +st.icMa);
+                    }
+                }
+            } else if (comp.kind === 'pir') {
+                const st = pirStates.get(comp.id);
+                if (st && st.powered) {
+                    markNetSourcePin(`${comp.id}:out`);
+                    markNetSourcePin(`${comp.id}:gnd`);
+                }
+            } else if (comp.kind === 'tmp36') {
+                const st = tmp36States.get(comp.id);
+                if (st && st.powered) {
+                    markNetSourcePin(`${comp.id}:vout`);
+                    markNetSourcePin(`${comp.id}:gnd`);
+                }
+            } else if (comp.kind === 'led_bar') {
+                const st = ledBarStates.get(comp.id);
+                if (st && Array.isArray(st.segments)) {
+                    for (let bi = 0; bi < 8; bi++) {
+                        const seg = st.segments[bi];
+                        if (seg && seg.currentMa > 0) {
+                            addPinI(`${comp.id}:a${bi}`, -seg.currentMa);
+                            addPinI(`${comp.id}:k${bi}`, +seg.currentMa);
+                        }
+                    }
+                }
+            } else if (comp.kind === 'vib_motor') {
+                const st = vibMotorStates.get(comp.id);
+                if (st && Math.abs(st.voltage) > 0.01) {
+                    const iSigned = (st.voltage / 30) * 1000;
+                    addPinI(`${comp.id}:pos`, -iSigned);
+                    addPinI(`${comp.id}:neg`, +iSigned);
+                }
+            } else if (comp.kind === 'servo') {
+                const st = servoStates.get(comp.id);
+                if (st && st.powered && st.currentMa > 0) {
+                    addPinI(`${comp.id}:vcc`, -st.currentMa);
+                    addPinI(`${comp.id}:gnd`, +st.currentMa);
+                }
+            } else if (comp.kind === 'l293d') {
+                const st = l293dStates.get(comp.id);
+                if (st && st.powered) {
+                    for (const p of ['3', '6', '11', '14', '4']) markNetSourcePin(`${comp.id}:${p}`);
+                }
             }
         }
         for (const { activeKey } of standaloneSwitches) markNetSourcePin(activeKey);
@@ -1675,6 +3176,17 @@
             } else if (comp.kind === 'spdt') {
                 const isRight = (comp.positionThrow || comp.throwPos) === 'right';
                 addNetEdge(`${comp.id}:com`, isRight ? `${comp.id}:t2` : `${comp.id}:t1`, null);
+            } else if (comp.kind === 'dip4_bb') {
+                const bits = Array.isArray(comp.bits) ? comp.bits : [0, 0, 0, 0];
+                for (let bi = 0; bi < 4; bi++) {
+                    if (bits[bi]) addNetEdge(`${comp.id}:a${bi}`, `${comp.id}:b${bi}`, null);
+                }
+            } else if (comp.kind === 'tilt') {
+                if (!comp.tilted) addNetEdge(`${comp.id}:a`, `${comp.id}:b`, null);
+            } else if (comp.kind === 'l293d') {
+                addNetEdge(`${comp.id}:4`, `${comp.id}:5`, null);
+                addNetEdge(`${comp.id}:4`, `${comp.id}:12`, null);
+                addNetEdge(`${comp.id}:4`, `${comp.id}:13`, null);
             }
         }
 
@@ -1752,6 +3264,29 @@
             sourceStates,
             segStates,
             probeStates,
+            diodeStates,
+            zenerStates,
+            fuseStates,
+            capStates,
+            indStates,
+            pnpStates,
+            nmosStates,
+            regStates,
+            relayStates,
+            ldrStates,
+            thermistorStates,
+            bulbStates,
+            ic555States,
+            opampStates,
+            pmosStates,
+            optocouplerStates,
+            pirStates,
+            tmp36States,
+            ledBarStates,
+            vibMotorStates,
+            servoStates,
+            l293dStates,
+            scopeStates,
             anyShort,
             anyReverse,
             faults,
@@ -1772,6 +3307,12 @@
         getResistorBands,
         formatOhms,
         formatCurrentMa,
+        formatFarads,
+        formatHenrys,
+        getCapacitorEIA,
+        computeLdrOhms,
+        computeThermistorOhms,
+        computeTmp36Volts,
         evaluateHybridBench
     };
 

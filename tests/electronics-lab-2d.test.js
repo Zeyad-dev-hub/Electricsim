@@ -676,6 +676,389 @@ check('1.18: Vertical 90° Resistor plugs directly between Power Rails (+/-) and
     assert.equal(ev.faults.length, 0, 'Zero faults in rail-to-strip resistor circuit');
 });
 
+// 19. Rectifier Diode (1N4007), Zener Diode (5.1V Reg) & Glass Cartridge Fuse (Trip + Replace)
+check('1.19: 1N4007 Diode conducts forward/blocks reverse, Zener regulates 5.1V, and Fuse trips on overcurrent & recovers', () => {
+    // 1N4007 forward vs reverse
+    const docD = Lab.blankICDoc();
+    const psu = Lab.createICComponent('psu', -200, 0, { id: 'p1', voltage: 5.0 });
+    const d1 = Lab.createICComponent('diode', 0, 0, { id: 'd1' });
+    const r1 = Lab.createICComponent('resistor', 180, 0, { id: 'r1', ohms: 430 });
+    docD.components.push(psu, d1, r1);
+    Lab.connectICWire(docD, 'p1:pos', 'd1:anode');
+    Lab.connectICWire(docD, 'd1:cathode', 'r1:a');
+    Lab.connectICWire(docD, 'r1:b', 'p1:neg');
+    let ev = Lab.evaluateICBench(docD);
+    assert.equal(ev.diodeStates.get('d1').conducting, true);
+    assert.ok(Math.abs(ev.resistorStates.get('r1').currentMa - 10.0) < 0.8, 'Forward diode (~0.7V drop) should pass ~10 mA through 430Ω');
+
+    // Flip diode reverse -> blocks strictly to 0 mA
+    docD.wires = [];
+    Lab.connectICWire(docD, 'p1:pos', 'd1:cathode');
+    Lab.connectICWire(docD, 'd1:anode', 'r1:a');
+    Lab.connectICWire(docD, 'r1:b', 'p1:neg');
+    ev = Lab.evaluateICBench(docD);
+    assert.equal(ev.diodeStates.get('d1').conducting, false);
+    assert.ok(ev.resistorStates.get('r1').currentMa < 0.05, 'Reverse diode must block current');
+
+    // Zener 5.1V Regulator + 7805 + Fuse preset
+    const docZ = Lab.BENCH_2D_PRESETS.zener_7805_power.build();
+    const evZ = Lab.evaluateICBench(docZ);
+    assert.equal(evZ.fuseStates.get('f1').blown, false, '250mA fuse should stay intact under normal ~30mA load');
+    assert.equal(evZ.zenerStates.get('dz1').mode, 'ZENER', 'Zener must enter reverse regulation mode');
+    assert.ok(Math.abs(evZ.meterStates.get('dmm1').numeric - 5.2) < 0.3, `DMM should measure ~5.2V across 5.1V Zener, got ${evZ.meterStates.get('dmm1').numeric}`);
+    assert.ok(Math.abs(evZ.regStates.get('reg1').vOut - 5.0) < 0.15, 'L7805CV must regulate 9V down to 5.0V');
+    assert.equal(evZ.lampStates.get('led1').lit, true, '5V regulated output should light green LED');
+
+    // Blow a 100mA fuse with 10Ω across 9V -> trips open to 0 mA!
+    const docF = Lab.blankICDoc();
+    const b9 = Lab.createICComponent('battery9v', -200, 0, { id: 'b9' });
+    const f1 = Lab.createICComponent('fuse', 0, 0, { id: 'f1', ratedMa: 100 });
+    const rLow = Lab.createICComponent('resistor', 180, 0, { id: 'r1', ohms: 10 });
+    docF.components.push(b9, f1, rLow);
+    Lab.connectICWire(docF, 'b9:pos', 'f1:a');
+    Lab.connectICWire(docF, 'f1:b', 'r1:a');
+    Lab.connectICWire(docF, 'r1:b', 'b9:neg');
+    const evF = Lab.evaluateICBench(docF);
+    assert.equal(f1.blown, true, '100mA fuse must blow on ~750mA surge');
+    assert.equal(evF.fuseStates.get('f1').blown, true);
+    assert.ok(evF.resistorStates.get('r1').currentMa < 0.01, 'Blown fuse must cut circuit current to 0 mA');
+});
+
+// 20. Backward-Euler RC Capacitor Charging/Discharging + Electrolytic Reverse Polarity Fault + RL Inductor Step
+check('1.20: Real Backward-Euler RC charging curve, Electrolytic reverse polarity fault, and RL inductor transient', () => {
+    // RC charging: 5V -> 10kΩ -> 100µF (tau = 1.0s)
+    const docRC = Lab.blankICDoc();
+    const psu = Lab.createICComponent('psu', -200, 0, { id: 'p1', voltage: 5.0 });
+    const r = Lab.createICComponent('resistor', 0, 0, { id: 'r1', ohms: 10000 });
+    const c = Lab.createICComponent('capacitor_elec', 144, 0, { id: 'c1', farads: 100e-6, ratedV: 16 });
+    docRC.components.push(psu, r, c);
+    Lab.connectICWire(docRC, 'p1:pos', 'r1:a');
+    Lab.connectICWire(docRC, 'r1:b', 'c1:pos');
+    Lab.connectICWire(docRC, 'c1:neg', 'p1:neg');
+
+    let ev;
+    for (let i = 0; i < 100; i++) ev = Lab.evaluateICBench(docRC, { dt: 0.01 }); // t = 1.0 s = 1 tau
+    const vTau = ev.capStates.get('c1').voltage;
+    assert.ok(vTau > 3.0 && vTau < 3.35, `At 1 tau (1.0s), Vc should be ~63.2% of 5V (~3.16V), got ${vTau.toFixed(3)}V`);
+    assert.equal(ev.capStates.get('c1').reversePol, false);
+
+    // Reverse electrolytic polarity -> triggers reverse polarity fault!
+    const docRev = Lab.blankICDoc();
+    const p2 = Lab.createICComponent('psu', -200, 0, { id: 'p2', voltage: 5.0 });
+    const cRev = Lab.createICComponent('capacitor_elec', 0, 0, { id: 'cRev', farads: 100e-6, ratedV: 16 });
+    docRev.components.push(p2, cRev);
+    Lab.connectICWire(docRev, 'p2:pos', 'cRev:neg');
+    Lab.connectICWire(docRev, 'cRev:pos', 'p2:neg');
+    let evRev;
+    for (let i = 0; i < 10; i++) evRev = Lab.evaluateICBench(docRev, { dt: 0.01 });
+    assert.equal(evRev.capStates.get('cRev').reversePol, true, 'Backwards electrolytic capacitor must trigger reverse polarity fault');
+
+    // RL Inductor step: 5V -> 10Ω -> 1.0 H (tau = 0.083s with 2Ω winding R)
+    const docRL = Lab.blankICDoc();
+    const pL = Lab.createICComponent('psu', -200, 0, { id: 'pL', voltage: 6.0 });
+    const rL = Lab.createICComponent('resistor', 0, 0, { id: 'rL', ohms: 10 });
+    const l1 = Lab.createICComponent('inductor', 180, 0, { id: 'l1', henrys: 1.0, rw: 2.0 });
+    docRL.components.push(pL, rL, l1);
+    Lab.connectICWire(docRL, 'pL:pos', 'rL:a');
+    Lab.connectICWire(docRL, 'rL:b', 'l1:a');
+    Lab.connectICWire(docRL, 'l1:b', 'pL:neg');
+    const evStep1 = Lab.evaluateICBench(docRL, { dt: 0.01 });
+    const iStart = evStep1.indStates.get('l1').currentMa;
+    assert.ok(iStart > 20 && iStart < 100, `Inductor must oppose instant current jump (got ${iStart.toFixed(1)} mA)`);
+    let evLate = evStep1;
+    for (let i = 0; i < 80; i++) evLate = Lab.evaluateICBench(docRL, { dt: 0.01 });
+    const iSteady = evLate.indStates.get('l1').currentMa;
+    assert.ok(iSteady > 460 && iSteady < 520, `Inductor steady-state current should approach 6V/12Ω = 500 mA (got ${iSteady.toFixed(1)} mA)`);
+});
+
+// 21. PNP 2N3906 High-Side Switch, LDR + N-MOSFET + 5V Relay + Incandescent Bulb Preset & NTC Thermistor
+check('1.21: PNP high-side switch, LDR+NMOS+Relay+Bulb dark/light switching, and NTC Thermistor Beta curve', () => {
+    // PNP 2N3906 high-side switch: Emitter to +5V, Base pulled to GND via 4.7k -> lights LED on Collector!
+    const docPnp = Lab.blankICDoc();
+    const psu = Lab.createICComponent('psu', -200, 0, { id: 'p1', voltage: 5.0 });
+    const q = Lab.createICComponent('pnp', 0, 0, { id: 'q1' });
+    const rB = Lab.createICComponent('resistor', 0, 108, { id: 'rB', ohms: 4700 });
+    const rL = Lab.createICComponent('resistor', 144, 0, { id: 'rL', ohms: 220 });
+    const led = Lab.createICComponent('lamp', 288, 0, { id: 'led1', color: 'emerald' });
+    docPnp.components.push(psu, q, rB, rL, led);
+    Lab.connectICWire(docPnp, 'p1:pos', 'q1:e');
+    Lab.connectICWire(docPnp, 'q1:b', 'rB:a');
+    Lab.connectICWire(docPnp, 'rB:b', 'p1:neg');
+    Lab.connectICWire(docPnp, 'q1:c', 'rL:a');
+    Lab.connectICWire(docPnp, 'rL:b', 'led1:anode');
+    Lab.connectICWire(docPnp, 'led1:cathode', 'p1:neg');
+    const evPnp = Lab.evaluateICBench(docPnp);
+    assert.equal(evPnp.pnpStates.get('q1').conducting, true, 'PNP must conduct when base is pulled low');
+    assert.equal(evPnp.lampStates.get('led1').lit, true, 'PNP collector load LED must illuminate');
+
+    // Auto Night-Light preset: Dark (15%) -> MOSFET ON -> Relay NO closed -> Bulb GLOWING; Bright (90%) -> OFF!
+    const docNight = Lab.BENCH_2D_PRESETS.ldr_mosfet_relay.build();
+    const ldr = docNight.components.find(c => c.id === 'ldr1');
+    let evN = Lab.evaluateICBench(docNight);
+    assert.equal(evN.nmosStates.get('m1').on, true, 'In dark (15% light), LDR divider must turn N-MOSFET ON');
+    assert.equal(evN.relayStates.get('k1').engaged, true, 'N-MOSFET must energize 5V Relay coil');
+    assert.equal(evN.bulbStates.get('lp1').lit, true, 'Energized Relay NO contact must light isolated 9V Incandescent Bulb!');
+
+    ldr.lightPct = 90; // Bright daylight!
+    evN = Lab.evaluateICBench(docNight);
+    assert.equal(evN.nmosStates.get('m1').on, false, 'In bright light (90%), N-MOSFET gate drops below Vth -> OFF');
+    assert.equal(evN.relayStates.get('k1').engaged, false, 'Relay must release back to NC');
+    assert.equal(evN.bulbStates.get('lp1').lit, false, 'Incandescent Bulb must turn OFF in daylight');
+
+    // NTC Thermistor Beta curve
+    const rCold = Solver.computeThermistorOhms(0);
+    const rRoom = Solver.computeThermistorOhms(25);
+    const rHot = Solver.computeThermistorOhms(80);
+    assert.ok(rCold > 28000 && Math.abs(rRoom - 10000) < 5 && rHot < 1500, 'NTC thermistor must follow negative temperature Beta curve');
+});
+
+// 22. NE555 Astable Oscillator Real Live Blinking + LM741 Op-Amp Voltage Follower & Comparator
+check('1.22: NE555 breadboard blinker oscillates HIGH <-> LOW automatically & LM741 works as Voltage Follower + Comparator', () => {
+    const doc555 = Lab.BENCH_2D_PRESETS.ne555_blinker.build();
+    const seenQ = new Set();
+    const seenLit = new Set();
+    let ev5;
+    for (let step = 0; step < 160; step++) {
+        ev5 = Lab.evaluateICBench(doc555, { dt: 0.015 });
+        const st5 = ev5.ic555States.get('u555');
+        assert.equal(st5.powered, true, 'NE555 must be cleanly powered through breadboard rails');
+        seenQ.add(st5.q);
+        seenLit.add(ev5.lampStates.get('led1').lit);
+    }
+    assert.ok(seenQ.has(1) && seenQ.has(0), `NE555 astable oscillator must toggle between HIGH (1) and LOW (0), saw: ${[...seenQ]}`);
+    assert.ok(seenLit.has(true) && seenLit.has(false), 'NE555 blinker LED must visibly blink ON and OFF');
+
+    // LM741 Voltage Follower: IN+ = 3.0V, OUT wired to IN-, V+ = 9V, V- = 0V -> OUT ≈ 3.00V!
+    const docOp = Lab.blankICDoc();
+    const p9 = Lab.createICComponent('psu', -250, 0, { id: 'p9', voltage: 9.0 });
+    const p3 = Lab.createICComponent('psu', -250, 200, { id: 'p3', voltage: 3.0 });
+    const u741 = Lab.createICComponent('opamp', 0, 0, { id: 'op1' });
+    docOp.components.push(p9, p3, u741);
+    Lab.connectICWire(docOp, 'p9:pos', 'op1:7');
+    Lab.connectICWire(docOp, 'p9:neg', 'op1:4');
+    Lab.connectICWire(docOp, 'p3:neg', 'p9:neg');
+    Lab.connectICWire(docOp, 'p3:pos', 'op1:3'); // IN+ = 3.0V
+    Lab.connectICWire(docOp, 'op1:6', 'op1:2');  // Unity feedback OUT -> IN-
+    const evOp = Lab.evaluateICBench(docOp);
+    const vOut = evOp.opampStates.get('op1').vOut;
+    assert.ok(Math.abs(vOut - 3.0) < 0.05, `LM741 unity voltage follower should track 3.00V cleanly, got ${vOut.toFixed(3)}V`);
+});
+
+// 23. All 15 New Components Snap 100% Pin-for-Pin on Breadboard & Pass Export/Validation + Palette Check
+check('1.23: All 15 new components snap 100% on breadboard, validate in ExportMod, and exist in pages/electronics.html', () => {
+    const newKinds = [
+        'diode', 'zener', 'fuse', 'capacitor', 'capacitor_elec', 'inductor',
+        'pnp', 'nmos', 'reg7805', 'relay', 'ldr', 'thermistor', 'bulb',
+        'ic555', 'opamp'
+    ];
+    const html = fs.readFileSync(path.join(__dirname, '..', 'pages', 'electronics.html'), 'utf8');
+    const doc = Lab.blankICDoc();
+    const bb = Lab.createICComponent('breadboard', 0, 0, { id: 'bb1', variant: 'half' });
+    doc.components.push(bb);
+
+    for (const kind of newKinds) {
+        assert.ok(ExportMod.VALID_KINDS.has(kind), `${kind} must be registered in ExportMod.VALID_KINDS`);
+        assert.ok(html.includes(`data-ic-tool="${kind}"`), `${kind} must have a palette button in pages/electronics.html`);
+        // Drop near center trough for trough-straddling parts, or top strip for others
+        const yInit = (kind === 'relay' || kind === 'ic555' || kind === 'opamp') ? 4 : -140;
+        const comp = Lab.createICComponent(kind, 18, yInit, { id: `test_${kind}` });
+        const snap = Lab.snapCompToBreadboard(doc, comp);
+        const pinCount = Lab.getComponentPins(comp).length;
+        assert.ok(snap && snap.matched === pinCount, `${kind} must snap 100% of its ${pinCount} pins into breadboard holes (matched ${snap?.matched || 0})`);
+    }
+
+    // Validate all 3 new presets pass ExportMod document validator cleanly
+    for (const presetKey of ['ne555_blinker', 'zener_7805_power', 'ldr_mosfet_relay']) {
+        const pDoc = Lab.BENCH_2D_PRESETS[presetKey].build();
+        const errs = ExportMod.validateElectronicsDoc(pDoc);
+        assert.deepEqual(errs, [], `Preset ${presetKey} must pass validateElectronicsDoc cleanly`);
+    }
+});
+
+// 24. Wave 2 Power & Diodes: CR2032 Coin Cell, LD33V +3.3V LDO, 1N5819 Schottky Diode
+check('1.24: CR2032 3V coin cell, LD33V +3.3V LDO, and 1N5819 Schottky (0.3V Vf)', () => {
+    // CR2032 drives an LED safely (internal 15 Ohm limits surge)
+    const dCoin = Lab.blankICDoc();
+    dCoin.components.push(
+        Lab.createICComponent('coin3v', -144, 0, { id: 'c3' }),
+        Lab.createICComponent('lamp', 144, 0, { id: 'led1', color: 'red' })
+    );
+    Lab.connectICWire(dCoin, 'c3:pos', 'led1:anode');
+    Lab.connectICWire(dCoin, 'led1:cathode', 'c3:neg');
+    const evC = Lab.evaluateICBench(dCoin);
+    assert.equal(evC.lampStates.get('led1').lit, true, 'CR2032 should light a red LED');
+    assert.equal(evC.lampStates.get('led1').overloaded, false, 'CR2032 15Ω internal resistance must prevent LED overcurrent');
+
+    // LD33V +3.3V LDO steps 9V down to 3.30V
+    const d33 = Lab.blankICDoc();
+    d33.components.push(
+        Lab.createICComponent('battery9v', -200, 0, { id: 'b9' }),
+        Lab.createICComponent('reg33', 0, 0, { id: 'u33' }),
+        Lab.createICComponent('resistor', 180, 0, { id: 'rL', ohms: 330 })
+    );
+    Lab.connectICWire(d33, 'b9:pos', 'u33:in');
+    Lab.connectICWire(d33, 'b9:neg', 'u33:gnd');
+    Lab.connectICWire(d33, 'u33:out', 'rL:a');
+    Lab.connectICWire(d33, 'rL:b', 'u33:gnd');
+    const ev33 = Lab.evaluateICBench(d33);
+    assert.ok(Math.abs(ev33.regStates.get('u33').vOut - 3.3) < 0.08, `LD33V must regulate 3.30V (got ${ev33.regStates.get('u33').vOut.toFixed(2)}V)`);
+
+    // 1N5819 Schottky has ~0.3V forward drop and blocks reverse
+    const dSch = Lab.blankICDoc();
+    dSch.components.push(
+        Lab.createICComponent('psu', -200, 0, { id: 'p1', voltage: 5.0 }),
+        Lab.createICComponent('schottky', 0, 0, { id: 'ds1' }),
+        Lab.createICComponent('resistor', 180, 0, { id: 'rS', ohms: 470 })
+    );
+    Lab.connectICWire(dSch, 'p1:pos', 'ds1:anode');
+    Lab.connectICWire(dSch, 'ds1:cathode', 'rS:a');
+    Lab.connectICWire(dSch, 'rS:b', 'p1:neg');
+    const evSch = Lab.evaluateICBench(dSch);
+    assert.equal(evSch.diodeStates.get('ds1').conducting, true, '1N5819 must conduct forward');
+    assert.ok(Math.abs(evSch.diodeStates.get('ds1').voltage - 0.31) < 0.06, `Schottky Vf must be ~0.30V (got ${evSch.diodeStates.get('ds1').voltage.toFixed(2)}V)`);
+});
+
+// 25. Wave 2 Semiconductors & Switches: P-MOSFET, PC817 Optocoupler, Passive DIP-4, Tilt Switch
+check('1.25: P-MOSFET high-side switch, PC817 isolated optocoupler, passive DIP-4, and SW-520D tilt switch', () => {
+    // P-MOSFET: Source at +5V, Gate pulled to 0V -> Vsg = 5V > 2V -> ON!
+    const dPm = Lab.blankICDoc();
+    dPm.components.push(
+        Lab.createICComponent('psu', -200, 0, { id: 'p1', voltage: 5.0 }),
+        Lab.createICComponent('pmos', 0, 0, { id: 'pm1' }),
+        Lab.createICComponent('resistor', 180, 0, { id: 'rL', ohms: 220 })
+    );
+    Lab.connectICWire(dPm, 'p1:pos', 'pm1:s');
+    Lab.connectICWire(dPm, 'p1:neg', 'pm1:g');
+    Lab.connectICWire(dPm, 'pm1:d', 'rL:a');
+    Lab.connectICWire(dPm, 'rL:b', 'p1:neg');
+    const evPm = Lab.evaluateICBench(dPm);
+    assert.equal(evPm.pmosStates.get('pm1').on, true, 'P-MOSFET must conduct when Gate is pulled 5V below Source');
+    assert.ok(evPm.resistorStates.get('rL').voltage > 4.6, 'P-MOSFET drain must deliver ~5V to load');
+
+    // PC817 Optocoupler: 5V input -> 330Ω -> IR LED turns ON isolated 9V output loop!
+    const dOp = Lab.blankICDoc();
+    dOp.components.push(
+        Lab.createICComponent('psu', -240, -100, { id: 'pIn', voltage: 5.0 }),
+        Lab.createICComponent('resistor', -100, -100, { id: 'rIn', ohms: 330 }),
+        Lab.createICComponent('optocoupler', 0, 0, { id: 'ok1' }),
+        Lab.createICComponent('battery9v', 240, 100, { id: 'bOut' }),
+        Lab.createICComponent('resistor', 100, 100, { id: 'rOut', ohms: 1000 })
+    );
+    Lab.connectICWire(dOp, 'pIn:pos', 'rIn:a');
+    Lab.connectICWire(dOp, 'rIn:b', 'ok1:anode');
+    Lab.connectICWire(dOp, 'ok1:cathode', 'pIn:neg');
+    Lab.connectICWire(dOp, 'bOut:pos', 'rOut:a');
+    Lab.connectICWire(dOp, 'rOut:b', 'ok1:col');
+    Lab.connectICWire(dOp, 'ok1:emit', 'bOut:neg');
+    const evOk = Lab.evaluateICBench(dOp);
+    assert.equal(evOk.optocouplerStates.get('ok1').ledOn, true, 'PC817 IR LED must light');
+    assert.equal(evOk.optocouplerStates.get('ok1').conducting, true, 'PC817 isolated phototransistor must conduct');
+    assert.ok(evOk.optocouplerStates.get('ok1').icMa > 5, 'Isolated output loop must carry collector current');
+
+    // Passive DIP-4 & Tilt Switch continuity
+    const dSw = Lab.blankICDoc();
+    const dip = Lab.createICComponent('dip4_bb', 0, 0, { id: 'dip1', bits: [1, 0, 0, 0] });
+    const tlt = Lab.createICComponent('tilt', 144, 0, { id: 't1', tilted: false });
+    const r = Lab.createICComponent('resistor', 288, 0, { id: 'r1', ohms: 1000 });
+    dSw.components.push(Lab.createICComponent('psu', -200, 0, { id: 'p1', voltage: 5.0 }), dip, tlt, r);
+    Lab.connectICWire(dSw, 'p1:pos', 'dip1:a0');
+    Lab.connectICWire(dSw, 'dip1:b0', 't1:a');
+    Lab.connectICWire(dSw, 't1:b', 'r1:a');
+    Lab.connectICWire(dSw, 'r1:b', 'p1:neg');
+    assert.ok(Lab.evaluateICBench(dSw).resistorStates.get('r1').voltage > 4.9, 'Closed DIP-4 + upright Tilt Switch must pass 5V');
+    tlt.tilted = true;
+    assert.ok(Lab.evaluateICBench(dSw).resistorStates.get('r1').voltage < 0.05, 'Tilted SW-520D must open the circuit');
+});
+
+// 26. Wave 2 Sensors & Actuators: PIR, TMP36, 8-LED Bar Graph, Vibration Motor
+check('1.26: PIR motion output (3.3V), TMP36 exact 10mV/°C, 8-LED Bar Graph, and Vibration Motor', () => {
+    // PIR Motion Sensor
+    const dPir = Lab.blankICDoc();
+    const pir = Lab.createICComponent('pir', 0, 0, { id: 'pir1', motion: false });
+    dPir.components.push(Lab.createICComponent('psu', -200, 0, { id: 'p1', voltage: 5.0 }), pir);
+    Lab.connectICWire(dPir, 'p1:pos', 'pir1:vcc');
+    Lab.connectICWire(dPir, 'p1:neg', 'pir1:gnd');
+    assert.ok(Lab.evaluateICBench(dPir).pirStates.get('pir1').vOut < 0.05, 'Idle PIR must output 0V');
+    pir.motion = true;
+    assert.ok(Math.abs(Lab.evaluateICBench(dPir).pirStates.get('pir1').vOut - 3.3) < 0.05, 'Triggered PIR must output 3.3V');
+
+    // TMP36 exact formula
+    assert.ok(Math.abs(Solver.computeTmp36Volts(25) - 0.75) < 1e-6);
+    assert.ok(Math.abs(Solver.computeTmp36Volts(100) - 1.50) < 1e-6);
+
+    // 8-LED Bar Graph + Vibration Motor
+    const dOut = Lab.blankICDoc();
+    dOut.components.push(
+        Lab.createICComponent('psu', -240, 0, { id: 'p1', voltage: 5.0 }),
+        Lab.createICComponent('resistor', -80, -72, { id: 'r1', ohms: 220 }),
+        Lab.createICComponent('led_bar', 80, 0, { id: 'bar1' }),
+        Lab.createICComponent('vib_motor', 260, 0, { id: 'v1' })
+    );
+    Lab.connectICWire(dOut, 'p1:pos', 'r1:a');
+    Lab.connectICWire(dOut, 'r1:b', 'bar1:a0');
+    Lab.connectICWire(dOut, 'bar1:k0', 'p1:neg');
+    Lab.connectICWire(dOut, 'p1:pos', 'v1:pos');
+    Lab.connectICWire(dOut, 'v1:neg', 'p1:neg');
+    const evOut = Lab.evaluateICBench(dOut);
+    assert.equal(evOut.ledBarStates.get('bar1').litCount, 1, 'LED Bar Graph segment 0 must light cleanly');
+    assert.equal(evOut.vibMotorStates.get('v1').vibrating, true, 'Coin Vibration Motor must vibrate at 5V');
+});
+
+// 27. Wave 2 Presets: L293D H-Bridge Motor Reverser & NE555 + Mini Scope + SG90 Servo + TMP36 Bench
+check('1.27: L293D H-Bridge preset reverses motor CW <-> CCW via DIP switch & NE555/Scope/Servo/TMP36 preset runs live', () => {
+    const d1 = Lab.BENCH_2D_PRESETS.l293d_hbridge_motor.build();
+    assert.deepEqual(ExportMod.validateElectronicsDoc(d1), [], 'l293d_hbridge_motor preset must pass schema validation');
+    const e1 = Lab.evaluateICBench(d1);
+    assert.equal(e1.faults.length, 0, 'l293d_hbridge_motor must run with 0 faults');
+    assert.equal(e1.l293dStates.get('u293').powered, true);
+    assert.equal(e1.motorStates.get('m1').direction, 'CW', 'Motor must spin CW when IN1=1, IN2=0');
+    d1.components.find(c => c.id === 'dip1').bits = [1, 0, 1, 0];
+    assert.equal(Lab.evaluateICBench(d1).motorStates.get('m1').direction, 'CCW', 'Motor must reverse CCW when IN1=0, IN2=1');
+
+    const d2 = Lab.BENCH_2D_PRESETS.ne555_scope_servo.build();
+    assert.deepEqual(ExportMod.validateElectronicsDoc(d2), [], 'ne555_scope_servo preset must pass schema validation');
+    const seen = new Set();
+    let e2;
+    for (let i = 0; i < 80; i++) {
+        e2 = Lab.evaluateICBench(d2, { dt: 0.02, recordWave: true });
+        seen.add(e2.ic555States.get('u555').q);
+    }
+    assert.equal(e2.faults.length, 0, 'ne555_scope_servo must run with 0 faults');
+    assert.ok(seen.has(0) && seen.has(1), 'NE555 in scope preset must oscillate HIGH <-> LOW');
+    assert.ok(e2.scopeStates.get('dso1').vpp > 2.5, 'Mini Oscilloscope must record >2.5 Vpp square wave');
+    assert.equal(e2.meterStates.get('dmm1').display, '0.75 V', 'Multimeter must read 0.75 V from TMP36 at 25°C');
+    assert.ok(e2.servoStates.get('srv1').powered && e2.servoStates.get('srv1').angleDeg > 60 && e2.servoStates.get('srv1').angleDeg < 100, 'SG90 Servo must track potentiometer angle');
+});
+
+// 28. All 14 Wave 2 Components Snap on Breadboard, Validate in ExportMod, and Have Reorganized Palette Categories
+check('1.28: All 14 Wave 2 components validate, snap on breadboard, and appear in categorized Tinkercad palette', () => {
+    const wave2All = [
+        'coin3v', 'reg33', 'schottky', 'pmos', 'optocoupler',
+        'dip4_bb', 'tilt', 'pir', 'tmp36', 'led_bar',
+        'vib_motor', 'servo', 'l293d', 'scope_mini'
+    ];
+    const pluggable = wave2All.filter(k => k !== 'coin3v' && k !== 'scope_mini');
+    const troughParts = new Set(['optocoupler', 'dip4_bb', 'led_bar', 'l293d']);
+    const html = fs.readFileSync(path.join(__dirname, '..', 'pages', 'electronics.html'), 'utf8');
+    assert.ok(html.includes('id="icCategoryBar"'), 'Category filter pill strip must exist in pages/electronics.html');
+    assert.ok(html.includes('<details class="palette-section"'), 'Collapsible Tinkercad-style category sections must exist');
+
+    const doc = Lab.blankICDoc();
+    doc.components.push(Lab.createICComponent('breadboard', 0, 0, { id: 'bb1', variant: 'half' }));
+
+    for (const kind of wave2All) {
+        assert.ok(ExportMod.VALID_KINDS.has(kind), `${kind} must be registered in ExportMod.VALID_KINDS`);
+        assert.ok(html.includes(`data-ic-tool="${kind}"`), `${kind} must have a palette card in pages/electronics.html`);
+    }
+    for (const kind of pluggable) {
+        const yInit = troughParts.has(kind) ? 4 : -140;
+        const comp = Lab.createICComponent(kind, 18, yInit, { id: `w2_${kind}` });
+        const snap = Lab.snapCompToBreadboard(doc, comp);
+        const pinCount = Lab.getComponentPins(comp).length;
+        assert.ok(snap && snap.matched === pinCount, `${kind} must snap 100% of its ${pinCount} pins into breadboard holes (matched ${snap?.matched || 0})`);
+    }
+});
+
 console.log('=================================================================');
 console.log(`   ALL ${passed} 2D ELECTRONICS LAB TESTS PASSED 100%!`);
 console.log('=================================================================');

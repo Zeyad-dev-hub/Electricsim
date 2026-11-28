@@ -1464,6 +1464,87 @@ button[aria-selected="true"] {
   box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.22);
 }
 
+/* Category Filter Pill Strip + Collapsible Tinkercad-Style Palette Groups */
+.ic-category-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 7px;
+}
+
+.ic-cat-pill {
+  padding: 3px 7px !important;
+  min-height: 22px !important;
+  font-size: 10.5px !important;
+  font-weight: 600 !important;
+  line-height: 1.2 !important;
+  border-radius: 999px !important;
+  border: 1px solid rgba(148, 163, 184, 0.22) !important;
+  background: rgba(15, 23, 42, 0.72) !important;
+  color: #94a3b8 !important;
+  cursor: pointer;
+  transition: background 0.14s ease, color 0.14s ease, border-color 0.14s ease;
+}
+
+.ic-cat-pill:hover {
+  color: #e2e8f0 !important;
+  border-color: rgba(148, 163, 184, 0.48) !important;
+}
+
+.ic-cat-pill.is-active {
+  background: rgba(56, 189, 248, 0.18) !important;
+  border-color: rgba(56, 189, 248, 0.65) !important;
+  color: #e0f2fe !important;
+}
+
+details.palette-section {
+  border-top: 1px solid rgba(148, 163, 184, 0.12);
+  padding-top: 6px;
+}
+
+details.palette-section > summary.palette-group-title {
+  list-style: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  cursor: pointer;
+  user-select: none;
+  padding: 2px 2px 4px;
+  margin-bottom: 4px;
+  transition: color 0.12s ease;
+}
+
+details.palette-section > summary.palette-group-title::-webkit-details-marker {
+  display: none;
+}
+
+details.palette-section > summary.palette-group-title::before {
+  content: '▸';
+  font-size: 10px;
+  color: #64748b;
+  transition: transform 0.15s ease, color 0.15s ease;
+}
+
+details.palette-section[open] > summary.palette-group-title::before {
+  transform: rotate(90deg);
+  color: #38bdf8;
+}
+
+details.palette-section > summary.palette-group-title > span:first-child {
+  flex: 1;
+}
+
+.palette-count {
+  font-size: 9.5px;
+  font-weight: 700;
+  font-family: "JetBrains Mono", monospace;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: rgba(148, 163, 184, 0.14);
+  color: #94a3b8;
+}
+
 .ic-tool-row-3 {
   grid-template-columns: repeat(3, 1fr) !important;
 }
@@ -1554,6 +1635,122 @@ button[aria-selected="true"] {
 .ic-part-card[data-ic-tool="seg7_10"] {
   background: linear-gradient(180deg, #4c2026, #2e1216) !important;
   border-color: rgba(232, 132, 144, 0.34) !important;
+}
+.ic-part-card[data-ic-tool="reg7805"] {
+  background: linear-gradient(180deg, #24383b, #142226) !important;
+  border-color: rgba(110, 231, 183, 0.32) !important;
+}
+.ic-part-card[data-ic-tool="capacitor"] {
+  background: linear-gradient(180deg, #5e3824, #3b2214) !important;
+  border-color: rgba(234, 179, 132, 0.34) !important;
+}
+.ic-part-card[data-ic-tool="capacitor_elec"] {
+  background: linear-gradient(180deg, #1d3557, #102038) !important;
+  border-color: rgba(147, 197, 253, 0.34) !important;
+}
+.ic-part-card[data-ic-tool="inductor"] {
+  background: linear-gradient(180deg, #573619, #36200d) !important;
+  border-color: rgba(245, 158, 11, 0.34) !important;
+}
+.ic-part-card[data-ic-tool="fuse"] {
+  background: linear-gradient(180deg, #3c4654, #232a34) !important;
+  border-color: rgba(203, 213, 225, 0.32) !important;
+}
+.ic-part-card[data-ic-tool="diode"] {
+  background: linear-gradient(180deg, #2c313c, #181c24) !important;
+  border-color: rgba(203, 213, 225, 0.30) !important;
+}
+.ic-part-card[data-ic-tool="zener"] {
+  background: linear-gradient(180deg, #632f18, #3d1b0c) !important;
+  border-color: rgba(251, 146, 60, 0.36) !important;
+}
+.ic-part-card[data-ic-tool="pnp"] {
+  background: linear-gradient(180deg, #243144, #141c29) !important;
+  border-color: rgba(125, 211, 252, 0.32) !important;
+}
+.ic-part-card[data-ic-tool="nmos"] {
+  background: linear-gradient(180deg, #2d3544, #191f2a) !important;
+  border-color: rgba(167, 139, 250, 0.32) !important;
+}
+.ic-part-card[data-ic-tool="relay"] {
+  background: linear-gradient(180deg, #12496d, #092c44) !important;
+  border-color: rgba(56, 189, 248, 0.38) !important;
+}
+.ic-part-card[data-ic-tool="ldr"] {
+  background: linear-gradient(180deg, #544524, #332914) !important;
+  border-color: rgba(250, 204, 21, 0.34) !important;
+}
+.ic-part-card[data-ic-tool="thermistor"] {
+  background: linear-gradient(180deg, #164946, #0c2c2b) !important;
+  border-color: rgba(45, 212, 191, 0.34) !important;
+}
+.ic-part-card[data-ic-tool="bulb"] {
+  background: linear-gradient(180deg, #5a441a, #38290d) !important;
+  border-color: rgba(253, 224, 71, 0.36) !important;
+}
+.ic-part-card[data-ic-tool="ic555"] {
+  background: linear-gradient(180deg, #213042, #121b27) !important;
+  border-color: rgba(56, 189, 248, 0.34) !important;
+}
+.ic-part-card[data-ic-tool="opamp"] {
+  background: linear-gradient(180deg, #2f2647, #1b152b) !important;
+  border-color: rgba(167, 139, 250, 0.34) !important;
+}
+.ic-part-card[data-ic-tool="coin3v"] {
+  background: linear-gradient(180deg, #4b5563, #2d343e) !important;
+  border-color: rgba(209, 213, 219, 0.34) !important;
+}
+.ic-part-card[data-ic-tool="reg33"] {
+  background: linear-gradient(180deg, #15454a, #0c2b2e) !important;
+  border-color: rgba(94, 234, 212, 0.36) !important;
+}
+.ic-part-card[data-ic-tool="schottky"] {
+  background: linear-gradient(180deg, #4e3f18, #2e250d) !important;
+  border-color: rgba(250, 204, 21, 0.38) !important;
+}
+.ic-part-card[data-ic-tool="pmos"] {
+  background: linear-gradient(180deg, #352754, #201734) !important;
+  border-color: rgba(196, 181, 253, 0.36) !important;
+}
+.ic-part-card[data-ic-tool="optocoupler"] {
+  background: linear-gradient(180deg, #243448, #141e2b) !important;
+  border-color: rgba(125, 211, 252, 0.34) !important;
+}
+.ic-part-card[data-ic-tool="dip4_bb"] {
+  background: linear-gradient(180deg, #752222, #4a1313) !important;
+  border-color: rgba(252, 165, 165, 0.38) !important;
+}
+.ic-part-card[data-ic-tool="tilt"] {
+  background: linear-gradient(180deg, #5e4a22, #382c12) !important;
+  border-color: rgba(245, 208, 128, 0.36) !important;
+}
+.ic-part-card[data-ic-tool="pir"] {
+  background: linear-gradient(180deg, #134e4a, #0a2e2c) !important;
+  border-color: rgba(94, 234, 212, 0.36) !important;
+}
+.ic-part-card[data-ic-tool="tmp36"] {
+  background: linear-gradient(180deg, #2d3748, #1a202c) !important;
+  border-color: rgba(148, 163, 184, 0.34) !important;
+}
+.ic-part-card[data-ic-tool="led_bar"] {
+  background: linear-gradient(180deg, #1b4332, #0f291e) !important;
+  border-color: rgba(110, 231, 183, 0.36) !important;
+}
+.ic-part-card[data-ic-tool="vib_motor"] {
+  background: linear-gradient(180deg, #434d5b, #272e38) !important;
+  border-color: rgba(186, 202, 224, 0.34) !important;
+}
+.ic-part-card[data-ic-tool="servo"] {
+  background: linear-gradient(180deg, #1e3a8a, #122456) !important;
+  border-color: rgba(147, 197, 253, 0.40) !important;
+}
+.ic-part-card[data-ic-tool="l293d"] {
+  background: linear-gradient(180deg, #232d3d, #131924) !important;
+  border-color: rgba(56, 189, 248, 0.36) !important;
+}
+.ic-part-card[data-ic-tool="scope_mini"] {
+  background: linear-gradient(180deg, #153448, #0c1f2c) !important;
+  border-color: rgba(56, 189, 248, 0.42) !important;
 }
 
 .ic-part-card:hover {

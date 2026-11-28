@@ -412,7 +412,12 @@
 
     const BREADBOARD_PLUGGABLE_KINDS = new Set([
         'lamp', 'rgb_led', 'resistor', 'pushbutton', 'spdt',
-        'potentiometer', 'buzzer', 'npn', 'ic', 'seg7_10'
+        'potentiometer', 'buzzer', 'npn', 'ic', 'seg7_10',
+        'diode', 'zener', 'fuse', 'capacitor', 'capacitor_elec', 'inductor',
+        'pnp', 'nmos', 'reg7805', 'relay', 'ldr', 'thermistor', 'bulb',
+        'ic555', 'opamp',
+        'reg33', 'schottky', 'pmos', 'optocoupler', 'dip4_bb', 'tilt',
+        'pir', 'tmp36', 'led_bar', 'vib_motor', 'servo', 'l293d'
     ]);
 
     // Physical body footprint (in component-local coordinates) that covers breadboard
@@ -424,15 +429,27 @@
             const hw = (spec?.pinCount === 16) ? 150 : 132;
             return { left: -hw, right: hw, top: -76, bottom: 76 };
         }
+        if (comp.kind === 'ic555' || comp.kind === 'opamp' || comp.kind === 'dip4_bb') return { left: -74, right: 74, top: -76, bottom: 76 };
+        if (comp.kind === 'led_bar' || comp.kind === 'l293d') return { left: -148, right: 148, top: -76, bottom: 76 };
+        if (comp.kind === 'optocoupler') return { left: -34, right: 34, top: -76, bottom: 76 };
+        if (comp.kind === 'relay') return { left: -60, right: 60, top: -76, bottom: 76 };
         if (comp.kind === 'seg7_10') return { left: -82, right: 82, top: -112, bottom: 112 };
         if (comp.kind === 'pushbutton') return { left: -40, right: 40, top: -40, bottom: 40 };
-        if (comp.kind === 'resistor') return { left: -74, right: 74, top: -15, bottom: 15 };
+        if (comp.kind === 'resistor' || comp.kind === 'diode' || comp.kind === 'zener' || comp.kind === 'schottky' || comp.kind === 'fuse') return { left: -74, right: 74, top: -15, bottom: 15 };
+        if (comp.kind === 'inductor') return { left: -74, right: 74, top: -18, bottom: 18 };
         if (comp.kind === 'lamp') return { left: -24, right: 24, top: -84, bottom: 6 };
+        if (comp.kind === 'capacitor' || comp.kind === 'thermistor' || comp.kind === 'tilt') return { left: -28, right: 28, top: -64, bottom: 6 };
+        if (comp.kind === 'capacitor_elec') return { left: -26, right: 26, top: -80, bottom: 6 };
+        if (comp.kind === 'ldr' || comp.kind === 'vib_motor') return { left: -40, right: 40, top: -90, bottom: 6 };
+        if (comp.kind === 'bulb') return { left: -38, right: 38, top: -86, bottom: 6 };
         if (comp.kind === 'rgb_led') return { left: -58, right: 58, top: -82, bottom: 40 };
         if (comp.kind === 'spdt') return { left: -56, right: 56, top: -52, bottom: 40 };
         if (comp.kind === 'potentiometer') return { left: -48, right: 48, top: -82, bottom: 40 };
         if (comp.kind === 'buzzer') return { left: -44, right: 44, top: -74, bottom: 40 };
-        if (comp.kind === 'npn') return { left: -42, right: 42, top: -56, bottom: 40 };
+        if (comp.kind === 'npn' || comp.kind === 'pnp' || comp.kind === 'tmp36') return { left: -42, right: 42, top: -60, bottom: 40 };
+        if (comp.kind === 'nmos' || comp.kind === 'pmos' || comp.kind === 'reg7805' || comp.kind === 'reg33') return { left: -44, right: 44, top: -86, bottom: 40 };
+        if (comp.kind === 'pir') return { left: -56, right: 56, top: -88, bottom: 40 };
+        if (comp.kind === 'servo') return { left: -82, right: 82, top: -96, bottom: 40 };
         const b = getComponentBounds(comp);
         const rot = ((comp.rotation || 0) % 360 + 360) % 360;
         const swapped = rot === 90 || rot === 270;
@@ -817,6 +834,201 @@
                 label: extra.label || '7-SEG'
             };
         }
+        if (kind === 'diode') {
+            return {
+                id: extra.id || uid('d'),
+                kind: 'diode',
+                position: pos,
+                rotation,
+                model: extra.model || '1N4007',
+                label: extra.label || '1N4007'
+            };
+        }
+        if (kind === 'zener') {
+            return {
+                id: extra.id || uid('dz'),
+                kind: 'zener',
+                position: pos,
+                rotation,
+                vz: Number(extra.vz) || 5.1,
+                label: extra.label || 'Zener'
+            };
+        }
+        if (kind === 'fuse') {
+            return {
+                id: extra.id || uid('f'),
+                kind: 'fuse',
+                position: pos,
+                rotation,
+                ratedMa: Number(extra.ratedMa) || 250,
+                blown: Boolean(extra.blown),
+                label: extra.label || 'Fuse'
+            };
+        }
+        if (kind === 'capacitor') {
+            return {
+                id: extra.id || uid('c'),
+                kind: 'capacitor',
+                position: pos,
+                rotation,
+                farads: Number(extra.farads) || 100e-9,
+                ratedV: Number(extra.ratedV) || 50,
+                label: extra.label || 'Cap'
+            };
+        }
+        if (kind === 'capacitor_elec') {
+            return {
+                id: extra.id || uid('ce'),
+                kind: 'capacitor_elec',
+                position: pos,
+                rotation,
+                farads: Number(extra.farads) || 100e-6,
+                ratedV: Number(extra.ratedV) || 16,
+                label: extra.label || 'C-Elec'
+            };
+        }
+        if (kind === 'inductor') {
+            return {
+                id: extra.id || uid('l'),
+                kind: 'inductor',
+                position: pos,
+                rotation,
+                henrys: Number(extra.henrys) || 0.1,
+                rw: Number(extra.rw) || 2.0,
+                label: extra.label || 'Inductor'
+            };
+        }
+        if (kind === 'pnp') {
+            return {
+                id: extra.id || uid('qp'),
+                kind: 'pnp',
+                position: pos,
+                rotation,
+                model: extra.model || '2N3906',
+                label: extra.label || '2N3906'
+            };
+        }
+        if (kind === 'nmos') {
+            return {
+                id: extra.id || uid('m'),
+                kind: 'nmos',
+                position: pos,
+                rotation,
+                model: extra.model || 'IRF540N',
+                vth: Number(extra.vth) || 2.0,
+                label: extra.label || 'IRF540N'
+            };
+        }
+        if (kind === 'reg7805') {
+            return {
+                id: extra.id || uid('reg'),
+                kind: 'reg7805',
+                position: pos,
+                rotation,
+                label: extra.label || '7805'
+            };
+        }
+        if (kind === 'relay') {
+            return {
+                id: extra.id || uid('k'),
+                kind: 'relay',
+                position: pos,
+                rotation,
+                label: extra.label || '5V Relay'
+            };
+        }
+        if (kind === 'ldr') {
+            return {
+                id: extra.id || uid('ldr'),
+                kind: 'ldr',
+                position: pos,
+                rotation,
+                lightPct: extra.lightPct !== undefined ? Number(extra.lightPct) : 50,
+                label: extra.label || 'LDR'
+            };
+        }
+        if (kind === 'thermistor') {
+            return {
+                id: extra.id || uid('ntc'),
+                kind: 'thermistor',
+                position: pos,
+                rotation,
+                tempC: extra.tempC !== undefined ? Number(extra.tempC) : 25,
+                r25: Number(extra.r25) || 10000,
+                beta: Number(extra.beta) || 3950,
+                label: extra.label || 'NTC 10k'
+            };
+        }
+        if (kind === 'bulb') {
+            return {
+                id: extra.id || uid('lp'),
+                kind: 'bulb',
+                position: pos,
+                rotation,
+                ohms: Number(extra.ohms) || 24,
+                label: extra.label || 'Bulb'
+            };
+        }
+        if (kind === 'ic555') {
+            return {
+                id: extra.id || uid('u555'),
+                kind: 'ic555',
+                position: pos,
+                rotation,
+                label: extra.label || 'NE555'
+            };
+        }
+        if (kind === 'opamp') {
+            return {
+                id: extra.id || uid('u741'),
+                kind: 'opamp',
+                position: pos,
+                rotation,
+                label: extra.label || 'LM741'
+            };
+        }
+        if (kind === 'coin3v') {
+            return { id: extra.id || uid('coin'), kind: 'coin3v', position: pos, rotation, label: extra.label || 'CR2032 3V' };
+        }
+        if (kind === 'reg33') {
+            return { id: extra.id || uid('u33'), kind: 'reg33', position: pos, rotation, label: extra.label || 'LD33V 3.3V' };
+        }
+        if (kind === 'schottky') {
+            return { id: extra.id || uid('ds'), kind: 'schottky', position: pos, rotation, label: extra.label || '1N5819' };
+        }
+        if (kind === 'pmos') {
+            return { id: extra.id || uid('pm'), kind: 'pmos', position: pos, rotation, vth: Number(extra.vth) || 2.0, model: extra.model || 'IRF9540N', label: extra.label || 'IRF9540N' };
+        }
+        if (kind === 'optocoupler') {
+            return { id: extra.id || uid('ok'), kind: 'optocoupler', position: pos, rotation, label: extra.label || 'PC817' };
+        }
+        if (kind === 'dip4_bb') {
+            return { id: extra.id || uid('dipbb'), kind: 'dip4_bb', position: pos, rotation, bits: Array.isArray(extra.bits) ? extra.bits.slice(0, 4) : [0, 0, 0, 0], label: extra.label || 'DIP-4 SW' };
+        }
+        if (kind === 'tilt') {
+            return { id: extra.id || uid('tilt'), kind: 'tilt', position: pos, rotation, tilted: Boolean(extra.tilted), label: extra.label || 'SW-520D' };
+        }
+        if (kind === 'pir') {
+            return { id: extra.id || uid('pir'), kind: 'pir', position: pos, rotation, motion: Boolean(extra.motion), label: extra.label || 'HC-SR501' };
+        }
+        if (kind === 'tmp36') {
+            return { id: extra.id || uid('tmp'), kind: 'tmp36', position: pos, rotation, tempC: extra.tempC !== undefined ? Number(extra.tempC) : 25, label: extra.label || 'TMP36' };
+        }
+        if (kind === 'led_bar') {
+            return { id: extra.id || uid('bar'), kind: 'led_bar', position: pos, rotation, label: extra.label || '8-LED Bar' };
+        }
+        if (kind === 'vib_motor') {
+            return { id: extra.id || uid('vib'), kind: 'vib_motor', position: pos, rotation, label: extra.label || 'ERM 3V' };
+        }
+        if (kind === 'servo') {
+            return { id: extra.id || uid('srv'), kind: 'servo', position: pos, rotation, angleDeg: extra.angleDeg !== undefined ? Number(extra.angleDeg) : 90, label: extra.label || 'SG90' };
+        }
+        if (kind === 'l293d') {
+            return { id: extra.id || uid('l293'), kind: 'l293d', position: pos, rotation, label: extra.label || 'L293D' };
+        }
+        if (kind === 'scope_mini') {
+            return { id: extra.id || uid('dso'), kind: 'scope_mini', position: pos, rotation, vDiv: Number(extra.vDiv) || 2.0, label: extra.label || 'DSO-Mini' };
+        }
         throw new Error(`Unknown IC Lab component kind: ${kind}`);
     }
 
@@ -1026,6 +1238,227 @@
                 buildPin(comp, 'dp',    72,  108, 0,  1, 'in',  'Pin 5 · Decimal Point (dp)')
             ];
         }
+        if (comp.kind === 'diode') {
+            return [
+                buildPin(comp, 'anode', -72, 0, -1, 0, 'io', 'Diode Anode (+)'),
+                buildPin(comp, 'cathode', 72, 0, 1, 0, 'io', 'Diode Cathode (− Silver Band)')
+            ];
+        }
+        if (comp.kind === 'zener') {
+            const vz = (Number(comp.vz) || 5.1).toFixed(1);
+            return [
+                buildPin(comp, 'anode', -72, 0, -1, 0, 'io', `Zener ${vz}V Anode`),
+                buildPin(comp, 'cathode', 72, 0, 1, 0, 'io', `Zener ${vz}V Cathode (Black Band)`)
+            ];
+        }
+        if (comp.kind === 'fuse') {
+            return [
+                buildPin(comp, 'a', -72, 0, -1, 0, 'io', 'Fuse Terminal A'),
+                buildPin(comp, 'b', 72, 0, 1, 0, 'io', 'Fuse Terminal B')
+            ];
+        }
+        if (comp.kind === 'capacitor') {
+            return [
+                buildPin(comp, 'a', -18, 0, 0, 1, 'io', 'Ceramic Capacitor Lead A'),
+                buildPin(comp, 'b', 18, 0, 0, 1, 'io', 'Ceramic Capacitor Lead B')
+            ];
+        }
+        if (comp.kind === 'capacitor_elec') {
+            return [
+                buildPin(comp, 'pos', -18, 0, 0, 1, 'in', 'Electrolytic Capacitor + (Anode)'),
+                buildPin(comp, 'neg', 18, 0, 0, 1, 'gnd', 'Electrolytic Capacitor − (Stripe)')
+            ];
+        }
+        if (comp.kind === 'inductor') {
+            return [
+                buildPin(comp, 'a', -72, 0, -1, 0, 'io', 'Inductor Coil Lead A'),
+                buildPin(comp, 'b', 72, 0, 1, 0, 'io', 'Inductor Coil Lead B')
+            ];
+        }
+        if (comp.kind === 'pnp') {
+            return [
+                buildPin(comp, 'e', -36, 36, 0, 1, 'io', 'PNP 2N3906 Emitter (E)'),
+                buildPin(comp, 'b', 0, 36, 0, 1, 'in', 'PNP 2N3906 Base (B)'),
+                buildPin(comp, 'c', 36, 36, 0, 1, 'io', 'PNP 2N3906 Collector (C)')
+            ];
+        }
+        if (comp.kind === 'nmos') {
+            return [
+                buildPin(comp, 'g', -36, 36, 0, 1, 'in', 'N-MOSFET Gate (G)'),
+                buildPin(comp, 'd', 0, 36, 0, 1, 'io', 'N-MOSFET Drain (D)'),
+                buildPin(comp, 's', 36, 36, 0, 1, 'gnd', 'N-MOSFET Source (S)')
+            ];
+        }
+        if (comp.kind === 'reg7805') {
+            return [
+                buildPin(comp, 'in', -36, 36, 0, 1, 'in', '7805 Input (+7V to +12V)'),
+                buildPin(comp, 'gnd', 0, 36, 0, 1, 'gnd', '7805 Ground (0V)'),
+                buildPin(comp, 'out', 36, 36, 0, 1, 'vcc', '7805 Regulated Output (+5.0V)')
+            ];
+        }
+        if (comp.kind === 'relay') {
+            return [
+                buildPin(comp, 'coil1', -36, -72, 0, -1, 'in', '5V Relay Coil + (Pin 1)'),
+                buildPin(comp, 'coil2', 36, -72, 0, -1, 'gnd', '5V Relay Coil − (Pin 2)'),
+                buildPin(comp, 'nc', -36, 72, 0, 1, 'io', 'Relay Normally Closed (NC)'),
+                buildPin(comp, 'com', 0, 72, 0, 1, 'io', 'Relay Common Armature (COM)'),
+                buildPin(comp, 'no', 36, 72, 0, 1, 'io', 'Relay Normally Open (NO)')
+            ];
+        }
+        if (comp.kind === 'ldr') {
+            return [
+                buildPin(comp, 'a', -36, 0, 0, 1, 'io', 'Photoresistor (LDR) Lead A'),
+                buildPin(comp, 'b', 36, 0, 0, 1, 'io', 'Photoresistor (LDR) Lead B')
+            ];
+        }
+        if (comp.kind === 'thermistor') {
+            return [
+                buildPin(comp, 'a', -18, 0, 0, 1, 'io', 'NTC Thermistor Lead A'),
+                buildPin(comp, 'b', 18, 0, 0, 1, 'io', 'NTC Thermistor Lead B')
+            ];
+        }
+        if (comp.kind === 'bulb') {
+            return [
+                buildPin(comp, 'a', -36, 0, 0, 1, 'io', 'Incandescent Bulb Terminal A'),
+                buildPin(comp, 'b', 36, 0, 0, 1, 'io', 'Incandescent Bulb Terminal B')
+            ];
+        }
+        if (comp.kind === 'ic555') {
+            return [
+                buildPin(comp, '1', -54,  72, 0,  1, 'gnd', 'Pin 1 · GND (0V)'),
+                buildPin(comp, '2', -18,  72, 0,  1, 'in',  'Pin 2 · TRIG (< 1/3 VCC sets OUT)'),
+                buildPin(comp, '3',  18,  72, 0,  1, 'out', 'Pin 3 · OUT (Timer Output)'),
+                buildPin(comp, '4',  54,  72, 0,  1, 'in',  'Pin 4 · RESET (Active-Low)'),
+                buildPin(comp, '5',  54, -72, 0, -1, 'io',  'Pin 5 · CTRL (2/3 VCC Control)'),
+                buildPin(comp, '6',  18, -72, 0, -1, 'in',  'Pin 6 · THRES (> 2/3 VCC resets OUT)'),
+                buildPin(comp, '7', -18, -72, 0, -1, 'io',  'Pin 7 · DISCH (Open-Collector Discharge)'),
+                buildPin(comp, '8', -54, -72, 0, -1, 'vcc', 'Pin 8 · VCC (+4.5V to +15V)')
+            ];
+        }
+        if (comp.kind === 'opamp') {
+            return [
+                buildPin(comp, '1', -54,  72, 0,  1, 'io',  'Pin 1 · Offset Null 1'),
+                buildPin(comp, '2', -18,  72, 0,  1, 'in',  'Pin 2 · Inverting Input (IN−)'),
+                buildPin(comp, '3',  18,  72, 0,  1, 'in',  'Pin 3 · Non-Inverting Input (IN+)'),
+                buildPin(comp, '4',  54,  72, 0,  1, 'gnd', 'Pin 4 · V− (Negative Supply / GND)'),
+                buildPin(comp, '5',  54, -72, 0, -1, 'io',  'Pin 5 · Offset Null 2'),
+                buildPin(comp, '6',  18, -72, 0, -1, 'out', 'Pin 6 · Analog Output (OUT)'),
+                buildPin(comp, '7', -18, -72, 0, -1, 'vcc', 'Pin 7 · V+ (Positive Supply)'),
+                buildPin(comp, '8', -54, -72, 0, -1, 'io',  'Pin 8 · NC (No Connect)')
+            ];
+        }
+        if (comp.kind === 'coin3v') {
+            return [
+                buildPin(comp, 'neg', -72, 0, -1, 0, 'gnd', 'CR2032 Negative (− 0V)'),
+                buildPin(comp, 'pos',  72, 0,  1, 0, 'vcc', 'CR2032 Positive (+3.0V)')
+            ];
+        }
+        if (comp.kind === 'reg33') {
+            return [
+                buildPin(comp, 'in',  -36, 36, 0, 1, 'in',  'LD33V Input (+4.4V to +15V)'),
+                buildPin(comp, 'gnd',   0, 36, 0, 1, 'gnd', 'LD33V Ground (0V)'),
+                buildPin(comp, 'out',  36, 36, 0, 1, 'vcc', 'LD33V Regulated Output (+3.3V)')
+            ];
+        }
+        if (comp.kind === 'schottky') {
+            return [
+                buildPin(comp, 'anode',   -72, 0, -1, 0, 'io', '1N5819 Schottky Anode (+)'),
+                buildPin(comp, 'cathode',  72, 0,  1, 0, 'io', '1N5819 Schottky Cathode (− Gold Band)')
+            ];
+        }
+        if (comp.kind === 'pmos') {
+            return [
+                buildPin(comp, 'g', -36, 36, 0, 1, 'in', 'IRF9540N P-MOSFET Gate (G)'),
+                buildPin(comp, 'd',   0, 36, 0, 1, 'io', 'IRF9540N P-MOSFET Drain (D)'),
+                buildPin(comp, 's',  36, 36, 0, 1, 'io', 'IRF9540N P-MOSFET Source (S)')
+            ];
+        }
+        if (comp.kind === 'optocoupler') {
+            return [
+                buildPin(comp, 'anode',   -18, -72, 0, -1, 'in',  'Pin 1 · IR LED Anode (+)'),
+                buildPin(comp, 'cathode',  18, -72, 0, -1, 'gnd', 'Pin 2 · IR LED Cathode (−)'),
+                buildPin(comp, 'col',     -18,  72, 0,  1, 'io',  'Pin 4 · Isolated Collector (C)'),
+                buildPin(comp, 'emit',     18,  72, 0,  1, 'io',  'Pin 3 · Isolated Emitter (E)')
+            ];
+        }
+        if (comp.kind === 'dip4_bb') {
+            const xs = [-54, -18, 18, 54];
+            const out = [];
+            for (let i = 0; i < 4; i++) {
+                out.push(buildPin(comp, `a${i}`, xs[i], -72, 0, -1, 'io', `DIP Switch ${i + 1} Top (A${i})`));
+                out.push(buildPin(comp, `b${i}`, xs[i],  72, 0,  1, 'io', `DIP Switch ${i + 1} Bottom (B${i})`));
+            }
+            return out;
+        }
+        if (comp.kind === 'tilt') {
+            return [
+                buildPin(comp, 'a', -18, 0, 0, 1, 'io', 'Tilt Switch Terminal A'),
+                buildPin(comp, 'b',  18, 0, 0, 1, 'io', 'Tilt Switch Terminal B')
+            ];
+        }
+        if (comp.kind === 'pir') {
+            return [
+                buildPin(comp, 'vcc', -36, 36, 0, 1, 'vcc', 'PIR Power VCC (+5V to +12V)'),
+                buildPin(comp, 'out',   0, 36, 0, 1, 'out', 'PIR Motion Output (3.3V HIGH / 0V LOW)'),
+                buildPin(comp, 'gnd',  36, 36, 0, 1, 'gnd', 'PIR Ground (0V)')
+            ];
+        }
+        if (comp.kind === 'tmp36') {
+            return [
+                buildPin(comp, 'vcc',  -36, 36, 0, 1, 'vcc', 'TMP36 Supply +Vs (2.7V–5.5V)'),
+                buildPin(comp, 'vout',   0, 36, 0, 1, 'out', 'TMP36 Analog Vout (0.5V + 10mV/°C)'),
+                buildPin(comp, 'gnd',   36, 36, 0, 1, 'gnd', 'TMP36 Ground (0V)')
+            ];
+        }
+        if (comp.kind === 'led_bar') {
+            const xs = [-126, -90, -54, -18, 18, 54, 90, 126];
+            const out = [];
+            for (let i = 0; i < 8; i++) {
+                out.push(buildPin(comp, `a${i}`, xs[i], -72, 0, -1, 'in',  `LED Bar #${i + 1} Anode (+)`));
+                out.push(buildPin(comp, `k${i}`, xs[i],  72, 0,  1, 'gnd', `LED Bar #${i + 1} Cathode (−)`));
+            }
+            return out;
+        }
+        if (comp.kind === 'vib_motor') {
+            return [
+                buildPin(comp, 'neg', -36, 0, 0, 1, 'gnd', 'Vibration Motor Negative (−)'),
+                buildPin(comp, 'pos',  36, 0, 0, 1, 'in',  'Vibration Motor Positive (+ 3V–5V)')
+            ];
+        }
+        if (comp.kind === 'servo') {
+            return [
+                buildPin(comp, 'gnd', -36, 36, 0, 1, 'gnd', 'SG90 Servo Ground (Brown 0V)'),
+                buildPin(comp, 'vcc',   0, 36, 0, 1, 'vcc', 'SG90 Servo Power (Red +5V)'),
+                buildPin(comp, 'sig',  36, 36, 0, 1, 'in',  'SG90 Servo Control Signal (Orange 0–5V → 0°–180°)')
+            ];
+        }
+        if (comp.kind === 'l293d') {
+            const xs = [-126, -90, -54, -18, 18, 54, 90, 126];
+            return [
+                buildPin(comp, '1',  xs[0],  72, 0,  1, 'in',  'Pin 1 · EN1,2 (Enable Channel 1–2)'),
+                buildPin(comp, '2',  xs[1],  72, 0,  1, 'in',  'Pin 2 · IN1 (Driver 1 Input)'),
+                buildPin(comp, '3',  xs[2],  72, 0,  1, 'out', 'Pin 3 · OUT1 (Motor Terminal A)'),
+                buildPin(comp, '4',  xs[3],  72, 0,  1, 'gnd', 'Pin 4 · GND (Common Ground)'),
+                buildPin(comp, '5',  xs[4],  72, 0,  1, 'gnd', 'Pin 5 · GND (Common Ground)'),
+                buildPin(comp, '6',  xs[5],  72, 0,  1, 'out', 'Pin 6 · OUT2 (Motor Terminal B)'),
+                buildPin(comp, '7',  xs[6],  72, 0,  1, 'in',  'Pin 7 · IN2 (Driver 2 Input)'),
+                buildPin(comp, '8',  xs[7],  72, 0,  1, 'vcc', 'Pin 8 · VCC2 (Motor Supply 4.5–36V)'),
+                buildPin(comp, '9',  xs[7], -72, 0, -1, 'in',  'Pin 9 · EN3,4 (Enable Channel 3–4)'),
+                buildPin(comp, '10', xs[6], -72, 0, -1, 'in',  'Pin 10 · IN3 (Driver 3 Input)'),
+                buildPin(comp, '11', xs[5], -72, 0, -1, 'out', 'Pin 11 · OUT3 (Motor 2 Terminal A)'),
+                buildPin(comp, '12', xs[4], -72, 0, -1, 'gnd', 'Pin 12 · GND (Common Ground)'),
+                buildPin(comp, '13', xs[3], -72, 0, -1, 'gnd', 'Pin 13 · GND (Common Ground)'),
+                buildPin(comp, '14', xs[2], -72, 0, -1, 'out', 'Pin 14 · OUT4 (Motor 2 Terminal B)'),
+                buildPin(comp, '15', xs[1], -72, 0, -1, 'in',  'Pin 15 · IN4 (Driver 4 Input)'),
+                buildPin(comp, '16', xs[0], -72, 0, -1, 'vcc', 'Pin 16 · VCC1 (Logic Supply +5V)')
+            ];
+        }
+        if (comp.kind === 'scope_mini') {
+            return [
+                buildPin(comp, 'neg', -72, 144, 0, 1, 'gnd', 'Oscilloscope Ground Reference (GND)'),
+                buildPin(comp, 'pos',  72, 144, 0, 1, 'in',  'Oscilloscope Channel 1 Probe (CH1+)')
+            ];
+        }
         return [];
     }
 
@@ -1063,9 +1496,54 @@
         } else if (comp.kind === 'psu') {
             w = 900;
             h = 668;
-        } else if (comp.kind === 'resistor') {
+        } else if (comp.kind === 'resistor' || comp.kind === 'diode' || comp.kind === 'zener' || comp.kind === 'schottky' || comp.kind === 'fuse' || comp.kind === 'inductor') {
             w = 148;
-            h = 40;
+            h = 44;
+        } else if (comp.kind === 'coin3v') {
+            w = 152;
+            h = 104;
+        } else if (comp.kind === 'capacitor' || comp.kind === 'thermistor' || comp.kind === 'tilt') {
+            w = 64;
+            h = 78;
+        } else if (comp.kind === 'capacitor_elec') {
+            w = 64;
+            h = 92;
+        } else if (comp.kind === 'ldr') {
+            w = 84;
+            h = 78;
+        } else if (comp.kind === 'vib_motor') {
+            w = 104;
+            h = 108;
+        } else if (comp.kind === 'bulb') {
+            w = 84;
+            h = 98;
+        } else if (comp.kind === 'pnp' || comp.kind === 'tmp36') {
+            w = 88;
+            h = 104;
+        } else if (comp.kind === 'nmos' || comp.kind === 'pmos' || comp.kind === 'reg7805' || comp.kind === 'reg33') {
+            w = 96;
+            h = 132;
+        } else if (comp.kind === 'pir') {
+            w = 120;
+            h = 136;
+        } else if (comp.kind === 'servo') {
+            w = 172;
+            h = 176;
+        } else if (comp.kind === 'relay') {
+            w = 128;
+            h = 154;
+        } else if (comp.kind === 'optocoupler') {
+            w = 80;
+            h = 152;
+        } else if (comp.kind === 'ic555' || comp.kind === 'opamp' || comp.kind === 'dip4_bb') {
+            w = 156;
+            h = 152;
+        } else if (comp.kind === 'led_bar' || comp.kind === 'l293d') {
+            w = 304;
+            h = 152;
+        } else if (comp.kind === 'scope_mini') {
+            w = 356;
+            h = 276;
         } else if (comp.kind === 'motor') {
             w = 244;
             h = 152;
@@ -1377,7 +1855,7 @@
         return { outPins, summary };
     }
 
-    function evaluateICBench(doc) {
+    function evaluateICBench(doc, simOpts = {}) {
         const solverMod = getSolverMod();
         if (solverMod && typeof solverMod.evaluateHybridBench === 'function') {
             const res = solverMod.evaluateHybridBench(doc, {
@@ -1386,7 +1864,7 @@
                 allICPins,
                 getComponentPins,
                 evalMsiIC
-            });
+            }, simOpts);
             // Compute per-segment illumination for realistic 10-pin 7-segment displays (seg7_10)
             // directly from the untouched solver's pinVoltages & pinToNet maps!
             const seg7TenStates = new Map();
@@ -2889,6 +3367,249 @@
 
                 return doc;
             }
+        },
+        ne555_blinker: {
+            title: 'NE555 Astable LED Blinker — Breadboard + 100µF Electrolytic Cap',
+            description: 'Classic NE555P 8-pin DIP astable multivibrator straddling the breadboard center trough. A 100µF electrolytic capacitor charges through 1kΩ+4.7kΩ and discharges through Pin 7, blinking the 5mm LED live at ~1.4 Hz!',
+            build() {
+                const doc = blankICDoc();
+                const bb = createICComponent('breadboard', 0, 0, { id: 'bb1' });
+                const psu = createICComponent('psu', -1116, 0, { id: 'psu1', voltage: 5.0, enabled: true, label: '5V Bench PSU' });
+                // NE555 centered at x=18, y=0 -> pins snap to cols 15..18 on Row e (-72) & Row f (+72)!
+                const u555 = createICComponent('ic555', 18, 0, { id: 'u555' });
+                const r1 = createICComponent('resistor', -72, -180, { id: 'r1', ohms: 1000, label: '1kΩ' });
+                const r2 = createICComponent('resistor', 72, -144, { id: 'r2', ohms: 4700, label: '4.7kΩ' });
+                const c1 = createICComponent('capacitor_elec', 162, -108, { id: 'c1', farads: 100e-6, ratedV: 16, label: '100µF' });
+                const rLed = createICComponent('resistor', 216, 144, { id: 'rLed', ohms: 220, label: '220Ω' });
+                const led = createICComponent('lamp', 306, 180, { id: 'led1', color: 'emerald', label: 'BLINK' });
+
+                doc.components.push(bb, psu, u555, r1, r2, c1, rLed, led);
+
+                // Cleanly route PSU leads below PSU & outside left edge of breadboard (zero overlap!)
+                connectICWire(doc, 'psu1:pos', 'bb1:tp1', [{ x: -936, y: 396 }, { x: -630, y: 396 }, { x: -630, y: -324 }], { color: 'red', label: '+5V' });
+                connectICWire(doc, 'psu1:neg', 'bb1:bn1', [{ x: -1296, y: 432 }, { x: -504, y: 432 }], { color: 'black', label: 'GND' });
+                connectICWire(doc, 'bb1:tn1', 'bb1:bn1', [{ x: -612, y: -288 }, { x: -612, y: 324 }], { color: 'black' });
+                connectICWire(doc, 'bb1:tp1', 'bb1:bp1', [{ x: -630, y: -324 }, { x: -630, y: 288 }], { color: 'red' });
+
+                // Power NE555: Pin 8 (e15) -> +5V, Pin 4 (f18) -> +5V, Pin 1 (f15) -> GND
+                connectICWire(doc, 'bb1:tp11', 'bb1:a15', [], { color: 'red' });
+                connectICWire(doc, 'bb1:bp13', 'bb1:j18', [], { color: 'red' });
+                connectICWire(doc, 'bb1:bn11', 'bb1:j15', [], { color: 'black' });
+
+                // Timing network:
+                // r1 spans Col 12 -> Col 16 (DISCH Pin 7), r2 spans Col 16 -> Col 20, c1 spans Col 20 (+) -> Col 21 (−)
+                connectICWire(doc, 'bb1:tp8', 'bb1:a12', [], { color: 'red' });
+                connectICWire(doc, 'bb1:b20', 'bb1:b17', [], { color: 'yellow', label: 'RC' });
+                connectICWire(doc, 'bb1:c17', 'bb1:g16', [], { color: 'yellow' });
+                connectICWire(doc, 'bb1:a21', 'bb1:tn18', [], { color: 'black' });
+
+                // Output Pin 3 (f17) -> rLed (Col 20 -> Col 24) -> LED (Col 24 -> Col 25) -> GND
+                connectICWire(doc, 'bb1:h17', 'bb1:h20', [], { color: 'green', label: 'OUT' });
+                connectICWire(doc, 'bb1:j25', 'bb1:bn21', [], { color: 'black' });
+
+                return doc;
+            }
+        },
+        zener_7805_power: {
+            title: '9V → 5V Regulated Supply (Fuse + L7805 + 5.1V Zener + Multimeter)',
+            description: 'A 9V Battery protected by a 250 mA Glass Fuse feeds both an L7805CV +5.0V Linear Regulator (safely powering a green LED) and a 5.1V Zener Diode voltage reference measured live by the Fluke Multimeter!',
+            build() {
+                const doc = blankICDoc();
+                const bat9 = createICComponent('battery9v', -468, 36, { id: 'bat9', label: '9V Supply' });
+                const fuse = createICComponent('fuse', -216, -144, { id: 'f1', ratedMa: 250, label: '250mA' });
+                const reg = createICComponent('reg7805', 36, -108, { id: 'reg1', label: 'L7805CV' });
+                const rLed = createICComponent('resistor', 234, -108, { id: 'rLed', ohms: 220, label: '220Ω' });
+                const led = createICComponent('lamp', 396, -108, { id: 'led1', color: 'emerald', label: '5V OK' });
+                const rZ = createICComponent('resistor', -36, 108, { id: 'rZ', ohms: 220, label: '220Ω' });
+                const dz = createICComponent('zener', 198, 108, { id: 'dz1', vz: 5.1, rotation: 180, label: '5.1V' });
+                const dmm = createICComponent('multimeter', 648, -36, { id: 'dmm1', mode: 'V', label: 'DMM' });
+
+                doc.components.push(bat9, fuse, reg, rLed, led, rZ, dz, dmm);
+
+                // Clean perimeter wiring (zero wires crossing component bodies!)
+                connectICWire(doc, 'bat9:pos', 'f1:a', [{ x: -432, y: -144 }], { color: 'red', label: '+9V' });
+                connectICWire(doc, 'f1:b', 'reg1:in', [{ x: -108, y: -144 }, { x: -108, y: -36 }, { x: 0, y: -36 }], { color: 'red' });
+                connectICWire(doc, 'f1:b', 'rZ:a', [{ x: -144, y: -144 }, { x: -144, y: 108 }], { color: 'orange' });
+                connectICWire(doc, 'reg1:out', 'rLed:a', [{ x: 72, y: -36 }, { x: 126, y: -36 }, { x: 126, y: -108 }], { color: 'green', label: '+5.0V' });
+                connectICWire(doc, 'rLed:b', 'led1:anode', [], { color: 'green' });
+
+                // Common GND bus cleanly routed along perimeter
+                connectICWire(doc, 'reg1:gnd', 'bat9:neg', [{ x: 36, y: 18 }, { x: -306, y: 18 }, { x: -306, y: -234 }, { x: -504, y: -234 }], { color: 'black' });
+                connectICWire(doc, 'led1:cathode', 'bat9:neg', [{ x: 450, y: -108 }, { x: 450, y: -234 }, { x: -504, y: -234 }], { color: 'black' });
+
+                // Zener reverse-biased (rotated 180° -> cathode on left, anode on right)
+                connectICWire(doc, 'rZ:b', 'dz1:cathode', [], { color: 'yellow', label: '5.1V' });
+                connectICWire(doc, 'dz1:anode', 'bat9:neg', [{ x: 306, y: 108 }, { x: 306, y: 270 }, { x: -594, y: 270 }, { x: -594, y: -234 }, { x: -504, y: -234 }], { color: 'black' });
+                connectICWire(doc, 'dmm1:pos', 'dz1:cathode', [{ x: 720, y: 288 }, { x: 108, y: 288 }, { x: 108, y: 108 }], { color: 'red' });
+                connectICWire(doc, 'dmm1:neg', 'dz1:anode', [{ x: 576, y: 252 }, { x: 306, y: 252 }, { x: 306, y: 108 }], { color: 'black' });
+
+                return doc;
+            }
+        },
+        ldr_mosfet_relay: {
+            title: 'Auto Night-Light & Bulb Switch — LDR + N-MOSFET + 5V Relay + Bulb',
+            description: 'Select the LDR Photoresistor and slide Ambient Light toward Dark (0%): its resistance rises, raising the IRF540N N-MOSFET gate above 2.0V, energizing the 5V SPDT Relay and lighting the isolated 9V Incandescent Bulb!',
+            build() {
+                const doc = blankICDoc();
+                const psu = createICComponent('psu', -720, 0, { id: 'psu1', voltage: 5.0, enabled: true, label: '5V Logic' });
+                const rPull = createICComponent('resistor', -72, -162, { id: 'rPull', ohms: 10000, label: '10kΩ' });
+                const ldr = createICComponent('ldr', -72, 72, { id: 'ldr1', lightPct: 15, label: 'LDR' });
+                const mos = createICComponent('nmos', 162, 54, { id: 'm1', vth: 2.0, label: 'IRF540N' });
+                const relay = createICComponent('relay', 396, -54, { id: 'k1', label: '5V Relay' });
+                const bat9 = createICComponent('battery9v', 666, 162, { id: 'bat9', label: '9V Lamp' });
+                const bulb = createICComponent('bulb', 666, -144, { id: 'lp1', ohms: 24, label: 'Bulb' });
+
+                doc.components.push(psu, rPull, ldr, mos, relay, bat9, bulb);
+
+                // Clean perimeter wiring: +5V routes under PSU then up right side of PSU (x=-216) — ZERO overlap with PSU screen!
+                connectICWire(doc, 'psu1:pos', 'rPull:a', [{ x: -540, y: 378 }, { x: -216, y: 378 }, { x: -216, y: -162 }], { color: 'red', label: '+5V' });
+                connectICWire(doc, 'rPull:a', 'k1:coil1', [{ x: -216, y: -234 }, { x: 360, y: -234 }], { color: 'red' });
+                connectICWire(doc, 'rPull:b', 'ldr1:a', [{ x: 36, y: -162 }, { x: 36, y: -36 }, { x: -126, y: -36 }, { x: -126, y: 72 }], { color: 'purple' });
+                connectICWire(doc, 'ldr1:a', 'm1:g', [{ x: -108, y: 126 }, { x: 126, y: 126 }], { color: 'purple', label: 'GATE' });
+                connectICWire(doc, 'psu1:neg', 'ldr1:b', [{ x: -900, y: 414 }, { x: -36, y: 414 }], { color: 'black' });
+                connectICWire(doc, 'm1:s', 'ldr1:b', [{ x: 198, y: 162 }, { x: -36, y: 162 }], { color: 'black' });
+
+                // MOSFET switches 5V relay coil low-side
+                connectICWire(doc, 'k1:coil2', 'm1:d', [{ x: 432, y: -180 }, { x: 270, y: -180 }, { x: 270, y: 144 }, { x: 162, y: 144 }], { color: 'blue', label: 'COIL' });
+
+                // Isolated 9V load circuit switched by Relay COM -> NO -> Bulb
+                connectICWire(doc, 'bat9:pos', 'k1:com', [{ x: 702, y: -54 }, { x: 522, y: -54 }, { x: 522, y: 72 }, { x: 396, y: 72 }], { color: 'orange', label: '+9V' });
+                connectICWire(doc, 'k1:no', 'lp1:a', [{ x: 432, y: 54 }, { x: 558, y: 54 }, { x: 558, y: -144 }], { color: 'yellow', label: 'LAMP' });
+                connectICWire(doc, 'lp1:b', 'bat9:neg', [{ x: 738, y: -144 }, { x: 738, y: -90 }, { x: 630, y: -90 }], { color: 'black' });
+
+                return doc;
+            }
+        },
+        l293d_hbridge_motor: {
+            title: 'L293D H-Bridge Motor Reverser (DIP-4 + 9V Motor)',
+            description: 'Flip SW2 & SW3 on the red 4-Way DIP Switch to reverse the 9V DC Motor CW ↔ CCW via the L293D Dual H-Bridge.',
+            build() {
+                const doc = blankICDoc();
+                doc.autoPower = false;
+                const bb = createICComponent('breadboard', 0, 0, { id: 'bb1', variant: 'half' });
+                // 5V Bench PSU cleanly to the left of the breadboard
+                const psu = createICComponent('psu', -1116, -36, { id: 'psu1', voltage: 5.0, enabled: true, label: '5V Logic' });
+                // 9V Battery cleanly to the right of the breadboard
+                const bat9 = createICComponent('battery9v', 756, -72, { id: 'bat9', label: '9V Motor' });
+                // DC Motor mounted cleanly above the breadboard!
+                const mot = createICComponent('motor', 144, -468, { id: 'm1', label: 'DC Motor' });
+
+                // Passive Red 4-Way DIP Switch straddling trough at x = -306 (Cols 6,7,8,9 = -360,-324,-288,-252)
+                // SW1 = EN12 (ON), SW2 = IN1 (ON -> CW), SW3 = IN2 (OFF), SW4 = spare
+                const dip = createICComponent('dip4_bb', -306, 0, { id: 'dip1', bits: [1, 1, 0, 0], label: 'H-Bridge Ctrl' });
+                // L293D Dual H-Bridge straddling trough at x = +18 (Cols 13..20 = -108..+144)
+                const l293 = createICComponent('l293d', 18, 0, { id: 'u293', label: 'L293D' });
+
+                // Pull-down 10k resistors plugging directly from L293D IN1 (Col 14 = -72) and IN2 (Col 19 = +108 -> wired to bn15) to GND!
+                const rPd1 = createICComponent('resistor', -72, 252, { id: 'rPd1', ohms: 10000, rotation: 90, label: '10k' });
+                const rPd2 = createICComponent('resistor', 108, 180, { id: 'rPd2', ohms: 10000, rotation: 90, label: '10k' });
+
+                doc.components.push(bb, psu, bat9, mot, dip, l293, rPd1, rPd2);
+
+                // Power rails: 5V PSU -> Top + rail (tp1 = -504,-324) & Bottom - rail (bn1 = -504,+324)
+                connectICWire(doc, 'psu1:pos', 'bb1:tp1', [{ x: -936, y: 360 }, { x: -612, y: 360 }, { x: -612, y: -324 }], { color: 'red', label: '+5V' });
+                connectICWire(doc, 'psu1:neg', 'bb1:bn1', [{ x: -1296, y: 396 }, { x: -576, y: 396 }, { x: -576, y: 324 }], { color: 'black', label: 'GND' });
+                // Tie bottom GND rail to L293D GND (pin 4 = Col 16 = x:0 -> bn13) and rPd2
+                connectICWire(doc, 'bb1:bn13', 'bb1:j16', [], { color: 'black' });
+                connectICWire(doc, 'rPd2:b', 'bb1:bn16', [{ x: 108, y: 288 }, { x: 144, y: 288 }], { color: 'black' });
+
+                // L293D Pin 16 (VCC1 = Col 13 top = -108) -> Top +5V rail (tp10 = -144)
+                connectICWire(doc, 'bb1:tp10', 'bb1:a13', [{ x: -144, y: -252 }, { x: -108, y: -252 }], { color: 'red' });
+
+                // DIP Switch Top pins (A0..A2 = Cols 6,7,8 top = -360,-324,-288) -> Top +5V rail
+                connectICWire(doc, 'bb1:tp5', 'bb1:a6', [], { color: 'red' });
+                connectICWire(doc, 'bb1:tp5', 'bb1:a7', [{ x: -360, y: -252 }, { x: -324, y: -252 }], { color: 'red' });
+                connectICWire(doc, 'bb1:tp6', 'bb1:a8', [], { color: 'red' });
+
+                // DIP Switch Bottom pins -> L293D EN12 (Col 13), IN1 (Col 14), IN2 (Col 19)
+                connectICWire(doc, 'bb1:h6', 'bb1:h13', [{ x: -360, y: 216 }, { x: -108, y: 216 }], { color: 'yellow', label: 'EN12' });
+                connectICWire(doc, 'bb1:g7', 'bb1:g14', [{ x: -324, y: 144 }, { x: -72, y: 144 }], { color: 'cyan', label: 'IN1' });
+                connectICWire(doc, 'bb1:i8', 'bb1:i19', [{ x: -288, y: 252 }, { x: 108, y: 252 }], { color: 'purple', label: 'IN2' });
+
+                // 9V Motor Supply -> L293D Pin 8 (VCC2 = Col 20 bottom = +144) & Common GND
+                connectICWire(doc, 'bat9:pos', 'bb1:j20', [{ x: 792, y: 270 }, { x: 144, y: 270 }], { color: 'orange', label: '+9V' });
+                connectICWire(doc, 'bat9:neg', 'bb1:bn21', [{ x: 720, y: 360 }, { x: 360, y: 360 }], { color: 'black' });
+
+                // L293D OUT1 (Col 15 = -36) & OUT2 (Col 18 = +72) -> DC Motor above breadboard!
+                connectICWire(doc, 'bb1:i15', 'm1:pos', [{ x: -36, y: 252 }, { x: -36, y: 378 }, { x: 594, y: 378 }, { x: 594, y: -468 }], { color: 'blue', label: 'OUT1' });
+                connectICWire(doc, 'bb1:h18', 'm1:neg', [{ x: 72, y: 216 }, { x: 72, y: 342 }, { x: 630, y: 342 }, { x: 630, y: -540 }, { x: 36, y: -540 }], { color: 'green', label: 'OUT2' });
+
+                return doc;
+            }
+        },
+        ne555_scope_servo: {
+            title: 'NE555 + Mini Oscilloscope + SG90 Servo & TMP36 Bench',
+            description: 'Live NE555 astable square wave plotted on the DSO-Mini Oscilloscope, TMP36 analog temperature readout (0.75 V at 25°C) on the Multimeter, and a Potentiometer steering an SG90 Micro Servo.',
+            build() {
+                const doc = blankICDoc();
+                doc.autoPower = false;
+                const bb = createICComponent('breadboard', 0, 0, { id: 'bb1', variant: 'half' });
+                const bat = createICComponent('battery', -846, 0, { id: 'bat1', cells: 3, label: '4.5V (3×AA)' });
+                const scope = createICComponent('scope_mini', 810, -252, { id: 'dso1', vDiv: 2.0, label: 'DSO-Mini' });
+                const dmm = createICComponent('multimeter', 810, 288, { id: 'dmm1', mode: 'V', label: 'TMP36 Vout' });
+
+                // Left half: NE555 astable oscillator at x = -270 (Cols 7,8,9,10 = -324,-288,-252,-216)
+                const u555 = createICComponent('ic555', -270, 0, { id: 'u555', label: 'NE555' });
+                // rA: top at -396,-216 (Col 5 a5), bot at -396,-72 (Col 5 e5) -> wire to +4.5V & DISCH
+                const rA = createICComponent('resistor', -396, -144, { id: 'rA', ohms: 2200, rotation: 90, label: '2.2k' });
+                // rB: left at -288,-144 (Col 8 c8 = DISCH!), right at -144,-144 (Col 12 c12)
+                const rB = createICComponent('resistor', -216, -144, { id: 'rB', ohms: 4700, rotation: 0, label: '4.7k' });
+                // cT: pos at -144,+180 (Col 12 i12), neg at -108,+180 (Col 13 i13)
+                const cT = createICComponent('capacitor_elec', -126, 180, { id: 'cT', farads: 100e-6, ratedV: 16, label: '100µF' });
+                // rLed: a at -72,+144 (Col 14 h14), b at +72,+144 (Col 18 h18)
+                const rLed = createICComponent('resistor', 0, 144, { id: 'rLed', ohms: 220, rotation: 0, label: '220Ω' });
+                // led: anode at +72,+144 (Col 18 — shares strip with rLed:b wire-free!), cathode at +108,+144 (Col 19)
+                const led = createICComponent('lamp', 90, 144, { id: 'led1', color: 'cyan', label: 'OUT' });
+
+                // Right half: TMP36 at x=180 (pins at y=-144: vcc=144 Col20, vout=180 Col21, gnd=216 Col22) — generous room before Servo!
+                const tmp = createICComponent('tmp36', 180, -180, { id: 'tmp1', tempC: 25, label: 'TMP36' });
+                // Potentiometer (pins at y=+144: t1=360 Col26, wiper=396 Col27, t2=432 Col28)
+                const pot = createICComponent('potentiometer', 396, 108, { id: 'pot1', ohms: 10000, wiper: 0.5, label: 'Servo Angle' });
+                // SG90 Servo (pins at y=-144: gnd=360 Col26, vcc=396 Col27, sig=432 Col28)
+                const srv = createICComponent('servo', 396, -180, { id: 'srv1', label: 'SG90 Servo' });
+
+                doc.components.push(bb, bat, scope, dmm, u555, rA, rB, cT, rLed, led, tmp, pot, srv);
+
+                // Power rails from 3xAA (4.5V)
+                connectICWire(doc, 'bat1:pos', 'bb1:tp1', [{ x: -612, y: -324 }], { color: 'red', label: '+4.5V' });
+                connectICWire(doc, 'bat1:neg', 'bb1:bn1', [{ x: -612, y: 324 }], { color: 'black', label: 'GND' });
+
+                // NE555 power & reset (Pin 8 = Col 7 top, Pin 1 = Col 7 bot, Pin 4 = Col 10 bot)
+                connectICWire(doc, 'bb1:tp5', 'bb1:a7', [{ x: -360, y: -252 }, { x: -324, y: -252 }], { color: 'red' });
+                connectICWire(doc, 'bb1:bn5', 'bb1:j7', [{ x: -360, y: 252 }, { x: -324, y: 252 }], { color: 'black' });
+                connectICWire(doc, 'bb1:tp8', 'bb1:j10', [{ x: -216, y: -270 }, { x: -180, y: -270 }, { x: -180, y: 234 }, { x: -216, y: 234 }], { color: 'red' });
+
+                // NE555 timing RC: +V -> rA (Col 5) -> DISCH (Pin 7 = Col 8 top) -> rB (Col 8..Col 12) -> THRES (Col 9 top) & TRIG (Col 8 bot) -> cT (Col 12..13) -> GND
+                connectICWire(doc, 'bb1:tp4', 'bb1:a5', [], { color: 'red' });
+                connectICWire(doc, 'bb1:d5', 'bb1:d8', [{ x: -396, y: -108 }, { x: -288, y: -108 }], { color: 'orange' });
+                connectICWire(doc, 'bb1:b12', 'bb1:b9', [{ x: -144, y: -180 }, { x: -252, y: -180 }], { color: 'yellow' });
+                connectICWire(doc, 'bb1:a12', 'bb1:j12', [{ x: -144, y: -234 }, { x: -108, y: -234 }, { x: -108, y: 234 }, { x: -144, y: 234 }], { color: 'yellow' });
+                connectICWire(doc, 'bb1:g12', 'bb1:g8', [{ x: -144, y: 108 }, { x: -288, y: 108 }], { color: 'yellow' });
+                connectICWire(doc, 'bb1:j13', 'bb1:bn10', [{ x: -108, y: 252 }, { x: -144, y: 252 }], { color: 'black' });
+
+                // NE555 Pin 3 OUT (Col 9 bot = -252) -> rLed (Col 14..18) -> LED (Col 18..19) -> GND + Mini Oscilloscope CH1!
+                connectICWire(doc, 'bb1:i9', 'bb1:i14', [{ x: -252, y: 252 }, { x: -72, y: 252 }], { color: 'cyan', label: '555 OUT' });
+                connectICWire(doc, 'bb1:j19', 'bb1:bn15', [{ x: 108, y: 252 }, { x: 72, y: 252 }], { color: 'black' });
+
+                // Mini Oscilloscope probing NE555 Pin 3 OUT!
+                connectICWire(doc, 'bb1:j9', 'dso1:pos', [{ x: -252, y: 396 }, { x: 612, y: 396 }, { x: 612, y: -72 }, { x: 882, y: -72 }], { color: 'cyan', label: 'CH1' });
+                connectICWire(doc, 'bb1:bn23', 'dso1:neg', [{ x: 432, y: 360 }, { x: 630, y: 360 }, { x: 630, y: -108 }], { color: 'black' });
+
+                // TMP36 Temperature Sensor (Col 20=VCC 144, Col 21=VOUT 180, Col 22=GND 216) -> Multimeter!
+                connectICWire(doc, 'bb1:tp16', 'bb1:a20', [], { color: 'red' });
+                connectICWire(doc, 'bb1:a22', 'bb1:bn18', [{ x: 216, y: -252 }, { x: 540, y: -252 }, { x: 540, y: 324 }], { color: 'black' });
+                connectICWire(doc, 'bb1:a21', 'dmm1:pos', [{ x: 180, y: -414 }, { x: 1026, y: -414 }, { x: 1026, y: 540 }], { color: 'green', label: 'TMP Vout' });
+                connectICWire(doc, 'bb1:bn24', 'dmm1:neg', [{ x: 468, y: 540 }], { color: 'black' });
+
+                // Potentiometer (Col 26=t1 GND, Col 27=wiper SIG, Col 28=t2 +V) -> SG90 Micro Servo (Col 26=GND, Col 27=VCC, Col 28=SIG)
+                connectICWire(doc, 'bb1:tp22', 'bb1:a27', [], { color: 'red' });
+                connectICWire(doc, 'bb1:a26', 'bb1:bn21', [{ x: 360, y: -234 }, { x: 522, y: -234 }, { x: 522, y: 324 }], { color: 'black' });
+                connectICWire(doc, 'bb1:tp23', 'bb1:j28', [{ x: 432, y: -270 }, { x: 504, y: -270 }, { x: 504, y: 252 }, { x: 432, y: 252 }], { color: 'red' });
+                connectICWire(doc, 'bb1:bn21', 'bb1:j26', [], { color: 'black' });
+                connectICWire(doc, 'bb1:j27', 'bb1:b28', [{ x: 396, y: 234 }, { x: 468, y: 234 }, { x: 468, y: -180 }], { color: 'orange', label: 'SERVO SIG' });
+
+                return doc;
+            }
         }
     };
 
@@ -3707,6 +4428,64 @@
                     drawn = hw.drawNpn(ctx, comp, evalData, isSelected);
                 } else if (comp.kind === 'seg7_10') {
                     drawn = hw.drawSeg7TenPin(ctx, comp, evalData, isSelected);
+                } else if (comp.kind === 'diode') {
+                    drawn = hw.drawDiode(ctx, comp, evalData, isSelected);
+                } else if (comp.kind === 'zener') {
+                    drawn = hw.drawZener(ctx, comp, evalData, isSelected);
+                } else if (comp.kind === 'fuse') {
+                    drawn = hw.drawFuse(ctx, comp, evalData, isSelected, solverMod);
+                } else if (comp.kind === 'capacitor') {
+                    drawn = hw.drawCeramicCap(ctx, comp, evalData, isSelected, solverMod);
+                } else if (comp.kind === 'capacitor_elec') {
+                    drawn = hw.drawElectrolyticCap(ctx, comp, evalData, isSelected, solverMod);
+                } else if (comp.kind === 'inductor') {
+                    drawn = hw.drawInductor(ctx, comp, evalData, isSelected, solverMod);
+                } else if (comp.kind === 'pnp') {
+                    drawn = hw.drawPnp(ctx, comp, evalData, isSelected);
+                } else if (comp.kind === 'nmos') {
+                    drawn = hw.drawNmos(ctx, comp, evalData, isSelected);
+                } else if (comp.kind === 'reg7805') {
+                    drawn = hw.drawReg7805(ctx, comp, evalData, isSelected);
+                } else if (comp.kind === 'relay') {
+                    drawn = hw.drawRelay(ctx, comp, evalData, isSelected);
+                } else if (comp.kind === 'ldr') {
+                    drawn = hw.drawLdr(ctx, comp, evalData, isSelected, solverMod);
+                } else if (comp.kind === 'thermistor') {
+                    drawn = hw.drawThermistor(ctx, comp, evalData, isSelected, solverMod);
+                } else if (comp.kind === 'bulb') {
+                    drawn = hw.drawBulb(ctx, comp, evalData, isSelected);
+                } else if (comp.kind === 'ic555') {
+                    drawn = hw.drawIc555(ctx, comp, evalData, isSelected, this.showXray);
+                } else if (comp.kind === 'opamp') {
+                    drawn = hw.drawOpAmp(ctx, comp, evalData, isSelected, this.showXray);
+                } else if (comp.kind === 'coin3v') {
+                    drawn = hw.drawCoin3V(ctx, comp, evalData, isSelected);
+                } else if (comp.kind === 'reg33') {
+                    drawn = hw.drawReg33(ctx, comp, evalData, isSelected);
+                } else if (comp.kind === 'schottky') {
+                    drawn = hw.drawSchottky(ctx, comp, evalData, isSelected);
+                } else if (comp.kind === 'pmos') {
+                    drawn = hw.drawPmos(ctx, comp, evalData, isSelected);
+                } else if (comp.kind === 'optocoupler') {
+                    drawn = hw.drawOptocoupler(ctx, comp, evalData, isSelected);
+                } else if (comp.kind === 'dip4_bb') {
+                    drawn = hw.drawDip4BB(ctx, comp, evalData, isSelected);
+                } else if (comp.kind === 'tilt') {
+                    drawn = hw.drawTiltSwitch(ctx, comp, evalData, isSelected);
+                } else if (comp.kind === 'pir') {
+                    drawn = hw.drawPirSensor(ctx, comp, evalData, isSelected);
+                } else if (comp.kind === 'tmp36') {
+                    drawn = hw.drawTmp36(ctx, comp, evalData, isSelected);
+                } else if (comp.kind === 'led_bar') {
+                    drawn = hw.drawLedBar(ctx, comp, evalData, isSelected);
+                } else if (comp.kind === 'vib_motor') {
+                    drawn = hw.drawVibMotor(ctx, comp, evalData, isSelected);
+                } else if (comp.kind === 'servo') {
+                    drawn = hw.drawServo(ctx, comp, evalData, isSelected);
+                } else if (comp.kind === 'l293d') {
+                    drawn = hw.drawL293D(ctx, comp, evalData, isSelected);
+                } else if (comp.kind === 'scope_mini') {
+                    drawn = hw.drawScopeMini(ctx, comp, evalData, isSelected);
                 }
                 if (drawn) {
                     ctx.restore();
@@ -4638,14 +5417,64 @@
             });
         }
 
-        // Smooth animation loop for DC Motor rotor, Piezo Buzzer waves & live wire current pulses
+        // Smooth animation loop for DC Motor rotor, Piezo Buzzer waves, live wire pulses & real-time RC/RL/NE555 transients!
         let lastAnimTs = performance.now();
+        let lastTransientHudTs = 0;
+        const hasTransientParts = doc => Boolean(doc && Array.isArray(doc.components) && doc.components.some(
+            c => c.kind === 'capacitor' || c.kind === 'capacitor_elec' || c.kind === 'inductor' || c.kind === 'ic555' || c.kind === 'scope_mini'
+        ));
         function animTick(ts) {
-            const dt = Math.min(0.05, Math.max(0.001, (ts - lastAnimTs) / 1000));
+            const dt = Math.min(0.04, Math.max(0.001, (ts - lastAnimTs) / 1000));
             lastAnimTs = ts;
             let needsDraw = false;
             if (!icMain || !icMain.hidden) {
                 renderer.animTimeSec += dt;
+                if (hasTransientParts(currentDoc)) {
+                    // 2 Backward-Euler substeps per frame for crisp RC charging, RL response, NE555 blinking & live DSO-Mini trace
+                    const subDt = dt * 0.5;
+                    evalData = evaluateICBench(currentDoc, { dt: subDt, recordWave: false });
+                    evalData = evaluateICBench(currentDoc, { dt: subDt, recordWave: true });
+                    updateBuzzerAudio();
+                    if (ts - lastTransientHudTs > 140) {
+                        lastTransientHudTs = ts;
+                        syncFooter();
+                        // Gently update live inspector text without rebuilding active sliders
+                        if (selected && selected.kind === 'comp') {
+                            const selComp = currentDoc.components.find(c => c.id === selected.id);
+                            if (selComp && (selComp.kind === 'capacitor' || selComp.kind === 'capacitor_elec' || selComp.kind === 'inductor' || selComp.kind === 'ic555' || selComp.kind === 'opamp' || selComp.kind === 'multimeter' || selComp.kind === 'scope_mini')) {
+                                const liveMeta = $('icInspectorMeta');
+                                if (liveMeta && selComp.kind === 'ic555') {
+                                    const st5 = evalData.ic555States?.get(selComp.id);
+                                    if (st5) liveMeta.textContent = `Pin 3 OUT: ${st5.q ? 'HIGH' : 'LOW'} (${st5.vOut.toFixed(2)}V) · Pin 6 THRES: ${st5.vThres.toFixed(2)}V · Supply: ${st5.supplyV.toFixed(2)}V.`;
+                                } else if (liveMeta && (selComp.kind === 'capacitor' || selComp.kind === 'capacitor_elec')) {
+                                    const stC = evalData.capStates?.get(selComp.id);
+                                    if (stC) liveMeta.textContent = `Live Voltage: ${stC.voltage.toFixed(2)} V · Current: ${stC.currentMa.toFixed(2)} mA · Stored Energy: ${stC.energyMj.toFixed(3)} mJ.`;
+                                } else if (liveMeta && selComp.kind === 'inductor') {
+                                    const stL = evalData.indStates?.get(selComp.id);
+                                    if (stL) liveMeta.textContent = `Live Current: ${stL.currentMa.toFixed(2)} mA · Voltage: ${stL.voltage.toFixed(2)} V · Magnetic Energy: ${stL.energyMj.toFixed(3)} mJ.`;
+                                } else if (liveMeta && selComp.kind === 'multimeter') {
+                                    const mst = evalData.meterStates?.get(selComp.id);
+                                    if (mst) liveMeta.textContent = `Live Reading: ${mst.display} · Click meter dial or button below to switch mode (V / mA / Ω).`;
+                                } else if (liveMeta && selComp.kind === 'scope_mini') {
+                                    const sst = evalData.scopeStates?.get(selComp.id);
+                                    if (sst) liveMeta.textContent = `Live CH1: ${sst.voltage.toFixed(2)} V · Vpp: ${sst.vpp.toFixed(2)} V (${sst.vMin.toFixed(2)}V .. ${sst.vMax.toFixed(2)}V) · Scale: ${sst.vDiv.toFixed(1)} V/div.`;
+                                }
+                            }
+                        }
+                    }
+                    needsDraw = true;
+                }
+                if (evalData && evalData.vibMotorStates) {
+                    for (const c of currentDoc.components) {
+                        if (c.kind === 'vib_motor') {
+                            const vst = evalData.vibMotorStates.get(c.id);
+                            if (vst && vst.vibrating) {
+                                c._vibPhase = ((c._vibPhase || 0) + dt * 28) % (Math.PI * 200);
+                                needsDraw = true;
+                            }
+                        }
+                    }
+                }
                 if (evalData && evalData.motorStates) {
                     for (const [mid, mst] of evalData.motorStates.entries()) {
                         if (mst.spinning && mst.rpm > 1) {
@@ -4786,6 +5615,64 @@
                 setHint('Click on the bench to place a 2-Leg 5mm LED (use a series resistor to prevent overcurrent damage!).');
             } else if (tool === 'seg7_10') {
                 setHint('Click on the bench to place a real 10-Pin Common-Cathode 7-Segment Display (g,f,COM,a,b top · e,d,COM,c,dp bottom — plugs directly across breadboard trough!).');
+            } else if (tool === 'diode') {
+                setHint('Click on the bench to place a 1N4007 Rectifier Diode (0.7V forward drop; silver band = Cathode).');
+            } else if (tool === 'zener') {
+                setHint('Click on the bench to place a Zener Voltage Regulator Diode (reverse-bias cathode to regulate at Vz!).');
+            } else if (tool === 'fuse') {
+                setHint('Click on the bench to place a Glass Cartridge Fuse (trips open above rated current; click a blown fuse to replace).');
+            } else if (tool === 'capacitor') {
+                setHint('Click on the bench to place a Non-Polarized Ceramic Disc Capacitor (real-time RC charging & discharging!).');
+            } else if (tool === 'capacitor_elec') {
+                setHint('Click on the bench to place a Polarized Electrolytic Capacitor (+ left, − stripe right; watch polarity!).');
+            } else if (tool === 'inductor') {
+                setHint('Click on the bench to place a Wirewound Inductor Coil (real-time RL current response & magnetic energy!).');
+            } else if (tool === 'pnp') {
+                setHint('Click on the bench to place a 2N3906 PNP TO-92 Transistor (conducts Emitter → Collector when Base is pulled 0.7V below Emitter).');
+            } else if (tool === 'nmos') {
+                setHint('Click on the bench to place an IRF540N N-Channel MOSFET (G-D-S; voltage-controlled switch turning ON above Vth).');
+            } else if (tool === 'reg7805') {
+                setHint('Click on the bench to place an L7805CV +5V Voltage Regulator (IN-GND-OUT; safely steps 9V down to 5.0V for 74xx ICs!).');
+            } else if (tool === 'relay') {
+                setHint('Click on the bench to place a 5V SPDT Sugar-Cube Relay (straddles breadboard trough; isolated coil switches COM between NC & NO).');
+            } else if (tool === 'ldr') {
+                setHint('Click on the bench to place a Photoresistor / LDR (select it to smoothly adjust Ambient Light from Dark to Bright!).');
+            } else if (tool === 'thermistor') {
+                setHint('Click on the bench to place an NTC 10kΩ Thermistor (select it to smoothly adjust Temperature from −10°C to 100°C!).');
+            } else if (tool === 'bulb') {
+                setHint('Click on the bench to place an Incandescent Light Bulb (warm filament glow proportional to real power; max 12V).');
+            } else if (tool === 'ic555') {
+                setHint('Click on the bench to place an NE555P 8-Pin Timer IC (straddles breadboard trough; wire RC network for live LED blinkers!).');
+            } else if (tool === 'opamp') {
+                setHint('Click on the bench to place an LM741 8-Pin Op-Amp IC (straddles breadboard trough; build comparators, followers & amplifiers!).');
+            } else if (tool === 'coin3v') {
+                setHint('Click on the bench to place a CR2032 3V Lithium Coin Cell (15Ω internal resistance — safely powers LEDs!).');
+            } else if (tool === 'reg33') {
+                setHint('Click on the bench to place an LD33V +3.3V LDO Voltage Regulator (IN-GND-OUT; steps 5V/9V down to 3.30V!).');
+            } else if (tool === 'schottky') {
+                setHint('Click on the bench to place a 1N5819 Schottky Barrier Diode (ultra-low 0.30V forward voltage drop; gold band = Cathode).');
+            } else if (tool === 'pmos') {
+                setHint('Click on the bench to place an IRF9540N P-Channel MOSFET (G-D-S; high-side switch conducting when Gate is pulled below Source).');
+            } else if (tool === 'optocoupler') {
+                setHint('Click on the bench to place a PC817 4-Pin Optical Isolator (straddles breadboard trough; galvanically isolates input LED from output transistor!).');
+            } else if (tool === 'dip4_bb') {
+                setHint('Click on the bench to place a Passive 4-Way Breadboard DIP Switch (straddles center trough; click any of the 4 rockers to toggle ON/OFF!).');
+            } else if (tool === 'tilt') {
+                setHint('Click on the bench to place an SW-520D Tilt Ball Switch (click it on the bench to tilt OPEN ↔ upright CLOSED!).');
+            } else if (tool === 'pir') {
+                setHint('Click on the bench to place an HC-SR501 PIR Motion Sensor (power 5–12V; click the white Fresnel dome to trigger 3.3V motion output!).');
+            } else if (tool === 'tmp36') {
+                setHint('Click on the bench to place a TMP36 Analog Temperature Sensor (outputs exact 0.50V + 10mV/°C; 0.75V at 25°C!).');
+            } else if (tool === 'led_bar') {
+                setHint('Click on the bench to place an 8-LED Bar Graph (4 Green, 2 Amber, 2 Red — DIP-16 straddling the breadboard trough!).');
+            } else if (tool === 'vib_motor') {
+                setHint('Click on the bench to place a 3V Coin ERM Vibration Motor (energize with 1.5V–5V to vibrate!).');
+            } else if (tool === 'servo') {
+                setHint('Click on the bench to place an SG90 Micro Servo Motor (power +5V & drive SIG 0–5V to rotate the horn 0°–180°!).');
+            } else if (tool === 'l293d') {
+                setHint('Click on the bench to place an L293D Dual H-Bridge Motor Driver (DIP-16 straddling trough; drive & reverse DC motors!).');
+            } else if (tool === 'scope_mini') {
+                setHint('Click on the bench to place a Mini Bench Oscilloscope (connect CH1 & GND to watch live scrolling waveforms!).');
             } else if (tool === 'wire') {
                 setHint('Pick a jumper wire color above, then drag from any pin or breadboard hole to another to connect. Click Tidy Wires anytime!');
             } else {
@@ -5075,21 +5962,45 @@
         }
         renderPaletteThumbnails();
 
-        // Live Component Palette Search Filter
+        // Live Component Palette Search + Category Filter Pills
         const paletteSearch = $('icPaletteSearch');
+        const categoryBar = $('icCategoryBar');
+        let activePaletteCat = 'all';
+
+        function applyPaletteFilter() {
+            const q = (paletteSearch?.value || '').trim().toLowerCase();
+            document.querySelectorAll('#icToolsNav .palette-section').forEach(sec => {
+                if (sec.dataset.keepVisible === 'true') return;
+                const secCat = sec.dataset.cat || 'other';
+                const catMatches = Boolean(q) || activePaletteCat === 'all' || secCat === activePaletteCat;
+                let visibleCount = 0;
+                sec.querySelectorAll('button[data-ic-tool]').forEach(btn => {
+                    const hay = `${btn.textContent} ${btn.title || ''} ${btn.dataset.icTool || ''} ${btn.dataset.keywords || ''}`.toLowerCase();
+                    const match = catMatches && (!q || hay.includes(q));
+                    btn.hidden = !match;
+                    if (match) visibleCount++;
+                });
+                sec.hidden = visibleCount === 0;
+                if (visibleCount > 0 && (q || activePaletteCat !== 'all') && sec.tagName === 'DETAILS') {
+                    sec.open = true;
+                }
+            });
+        }
+
         if (paletteSearch) {
-            paletteSearch.addEventListener('input', () => {
-                const q = paletteSearch.value.trim().toLowerCase();
-                document.querySelectorAll('#icToolsNav .palette-section').forEach(sec => {
-                    if (sec.dataset.keepVisible === 'true') return;
-                    let visibleCount = 0;
-                    sec.querySelectorAll('button[data-ic-tool]').forEach(btn => {
-                        const hay = `${btn.textContent} ${btn.title || ''} ${btn.dataset.icTool || ''} ${btn.dataset.keywords || ''}`.toLowerCase();
-                        const match = !q || hay.includes(q);
-                        btn.hidden = !match;
-                        if (match) visibleCount++;
+            paletteSearch.addEventListener('input', applyPaletteFilter);
+        }
+        if (categoryBar) {
+            categoryBar.querySelectorAll('button[data-cat]').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    activePaletteCat = btn.dataset.cat || 'all';
+                    categoryBar.querySelectorAll('button[data-cat]').forEach(b => {
+                        b.classList.toggle('is-active', b === btn);
+                        b.setAttribute('aria-pressed', String(b === btn));
                     });
-                    sec.hidden = visibleCount === 0;
+                    if (paletteSearch && paletteSearch.value) paletteSearch.value = '';
+                    applyPaletteFilter();
+                    renderPaletteThumbnails();
                 });
             });
         }
@@ -5202,9 +6113,15 @@
             } else if (comp.kind === 'clock') {
                 comp.value = comp.value ? 0 : 1;
                 commitDoc(next);
-            } else if (comp.kind === 'dip4') {
+            } else if (comp.kind === 'dip4' || comp.kind === 'dip4_bb') {
                 const cur = (((comp.bits?.[0] ? 1 : 0) | (comp.bits?.[1] ? 2 : 0) | (comp.bits?.[2] ? 4 : 0) | (comp.bits?.[3] ? 8 : 0)) + 1) & 0x0f;
                 comp.bits = [cur & 1, (cur >> 1) & 1, (cur >> 2) & 1, (cur >> 3) & 1];
+                commitDoc(next);
+            } else if (comp.kind === 'tilt') {
+                comp.tilted = !comp.tilted;
+                commitDoc(next);
+            } else if (comp.kind === 'pir') {
+                comp.motion = !comp.motion;
                 commitDoc(next);
             }
         });
@@ -5361,7 +6278,7 @@
             $('icDuplicateBtn').hidden = false;
             if ($('icRotateBtn')) $('icRotateBtn').hidden = comp.kind === 'breadboard';
             $('icLampColorWrap').hidden = comp.kind !== 'lamp';
-            $('icToggleSelectedBtn').hidden = comp.kind !== 'switch' && comp.kind !== 'clock' && comp.kind !== 'dip4' && comp.kind !== 'spdt' && comp.kind !== 'pushbutton';
+            $('icToggleSelectedBtn').hidden = comp.kind !== 'switch' && comp.kind !== 'clock' && comp.kind !== 'dip4' && comp.kind !== 'dip4_bb' && comp.kind !== 'spdt' && comp.kind !== 'pushbutton' && comp.kind !== 'tilt' && comp.kind !== 'pir';
             $('icPinTableWrap').hidden = comp.kind !== 'ic';
 
             if (comp.kind === 'ic') {
@@ -5837,6 +6754,262 @@
                 if (qst.overloaded) {
                     showFaultBanner(qst.faultText || 'Transistor overcurrent! Add a base resistor (≥ 1 kΩ).', 'error');
                 }
+            } else if (comp.kind === 'diode') {
+                const dst = evalData.diodeStates?.get(comp.id) || { conducting: false, voltage: 0, currentMa: 0 };
+                $('icInspectorTitle').textContent = `Rectifier Diode ${comp.model || '1N4007'} (${dst.conducting ? 'CONDUCTING' : 'BLOCKING'})`;
+                $('icInspectorMeta').textContent = `Forward drop ≈ 0.7 V (silver band = Cathode). Live V = ${dst.voltage.toFixed(2)} V · I = ${dst.currentMa.toFixed(1)} mA (1.0 A max).`;
+                if (dst.overloaded) showFaultBanner(dst.faultText, 'error');
+            } else if (comp.kind === 'zener') {
+                const vz = Number(comp.vz) || 5.1;
+                const zst = evalData.zenerStates?.get(comp.id) || { mode: 'OFF', vReverse: 0, currentMa: 0, powerMw: 0 };
+                $('icInspectorTitle').textContent = `Zener Diode (${vz.toFixed(1)}V · ${zst.mode})`;
+                $('icInspectorMeta').textContent = `Reverse voltage: ${zst.vReverse.toFixed(2)} V · Current: ${Math.abs(zst.currentMa).toFixed(1)} mA · Power: ${zst.powerMw.toFixed(0)} mW / 500 mW max.`;
+                if (zst.overloaded) showFaultBanner(zst.faultText, 'error');
+                if (dynBox) {
+                    const row = document.createElement('div');
+                    row.className = 'ic-dyn-row';
+                    const lbl = document.createElement('span'); lbl.className = 'ic-dyn-label'; lbl.textContent = 'Zener Breakdown Vz:';
+                    const grp = document.createElement('div'); grp.className = 'ic-chip-group';
+                    for (const vOpt of [3.3, 5.1, 6.2, 9.1, 12.0]) {
+                        const b = document.createElement('button');
+                        b.type = 'button';
+                        b.className = 'ic-dyn-chip' + (Math.abs(vz - vOpt) < 0.1 ? ' is-active' : '');
+                        b.textContent = `${vOpt.toFixed(1)}V`;
+                        b.addEventListener('click', () => {
+                            const next = cloneICDoc(currentDoc);
+                            const tc = next.components.find(x => x.id === comp.id);
+                            if (tc) { tc.vz = vOpt; commitDoc(next); }
+                        });
+                        grp.appendChild(b);
+                    }
+                    row.append(lbl, grp);
+                    dynBox.appendChild(row);
+                }
+            } else if (comp.kind === 'fuse') {
+                const fst = evalData.fuseStates?.get(comp.id) || { ratedMa: Number(comp.ratedMa) || 250, blown: Boolean(comp.blown), currentMa: 0 };
+                $('icInspectorTitle').textContent = `Glass Cartridge Fuse (${fst.blown ? '⚡ BLOWN' : 'INTACT'} · ${solverMod ? solverMod.formatCurrentMa(fst.ratedMa) : fst.ratedMa + ' mA'})`;
+                $('icInspectorMeta').textContent = fst.blown
+                    ? 'Filament melted due to overcurrent! Fix the short/overload, then click Replace Fuse.'
+                    : `Live current: ${fst.currentMa.toFixed(1)} mA / ${solverMod ? solverMod.formatCurrentMa(fst.ratedMa) : fst.ratedMa + ' mA'} rating.`;
+                if (fst.blown) showFaultBanner(fst.faultText, 'error');
+                if (dynBox) {
+                    if (fst.blown) {
+                        const repRow = document.createElement('div');
+                        repRow.className = 'ic-dyn-row';
+                        const repBtn = document.createElement('button');
+                        repBtn.type = 'button';
+                        repBtn.className = 'ic-dyn-chip is-active';
+                        repBtn.textContent = '🔧 Replace Blown Fuse';
+                        repBtn.addEventListener('click', () => {
+                            const next = cloneICDoc(currentDoc);
+                            const tc = next.components.find(x => x.id === comp.id);
+                            if (tc) { tc.blown = false; commitDoc(next); }
+                        });
+                        repRow.appendChild(repBtn);
+                        dynBox.appendChild(repRow);
+                    }
+                    const row = document.createElement('div');
+                    row.className = 'ic-dyn-row';
+                    const lbl = document.createElement('span'); lbl.className = 'ic-dyn-label'; lbl.textContent = 'Fuse Rating:';
+                    const grp = document.createElement('div'); grp.className = 'ic-chip-group';
+                    for (const ma of [50, 100, 250, 500, 1000]) {
+                        const b = document.createElement('button');
+                        b.type = 'button';
+                        b.className = 'ic-dyn-chip' + (Math.abs(fst.ratedMa - ma) < 1 ? ' is-active' : '');
+                        b.textContent = ma >= 1000 ? '1 A' : `${ma} mA`;
+                        b.addEventListener('click', () => {
+                            const next = cloneICDoc(currentDoc);
+                            const tc = next.components.find(x => x.id === comp.id);
+                            if (tc) { tc.ratedMa = ma; tc.blown = false; commitDoc(next); }
+                        });
+                        grp.appendChild(b);
+                    }
+                    row.append(lbl, grp);
+                    dynBox.appendChild(row);
+                }
+            } else if (comp.kind === 'capacitor' || comp.kind === 'capacitor_elec') {
+                const isElec = comp.kind === 'capacitor_elec';
+                const capF = Number(comp.farads) || (isElec ? 100e-6 : 100e-9);
+                const cst = evalData.capStates?.get(comp.id) || { voltage: 0, currentMa: 0, energyMj: 0, ratedV: isElec ? 16 : 50 };
+                const cTxt = solverMod ? solverMod.formatFarads(capF) : `${capF} F`;
+                $('icInspectorTitle').textContent = `${isElec ? 'Electrolytic' : 'Ceramic'} Capacitor (${cTxt})`;
+                $('icInspectorMeta').textContent = `Live Voltage: ${cst.voltage.toFixed(2)} V · Current: ${cst.currentMa.toFixed(2)} mA · Stored Energy: ${cst.energyMj.toFixed(3)} mJ.`;
+                if (cst.overloaded) showFaultBanner(cst.faultText, 'error');
+                if (dynBox) {
+                    const row = document.createElement('div');
+                    row.className = 'ic-dyn-row';
+                    const lbl = document.createElement('span'); lbl.className = 'ic-dyn-label'; lbl.textContent = 'Capacitance:';
+                    const grp = document.createElement('div'); grp.className = 'ic-chip-group';
+                    const vals = isElec ? [10e-6, 47e-6, 100e-6, 470e-6, 1000e-6] : [10e-9, 100e-9, 1e-6, 10e-6];
+                    for (const fv of vals) {
+                        const b = document.createElement('button');
+                        b.type = 'button';
+                        b.className = 'ic-dyn-chip' + (Math.abs(capF - fv) / fv < 0.05 ? ' is-active' : '');
+                        b.textContent = solverMod ? solverMod.formatFarads(fv) : String(fv);
+                        b.addEventListener('click', () => {
+                            const next = cloneICDoc(currentDoc);
+                            const tc = next.components.find(x => x.id === comp.id);
+                            if (tc) { tc.farads = fv; commitDoc(next); }
+                        });
+                        grp.appendChild(b);
+                    }
+                    row.append(lbl, grp);
+                    dynBox.appendChild(row);
+
+                    const disRow = document.createElement('div');
+                    disRow.className = 'ic-dyn-row';
+                    const disBtn = document.createElement('button');
+                    disBtn.type = 'button';
+                    disBtn.className = 'ic-dyn-chip';
+                    disBtn.textContent = '⚡ Discharge Capacitor to 0 V';
+                    disBtn.addEventListener('click', () => {
+                        comp._vc = 0;
+                        recompute();
+                    });
+                    disRow.appendChild(disBtn);
+                    dynBox.appendChild(disRow);
+                }
+            } else if (comp.kind === 'inductor') {
+                const indH = Number(comp.henrys) || 0.1;
+                const lst = evalData.indStates?.get(comp.id) || { currentMa: 0, voltage: 0, energyMj: 0 };
+                const lTxt = solverMod ? solverMod.formatHenrys(indH) : `${indH} H`;
+                $('icInspectorTitle').textContent = `Wirewound Inductor (${lTxt})`;
+                $('icInspectorMeta').textContent = `Live Current: ${lst.currentMa.toFixed(2)} mA · Voltage: ${lst.voltage.toFixed(2)} V · Magnetic Energy: ${lst.energyMj.toFixed(3)} mJ.`;
+                if (lst.overloaded) showFaultBanner(lst.faultText, 'error');
+                if (dynBox) {
+                    const row = document.createElement('div');
+                    row.className = 'ic-dyn-row';
+                    const lbl = document.createElement('span'); lbl.className = 'ic-dyn-label'; lbl.textContent = 'Inductance:';
+                    const grp = document.createElement('div'); grp.className = 'ic-chip-group';
+                    for (const hv of [1e-3, 10e-3, 100e-3, 0.5, 1.0]) {
+                        const b = document.createElement('button');
+                        b.type = 'button';
+                        b.className = 'ic-dyn-chip' + (Math.abs(indH - hv) / hv < 0.05 ? ' is-active' : '');
+                        b.textContent = solverMod ? solverMod.formatHenrys(hv) : `${hv} H`;
+                        b.addEventListener('click', () => {
+                            const next = cloneICDoc(currentDoc);
+                            const tc = next.components.find(x => x.id === comp.id);
+                            if (tc) { tc.henrys = hv; commitDoc(next); }
+                        });
+                        grp.appendChild(b);
+                    }
+                    row.append(lbl, grp);
+                    dynBox.appendChild(row);
+                }
+            } else if (comp.kind === 'pnp') {
+                const qst = evalData.pnpStates?.get(comp.id) || { mode: 'CUTOFF', ibMa: 0, icMa: 0, veb: 0, vec: 0 };
+                $('icInspectorTitle').textContent = `PNP 2N3906 Transistor (${qst.mode})`;
+                $('icInspectorMeta').textContent = `Pinout: E (Left) · B (Center) · C (Right) · Ib = ${qst.ibMa.toFixed(2)} mA · Ic = ${qst.icMa.toFixed(1)} mA · Veb = ${qst.veb.toFixed(2)}V · Vec = ${qst.vec.toFixed(2)}V.`;
+                if (qst.overloaded) showFaultBanner(qst.faultText, 'error');
+            } else if (comp.kind === 'nmos') {
+                const vth = Number(comp.vth) || 2.0;
+                const mst = evalData.nmosStates?.get(comp.id) || { mode: 'CUTOFF', vgs: 0, vds: 0, idMa: 0 };
+                $('icInspectorTitle').textContent = `N-MOSFET ${comp.model || 'IRF540N'} (${mst.mode})`;
+                $('icInspectorMeta').textContent = `Pinout: G (Left) · D (Center) · S (Right) · Vgs = ${mst.vgs.toFixed(2)}V (Vth ${vth.toFixed(1)}V) · Vds = ${mst.vds.toFixed(2)}V · Id = ${mst.idMa.toFixed(1)} mA.`;
+                if (mst.overloaded) showFaultBanner(mst.faultText, 'error');
+                if (dynBox) {
+                    const rowSl = document.createElement('div');
+                    rowSl.className = 'ic-dyn-row';
+                    const lbl = document.createElement('span'); lbl.className = 'ic-dyn-label'; lbl.textContent = `Gate Threshold Vth: ${vth.toFixed(1)} V`;
+                    const sl = document.createElement('input');
+                    sl.type = 'range'; sl.min = '1.0'; sl.max = '4.0'; sl.step = '0.1'; sl.value = String(vth); sl.className = 'ic-dyn-slider';
+                    let preDragDoc = null;
+                    sl.addEventListener('pointerdown', e => { e.stopPropagation(); preDragDoc = cloneICDoc(currentDoc); });
+                    sl.addEventListener('input', () => {
+                        const nv = Math.round(parseFloat(sl.value) * 10) / 10;
+                        comp.vth = nv;
+                        lbl.textContent = `Gate Threshold Vth: ${nv.toFixed(1)} V`;
+                        recompute({ skipInspectorRebuild: true });
+                        const liveM = evalData.nmosStates?.get(comp.id);
+                        if (liveM) {
+                            $('icInspectorTitle').textContent = `N-MOSFET ${comp.model || 'IRF540N'} (${liveM.mode})`;
+                            $('icInspectorMeta').textContent = `Pinout: G (Left) · D (Center) · S (Right) · Vgs = ${liveM.vgs.toFixed(2)}V (Vth ${nv.toFixed(1)}V) · Vds = ${liveM.vds.toFixed(2)}V · Id = ${liveM.idMa.toFixed(1)} mA.`;
+                        }
+                    });
+                    sl.addEventListener('change', () => { if (preDragDoc) { undoStack.push(preDragDoc); redoStack.length = 0; preDragDoc = null; } recompute(); });
+                    rowSl.append(lbl, sl);
+                    dynBox.appendChild(rowSl);
+                }
+            } else if (comp.kind === 'reg7805') {
+                const rst = evalData.regStates?.get(comp.id) || { status: 'OFF', vIn: 0, vOut: 0, iOutMa: 0, powerW: 0 };
+                $('icInspectorTitle').textContent = `L7805CV +5V Regulator (${rst.status})`;
+                $('icInspectorMeta').textContent = `IN = ${rst.vIn.toFixed(2)} V · OUT = ${rst.vOut.toFixed(2)} V · Iout = ${rst.iOutMa.toFixed(1)} mA · Heat = ${(rst.powerW * 1000).toFixed(0)} mW. Ideal for powering 74xx ICs from a 9V Battery!`;
+                if (rst.overloaded) showFaultBanner(rst.faultText, 'error');
+            } else if (comp.kind === 'relay') {
+                const kst = evalData.relayStates?.get(comp.id) || { stateLabel: 'NC CLOSED', vCoil: 0, iCoilMa: 0, engaged: false };
+                $('icInspectorTitle').textContent = `5V SPDT Relay (${kst.stateLabel})`;
+                $('icInspectorMeta').textContent = `Isolated Coil (C1–C2): ${Math.abs(kst.vCoil).toFixed(2)} V (${Math.abs(kst.iCoilMa).toFixed(1)} mA) · Pull-in ≥ 3.5V, Release < 2.0V. Switches COM ↔ ${kst.engaged ? 'NO' : 'NC'}.`;
+                if (kst.overloaded) showFaultBanner(kst.faultText, 'error');
+            } else if (comp.kind === 'ldr') {
+                const lightPct = Math.max(0, Math.min(100, Number(comp.lightPct ?? 50)));
+                const lst = evalData.ldrStates?.get(comp.id) || { lightPct, ohms: 4472, currentMa: 0 };
+                const rTxt = solverMod ? solverMod.formatOhms(lst.ohms) : `${Math.round(lst.ohms)} Ω`;
+                $('icInspectorTitle').textContent = `Photoresistor / LDR (${Math.round(lightPct)}% Light · ${rTxt})`;
+                $('icInspectorMeta').textContent = `Resistance drops from 100 kΩ (dark) to 200 Ω (bright sunlight). Live I = ${lst.currentMa.toFixed(2)} mA.`;
+                if (dynBox) {
+                    const rowSl = document.createElement('div');
+                    rowSl.className = 'ic-dyn-row';
+                    const lbl = document.createElement('span'); lbl.className = 'ic-dyn-label'; lbl.textContent = `Ambient Light: ${Math.round(lightPct)}% (${rTxt})`;
+                    const sl = document.createElement('input');
+                    sl.type = 'range'; sl.min = '0'; sl.max = '100'; sl.step = '1'; sl.value = String(Math.round(lightPct)); sl.className = 'ic-dyn-slider';
+                    let preDragDoc = null;
+                    sl.addEventListener('pointerdown', e => { e.stopPropagation(); preDragDoc = cloneICDoc(currentDoc); });
+                    sl.addEventListener('input', () => {
+                        const np = parseFloat(sl.value);
+                        comp.lightPct = np;
+                        recompute({ skipInspectorRebuild: true });
+                        const liveL = evalData.ldrStates?.get(comp.id);
+                        const liveR = solverMod && liveL ? solverMod.formatOhms(liveL.ohms) : '';
+                        lbl.textContent = `Ambient Light: ${Math.round(np)}% (${liveR})`;
+                        $('icInspectorTitle').textContent = `Photoresistor / LDR (${Math.round(np)}% Light · ${liveR})`;
+                        if (liveL) $('icInspectorMeta').textContent = `Resistance drops from 100 kΩ (dark) to 200 Ω (bright sunlight). Live I = ${liveL.currentMa.toFixed(2)} mA.`;
+                    });
+                    sl.addEventListener('change', () => { if (preDragDoc) { undoStack.push(preDragDoc); redoStack.length = 0; preDragDoc = null; } recompute(); });
+                    rowSl.append(lbl, sl);
+                    dynBox.appendChild(rowSl);
+                }
+            } else if (comp.kind === 'thermistor') {
+                const tempC = Number(comp.tempC ?? 25);
+                const tst = evalData.thermistorStates?.get(comp.id) || { tempC, ohms: 10000, currentMa: 0 };
+                const rTxt = solverMod ? solverMod.formatOhms(tst.ohms) : `${Math.round(tst.ohms)} Ω`;
+                $('icInspectorTitle').textContent = `NTC 10kΩ Thermistor (${Math.round(tempC)}°C · ${rTxt})`;
+                $('icInspectorMeta').textContent = `Negative Temperature Coefficient (β = 3950K): resistance decreases as temperature rises. Live I = ${tst.currentMa.toFixed(2)} mA.`;
+                if (dynBox) {
+                    const rowSl = document.createElement('div');
+                    rowSl.className = 'ic-dyn-row';
+                    const lbl = document.createElement('span'); lbl.className = 'ic-dyn-label'; lbl.textContent = `Temperature: ${Math.round(tempC)}°C (${rTxt})`;
+                    const sl = document.createElement('input');
+                    sl.type = 'range'; sl.min = '-10'; sl.max = '100'; sl.step = '1'; sl.value = String(Math.round(tempC)); sl.className = 'ic-dyn-slider';
+                    let preDragDoc = null;
+                    sl.addEventListener('pointerdown', e => { e.stopPropagation(); preDragDoc = cloneICDoc(currentDoc); });
+                    sl.addEventListener('input', () => {
+                        const nt = parseFloat(sl.value);
+                        comp.tempC = nt;
+                        recompute({ skipInspectorRebuild: true });
+                        const liveT = evalData.thermistorStates?.get(comp.id);
+                        const liveR = solverMod && liveT ? solverMod.formatOhms(liveT.ohms) : '';
+                        lbl.textContent = `Temperature: ${Math.round(nt)}°C (${liveR})`;
+                        $('icInspectorTitle').textContent = `NTC 10kΩ Thermistor (${Math.round(nt)}°C · ${liveR})`;
+                        if (liveT) $('icInspectorMeta').textContent = `Negative Temperature Coefficient (β = 3950K): resistance decreases as temperature rises. Live I = ${liveT.currentMa.toFixed(2)} mA.`;
+                    });
+                    sl.addEventListener('change', () => { if (preDragDoc) { undoStack.push(preDragDoc); redoStack.length = 0; preDragDoc = null; } recompute(); });
+                    rowSl.append(lbl, sl);
+                    dynBox.appendChild(rowSl);
+                }
+            } else if (comp.kind === 'bulb') {
+                const bst = evalData.bulbStates?.get(comp.id) || { lit: false, voltage: 0, currentMa: 0, powerW: 0 };
+                $('icInspectorTitle').textContent = `Incandescent Bulb (${bst.overloaded ? '🔥 BURNED OUT' : bst.lit ? 'GLOWING' : 'OFF'})`;
+                $('icInspectorMeta').textContent = `24 Ω non-polarized tungsten filament (max 12V) · V = ${Math.abs(bst.voltage).toFixed(2)} V · I = ${bst.currentMa.toFixed(1)} mA · Power = ${bst.powerW.toFixed(2)} W.`;
+                if (bst.overloaded) showFaultBanner(bst.faultText, 'error');
+            } else if (comp.kind === 'ic555') {
+                const st5 = evalData.ic555States?.get(comp.id) || { powered: false, q: 0, supplyV: 0, vOut: 0, vThres: 0 };
+                $('icInspectorTitle').textContent = `NE555P Timer IC (${st5.powered ? (st5.q ? 'OUT HIGH' : 'OUT LOW') : 'UNPOWERED'})`;
+                $('icInspectorMeta').textContent = `Pin 3 OUT: ${st5.q ? 'HIGH' : 'LOW'} (${st5.vOut.toFixed(2)}V) · Pin 6 THRES: ${st5.vThres.toFixed(2)}V · Supply: ${st5.supplyV.toFixed(2)}V (Safe 4.5–15V).`;
+                if (st5.overloaded) showFaultBanner(st5.faultText, 'error');
+            } else if (comp.kind === 'opamp') {
+                const ost = evalData.opampStates?.get(comp.id) || { powered: false, mode: 'LINEAR', supplyV: 0, vInP: 0, vInN: 0, vOut: 0 };
+                $('icInspectorTitle').textContent = `LM741 Op-Amp IC (${ost.powered ? ost.mode : 'UNPOWERED'})`;
+                $('icInspectorMeta').textContent = `IN+ = ${ost.vInP.toFixed(2)}V · IN− = ${ost.vInN.toFixed(2)}V · OUT (Pin 6) = ${ost.vOut.toFixed(2)}V · Supply (Pin 7−4) = ${ost.supplyV.toFixed(2)}V.`;
             } else if (comp.kind === 'rgb_led') {
                 const rst = evalData.rgbStates?.get(comp.id);
                 $('icInspectorTitle').textContent = `4-Leg RGB LED (${rst?.lit ? 'ILLUMINATED' : 'OFF'})`;
@@ -5915,6 +7088,170 @@
                 const hex = sst?.value !== null && sst?.value !== undefined ? sst.value.toString(16).toUpperCase() : '—';
                 $('icInspectorTitle').textContent = `BCD 7-Segment Display (Showing: ${hex})`;
                 $('icInspectorMeta').textContent = 'Decodes 4 binary inputs A (Bit 0), B (Bit 1), C (Bit 2), D (Bit 3) into hexadecimal digits 0–F.';
+            } else if (comp.kind === 'coin3v') {
+                const src = evalData.sourceStates?.get(comp.id);
+                $('icInspectorTitle').textContent = `CR2032 3V Coin Cell (${(src?.voltage ?? 3.0).toFixed(2)}V · ${(src?.currentMa || 0).toFixed(1)} mA)`;
+                $('icInspectorMeta').textContent = '3.0V Lithium coin cell with authentic 15 Ω internal resistance — safely powers LEDs without excessive surge current.';
+                if (src?.shorted) showFaultBanner('CR2032 Coin Cell shorted directly across + and −!', 'error');
+            } else if (comp.kind === 'reg33') {
+                const rst = evalData.regStates?.get(comp.id) || { status: 'OFF', vIn: 0, vOut: 0, iOutMa: 0, powerW: 0 };
+                $('icInspectorTitle').textContent = `LD33V +3.3V LDO Regulator (${rst.status})`;
+                $('icInspectorMeta').textContent = `IN = ${rst.vIn.toFixed(2)} V · OUT = ${rst.vOut.toFixed(2)} V · Iout = ${rst.iOutMa.toFixed(1)} mA · Dropout 1.1V (regulates +3.30V from 4.4V–15V).`;
+                if (rst.overloaded) showFaultBanner(rst.faultText, 'error');
+            } else if (comp.kind === 'schottky') {
+                const dst = evalData.diodeStates?.get(comp.id) || { conducting: false, voltage: 0, currentMa: 0 };
+                $('icInspectorTitle').textContent = `1N5819 Schottky Diode (${dst.conducting ? 'CONDUCTING' : 'BLOCKING'})`;
+                $('icInspectorMeta').textContent = `Ultra-low 0.30V forward drop · V_AK = ${dst.voltage.toFixed(2)} V · I = ${dst.currentMa.toFixed(1)} mA · Gold band marks Cathode (−).`;
+                if (dst.overloaded) showFaultBanner(dst.faultText, 'error');
+            } else if (comp.kind === 'pmos') {
+                const vth = Number(comp.vth) || 2.0;
+                const mst = evalData.pmosStates?.get(comp.id) || { mode: 'CUTOFF', vsg: 0, vsd: 0, idMa: 0 };
+                $('icInspectorTitle').textContent = `P-MOSFET IRF9540N (${mst.mode})`;
+                $('icInspectorMeta').textContent = `Pinout: G (Left) · D (Center) · S (Right) · Vsg = ${mst.vsg.toFixed(2)}V (|Vth| ${vth.toFixed(1)}V) · Vsd = ${mst.vsd.toFixed(2)}V · Id = ${mst.idMa.toFixed(1)} mA.`;
+                if (mst.overloaded) showFaultBanner(mst.faultText, 'error');
+                if (dynBox) {
+                    const rowSl = document.createElement('div'); rowSl.className = 'ic-dyn-row';
+                    const lbl = document.createElement('span'); lbl.className = 'ic-dyn-label'; lbl.textContent = `Threshold |Vth|: ${vth.toFixed(1)} V`;
+                    const sl = document.createElement('input');
+                    sl.type = 'range'; sl.min = '1.0'; sl.max = '4.0'; sl.step = '0.1'; sl.value = String(vth); sl.className = 'ic-dyn-slider';
+                    let preDragDoc = null;
+                    sl.addEventListener('pointerdown', e => { e.stopPropagation(); preDragDoc = cloneICDoc(currentDoc); });
+                    sl.addEventListener('input', () => {
+                        const nv = Math.round(parseFloat(sl.value) * 10) / 10; comp.vth = nv;
+                        lbl.textContent = `Threshold |Vth|: ${nv.toFixed(1)} V`;
+                        recompute({ skipInspectorRebuild: true });
+                        const lm = evalData.pmosStates?.get(comp.id);
+                        if (lm) {
+                            $('icInspectorTitle').textContent = `P-MOSFET IRF9540N (${lm.mode})`;
+                            $('icInspectorMeta').textContent = `Pinout: G (Left) · D (Center) · S (Right) · Vsg = ${lm.vsg.toFixed(2)}V (|Vth| ${nv.toFixed(1)}V) · Vsd = ${lm.vsd.toFixed(2)}V · Id = ${lm.idMa.toFixed(1)} mA.`;
+                        }
+                    });
+                    sl.addEventListener('change', () => { if (preDragDoc) { undoStack.push(preDragDoc); redoStack.length = 0; preDragDoc = null; } recompute(); });
+                    rowSl.append(lbl, sl); dynBox.appendChild(rowSl);
+                }
+            } else if (comp.kind === 'optocoupler') {
+                const ost = evalData.optocouplerStates?.get(comp.id) || { ledOn: false, iLedMa: 0, vce: 0, icMa: 0, conducting: false };
+                $('icInspectorTitle').textContent = `PC817 Optocoupler (${ost.conducting ? 'OPTICALLY ON' : 'ISOLATED OFF'})`;
+                $('icInspectorMeta').textContent = `Input IR LED (A+ / K−): ${ost.iLedMa.toFixed(1)} mA · Isolated Phototransistor (C / E): Ic = ${ost.icMa.toFixed(1)} mA, Vce = ${ost.vce.toFixed(2)} V.`;
+                if (ost.overloaded) showFaultBanner(ost.faultText, 'error');
+            } else if (comp.kind === 'dip4_bb') {
+                const bits = Array.isArray(comp.bits) ? comp.bits : [0, 0, 0, 0];
+                $('icInspectorTitle').textContent = `4-Way Breadboard DIP Switch [${bits.map(b => b ? '1' : '0').join('')}]`;
+                $('icInspectorMeta').textContent = '4 independent passive SPST switches (A0↔B0 .. A3↔B3) straddling the breadboard trough. Click any rocker directly on the bench or below!';
+                $('icToggleSelectedBtn').textContent = 'Cycle DIP Switch Pattern';
+                if (dynBox) {
+                    const grp = document.createElement('div'); grp.className = 'ic-chip-group';
+                    for (let i = 0; i < 4; i++) {
+                        const b = document.createElement('button');
+                        b.type = 'button';
+                        b.className = 'ic-dyn-chip' + (bits[i] ? ' is-active' : '');
+                        b.textContent = `SW${i + 1}: ${bits[i] ? 'ON' : 'OFF'}`;
+                        b.addEventListener('click', () => {
+                            const next = cloneICDoc(currentDoc);
+                            const tc = next.components.find(x => x.id === comp.id);
+                            if (tc) {
+                                if (!Array.isArray(tc.bits)) tc.bits = [0, 0, 0, 0];
+                                tc.bits[i] = tc.bits[i] ? 0 : 1;
+                                commitDoc(next);
+                            }
+                        });
+                        grp.appendChild(b);
+                    }
+                    dynBox.appendChild(grp);
+                }
+            } else if (comp.kind === 'tilt') {
+                $('icInspectorTitle').textContent = `SW-520D Tilt Ball Switch (${comp.tilted ? 'TILTED / OPEN' : 'UPRIGHT / CLOSED'})`;
+                $('icInspectorMeta').textContent = 'Click directly on the brass cylinder (or button below) to tilt OPEN vs upright CLOSED.';
+                $('icToggleSelectedBtn').textContent = comp.tilted ? 'Set Upright (CLOSED)' : 'Tilt Switch (OPEN)';
+            } else if (comp.kind === 'pir') {
+                const pst = evalData.pirStates?.get(comp.id) || { powered: false, motion: Boolean(comp.motion), supplyV: 0, vOut: 0 };
+                $('icInspectorTitle').textContent = `HC-SR501 PIR Sensor (${comp.motion ? 'MOTION DETECTED' : 'IDLE'})`;
+                $('icInspectorMeta').textContent = `Supply: ${pst.supplyV.toFixed(1)}V (${pst.powered ? 'Powered' : 'Needs 5–12V'}) · OUT: ${pst.vOut.toFixed(2)}V. Click the white Fresnel dome to trigger motion!`;
+                $('icToggleSelectedBtn').textContent = comp.motion ? 'Clear Motion (OUT → 0V)' : 'Trigger Motion (OUT → 3.3V)';
+                if (pst.overloaded) showFaultBanner(pst.faultText, 'error');
+            } else if (comp.kind === 'tmp36') {
+                const tempC = Math.max(-40, Math.min(125, Number(comp.tempC ?? 25)));
+                const tst = evalData.tmp36States?.get(comp.id) || { powered: false, supplyV: 0, vOut: 0.75 };
+                $('icInspectorTitle').textContent = `TMP36 Temp Sensor (${Math.round(tempC)}°C · ${tst.vOut.toFixed(2)}V)`;
+                $('icInspectorMeta').textContent = `Supply: ${tst.supplyV.toFixed(1)}V (${tst.powered ? 'Active' : 'Needs 2.7–5.5V'}) · Linear Output = 0.50V + 10mV/°C.`;
+                if (tst.overloaded) showFaultBanner(tst.faultText, 'error');
+                if (dynBox) {
+                    const rowSl = document.createElement('div'); rowSl.className = 'ic-dyn-row';
+                    const lbl = document.createElement('span'); lbl.className = 'ic-dyn-label'; lbl.textContent = `Temperature: ${Math.round(tempC)} °C`;
+                    const sl = document.createElement('input');
+                    sl.type = 'range'; sl.min = '-40'; sl.max = '125'; sl.step = '1'; sl.value = String(Math.round(tempC)); sl.className = 'ic-dyn-slider';
+                    let preDragDoc = null;
+                    sl.addEventListener('pointerdown', e => { e.stopPropagation(); preDragDoc = cloneICDoc(currentDoc); });
+                    sl.addEventListener('input', () => {
+                        const nt = parseFloat(sl.value); comp.tempC = nt;
+                        recompute({ skipInspectorRebuild: true });
+                        const lt = evalData.tmp36States?.get(comp.id);
+                        lbl.textContent = `Temperature: ${Math.round(nt)} °C`;
+                        $('icInspectorTitle').textContent = `TMP36 Temp Sensor (${Math.round(nt)}°C · ${(lt?.vOut ?? (0.5 + 0.01 * nt)).toFixed(2)}V)`;
+                    });
+                    sl.addEventListener('change', () => { if (preDragDoc) { undoStack.push(preDragDoc); redoStack.length = 0; preDragDoc = null; } recompute(); });
+                    rowSl.append(lbl, sl); dynBox.appendChild(rowSl);
+                }
+            } else if (comp.kind === 'led_bar') {
+                const bst = evalData.ledBarStates?.get(comp.id) || { litCount: 0, segments: [] };
+                $('icInspectorTitle').textContent = `8-Segment LED Bar Graph (${bst.litCount}/8 Lit)`;
+                $('icInspectorMeta').textContent = 'DIP-16 bar graph (4 Green, 2 Amber, 2 Red). Top pins = Anodes (A0–A7), Bottom pins = Cathodes (K0–K7). Use 220 Ω–330 Ω limiting resistors!';
+                if (bst.overloaded) showFaultBanner(bst.faultText, 'error');
+            } else if (comp.kind === 'vib_motor') {
+                const vst = evalData.vibMotorStates?.get(comp.id) || { voltage: 0, currentMa: 0, vibrating: false };
+                $('icInspectorTitle').textContent = `Coin Vibration Motor (${vst.vibrating ? 'VIBRATING' : 'IDLE'})`;
+                $('icInspectorMeta').textContent = `30 Ω ERM coil · V = ${Math.abs(vst.voltage).toFixed(2)} V · I = ${vst.currentMa.toFixed(1)} mA · Operating range 1.5V–5.0V (Max 6V).`;
+                if (vst.overloaded) showFaultBanner(vst.faultText, 'error');
+            } else if (comp.kind === 'servo') {
+                const sst = evalData.servoStates?.get(comp.id) || { powered: false, supplyV: 0, vSig: 0, angleDeg: 90, sigConnected: false };
+                $('icInspectorTitle').textContent = `SG90 Micro Servo (${Math.round(sst.angleDeg)}° · ${sst.powered ? 'POWERED' : 'UNPOWERED'})`;
+                $('icInspectorMeta').textContent = `Supply: ${sst.supplyV.toFixed(1)}V (4.0–6.5V) · SIG: ${sst.vSig.toFixed(2)}V → ${Math.round(sst.angleDeg)}° (0V=0°, 2.5V=90°, 5V=180°).`;
+                if (sst.overloaded) showFaultBanner(sst.faultText, 'error');
+                if (dynBox && !sst.sigConnected) {
+                    const rowSl = document.createElement('div'); rowSl.className = 'ic-dyn-row';
+                    const lbl = document.createElement('span'); lbl.className = 'ic-dyn-label'; lbl.textContent = `Manual Test Angle: ${Math.round(comp.angleDeg ?? 90)}°`;
+                    const sl = document.createElement('input');
+                    sl.type = 'range'; sl.min = '0'; sl.max = '180'; sl.step = '1'; sl.value = String(Math.round(comp.angleDeg ?? 90)); sl.className = 'ic-dyn-slider';
+                    let preDragDoc = null;
+                    sl.addEventListener('pointerdown', e => { e.stopPropagation(); preDragDoc = cloneICDoc(currentDoc); });
+                    sl.addEventListener('input', () => {
+                        const na = parseFloat(sl.value); comp.angleDeg = na;
+                        lbl.textContent = `Manual Test Angle: ${Math.round(na)}°`;
+                        recompute({ skipInspectorRebuild: true });
+                    });
+                    sl.addEventListener('change', () => { if (preDragDoc) { undoStack.push(preDragDoc); redoStack.length = 0; preDragDoc = null; } recompute(); });
+                    rowSl.append(lbl, sl); dynBox.appendChild(rowSl);
+                }
+            } else if (comp.kind === 'l293d') {
+                const hst = evalData.l293dStates?.get(comp.id) || { powered: false, vVcc1: 0, vVcc2: 0, en12: false, en34: false, outs: [null, null, null, null] };
+                const fmtO = v => v === 1 ? 'HI' : (v === 0 ? 'LO' : 'Z');
+                $('icInspectorTitle').textContent = `L293D Dual H-Bridge (${hst.powered ? 'ACTIVE' : 'UNPOWERED'})`;
+                $('icInspectorMeta').textContent = `VCC1 (Logic): ${hst.vVcc1.toFixed(1)}V · VCC2 (Motor): ${hst.vVcc2.toFixed(1)}V · EN12:${hst.en12 ? 'ON' : 'OFF'} [OUT1=${fmtO(hst.outs[0])}, OUT2=${fmtO(hst.outs[1])}] · EN34:${hst.en34 ? 'ON' : 'OFF'} [OUT3=${fmtO(hst.outs[2])}, OUT4=${fmtO(hst.outs[3])}].`;
+                if (hst.overloaded) showFaultBanner(hst.faultText, 'error');
+            } else if (comp.kind === 'scope_mini') {
+                const sst = evalData.scopeStates?.get(comp.id) || { connected: false, voltage: 0, vMin: 0, vMax: 0, vpp: 0, vDiv: Number(comp.vDiv) || 2.0 };
+                $('icInspectorTitle').textContent = `DSO-Mini Oscilloscope (${sst.voltage.toFixed(2)}V · Vpp ${sst.vpp.toFixed(2)}V)`;
+                $('icInspectorMeta').textContent = `Live CH1: ${sst.voltage.toFixed(2)} V · Vpp: ${sst.vpp.toFixed(2)} V (${sst.vMin.toFixed(2)}V .. ${sst.vMax.toFixed(2)}V) · Scale: ${sst.vDiv.toFixed(1)} V/div.`;
+                if (dynBox) {
+                    const grp = document.createElement('div'); grp.className = 'ic-chip-group';
+                    for (const vd of [1.0, 2.0, 5.0]) {
+                        const b = document.createElement('button');
+                        b.type = 'button';
+                        b.className = 'ic-dyn-chip' + (Math.abs((Number(comp.vDiv) || 2.0) - vd) < 0.05 ? ' is-active' : '');
+                        b.textContent = `${vd.toFixed(0)}V/div`;
+                        b.addEventListener('click', () => {
+                            const next = cloneICDoc(currentDoc);
+                            const tc = next.components.find(x => x.id === comp.id);
+                            if (tc) { tc.vDiv = vd; commitDoc(next); }
+                        });
+                        grp.appendChild(b);
+                    }
+                    const clr = document.createElement('button');
+                    clr.type = 'button'; clr.className = 'ic-dyn-chip'; clr.textContent = 'Clear Trace';
+                    clr.addEventListener('click', () => { comp._wave = []; recompute(); });
+                    grp.appendChild(clr);
+                    dynBox.appendChild(grp);
+                }
             }
         }
 
@@ -6187,7 +7524,13 @@
                 'switch', 'pushbutton', 'spdt', 'dip4', 'probe',
                 'resistor', 'potentiometer', 'lamp', 'rgb_led',
                 'motor', 'buzzer', 'npn', 'multimeter',
-                'gnd', 'clock', 'seg7', 'seg7_10'
+                'gnd', 'clock', 'seg7', 'seg7_10',
+                'diode', 'zener', 'fuse', 'capacitor', 'capacitor_elec', 'inductor',
+                'pnp', 'nmos', 'reg7805', 'relay', 'ldr', 'thermistor', 'bulb',
+                'ic555', 'opamp',
+                'coin3v', 'reg33', 'schottky', 'pmos', 'optocoupler',
+                'dip4_bb', 'tilt', 'pir', 'tmp36', 'led_bar',
+                'vib_motor', 'servo', 'l293d', 'scope_mini'
             ].includes(t)
         );
 
@@ -6590,6 +7933,10 @@
                         const next = cloneICDoc(currentDoc);
                         const tc = next.components.find(c => c.id === action.id);
                         if (tc) { tc.pressed = !tc.pressed; commitDoc(next); }
+                    } else if (comp && comp.kind === 'fuse' && comp.blown) {
+                        const next = cloneICDoc(currentDoc);
+                        const tc = next.components.find(c => c.id === action.id);
+                        if (tc) { tc.blown = false; commitDoc(next); }
                     } else if (comp && comp.kind === 'multimeter') {
                         const next = cloneICDoc(currentDoc);
                         const tc = next.components.find(c => c.id === action.id);
@@ -6641,6 +7988,28 @@
                             tc.bits[idx] = tc.bits[idx] ? 0 : 1;
                             commitDoc(next);
                         }
+                    } else if (comp && comp.kind === 'dip4_bb') {
+                        const next = cloneICDoc(currentDoc);
+                        const tc = next.components.find(c => c.id === action.id);
+                        if (tc) {
+                            if (!Array.isArray(tc.bits) || tc.bits.length !== 4) tc.bits = [0, 0, 0, 0];
+                            const dx = worldPt.x - comp.position.x;
+                            const dy = worldPt.y - comp.position.y;
+                            const rot = ((comp.rotation || 0) % 360 + 360) % 360;
+                            const rad = (-rot * Math.PI) / 180;
+                            const localX = dx * Math.cos(rad) - dy * Math.sin(rad);
+                            const idx = localX < -36 ? 0 : localX < 0 ? 1 : localX < 36 ? 2 : 3;
+                            tc.bits[idx] = tc.bits[idx] ? 0 : 1;
+                            commitDoc(next);
+                        }
+                    } else if (comp && comp.kind === 'tilt') {
+                        const next = cloneICDoc(currentDoc);
+                        const tc = next.components.find(c => c.id === action.id);
+                        if (tc) { tc.tilted = !tc.tilted; commitDoc(next); }
+                    } else if (comp && comp.kind === 'pir') {
+                        const next = cloneICDoc(currentDoc);
+                        const tc = next.components.find(c => c.id === action.id);
+                        if (tc) { tc.motion = !tc.motion; commitDoc(next); }
                     }
                 }
                 return;

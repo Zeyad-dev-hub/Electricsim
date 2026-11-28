@@ -8,7 +8,7 @@
   <meta name="description" content="Realistic 2D interactive hardware electronics workbench with breadboards, AA/9V batteries, Bench PSU, spinning DC motors with live RPM, variable 4-band resistors, potentiometers, NPN transistors, multimeters, overload warnings, 74xx DIP ICs with X-ray internals, and 3-mode drag-and-drop save/export.">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="../css/research-theme.css?v=5">
-  <link rel="stylesheet" href="../css/logic.css?v=21">
+  <link rel="stylesheet" href="../css/logic.css?v=24">
 </head>
 <body>
   <canvas id="bgCanvas" aria-hidden="true"></canvas>
@@ -82,7 +82,19 @@
     <section class="logic-workspace" aria-label="2D Electronics workbench and live inspector">
       <aside class="logic-palette-sidebar glass-panel-small" aria-label="Visual 2D hardware component gallery">
         <div class="ic-palette-search-wrap">
-          <input id="icPaletteSearch" type="search" placeholder="🔍 Search components or 74xx…" aria-label="Search electronics components">
+          <input id="icPaletteSearch" type="search" placeholder="🔍 Search 60+ parts or 74xx…" aria-label="Search electronics components">
+          <div id="icCategoryBar" class="ic-category-bar" role="group" aria-label="Filter components by category">
+            <button type="button" class="ic-cat-pill is-active" data-cat="all" aria-pressed="true">All</button>
+            <button type="button" class="ic-cat-pill" data-cat="power" aria-pressed="false">Power</button>
+            <button type="button" class="ic-cat-pill" data-cat="passives" aria-pressed="false">Passives</button>
+            <button type="button" class="ic-cat-pill" data-cat="semis" aria-pressed="false">Semis</button>
+            <button type="button" class="ic-cat-pill" data-cat="switches" aria-pressed="false">Switches</button>
+            <button type="button" class="ic-cat-pill" data-cat="sensors" aria-pressed="false">Sensors</button>
+            <button type="button" class="ic-cat-pill" data-cat="outputs" aria-pressed="false">Outputs</button>
+            <button type="button" class="ic-cat-pill" data-cat="instruments" aria-pressed="false">Meters</button>
+            <button type="button" class="ic-cat-pill" data-cat="analog" aria-pressed="false">Analog/IC</button>
+            <button type="button" class="ic-cat-pill" data-cat="74xx" aria-pressed="false">74xx</button>
+          </div>
         </div>
 
         <nav id="icToolsNav" class="logic-tools ic-tools-palette logic-sidebar-tools" aria-label="Electronics components and 74xx ICs">
@@ -95,8 +107,8 @@
             </div>
           </div>
 
-          <div class="palette-section">
-            <span class="palette-group-title">Boards &amp; Power</span>
+          <details class="palette-section" data-cat="power" open>
+            <summary class="palette-group-title"><span>Breadboards &amp; Power</span><span class="palette-count">8</span></summary>
             <div class="palette-grid ic-visual-grid">
               <button type="button" data-ic-tool="breadboard" class="ic-part-card" aria-pressed="false" data-keywords="solderless protoboard rails" title="Half-Size Breadboard (30 Columns + Top/Bottom Power Rails)">
                 <canvas class="ic-part-thumb" data-thumb-kind="breadboard" width="112" height="68"></canvas>
@@ -118,16 +130,31 @@
                 <span class="ic-part-name">9V Battery</span>
                 <span class="ic-part-spec">9.0V PP3</span>
               </button>
+              <button type="button" data-ic-tool="coin3v" class="ic-part-card palette-span-2" aria-pressed="false" data-keywords="cr2032 coin cell 3v lithium button battery" title="CR2032 3V Lithium Coin Cell (15Ω Internal Resistance · Safe LED Driver)">
+                <canvas class="ic-part-thumb" data-thumb-kind="coin3v" width="112" height="68"></canvas>
+                <span class="ic-part-name">3V Coin Cell (CR2032)</span>
+                <span class="ic-part-spec">3.0V Lithium · 15Ω Safe Drive</span>
+              </button>
               <button type="button" data-ic-tool="psu" class="ic-part-card palette-span-2" aria-pressed="false" data-keywords="regulated bench power supply dc voltage 5v 12v" title="Adjustable Regulated Bench Power Supply (0.0V–12.0V)">
                 <canvas class="ic-part-thumb" data-thumb-kind="psu" width="112" height="68"></canvas>
                 <span class="ic-part-name">Bench Power Supply</span>
                 <span class="ic-part-spec">Regulated 0–12V · Digital LCD</span>
               </button>
+              <button type="button" data-ic-tool="reg7805" class="ic-part-card" aria-pressed="false" data-keywords="7805 l7805 voltage regulator 5v linear to220 power" title="L7805CV +5.0V Linear Voltage Regulator (IN – GND – OUT)">
+                <canvas class="ic-part-thumb" data-thumb-kind="reg7805" width="112" height="68"></canvas>
+                <span class="ic-part-name">7805 Reg (+5V)</span>
+                <span class="ic-part-spec">TO-220 · +5.0V</span>
+              </button>
+              <button type="button" data-ic-tool="reg33" class="ic-part-card" aria-pressed="false" data-keywords="ld33v lm1117 3.3v ldo voltage regulator linear to220" title="LD33V +3.3V LDO Linear Voltage Regulator (IN – GND – OUT)">
+                <canvas class="ic-part-thumb" data-thumb-kind="reg33" width="112" height="68"></canvas>
+                <span class="ic-part-name">LD33V (+3.3V)</span>
+                <span class="ic-part-spec">TO-220 · LDO</span>
+              </button>
             </div>
-          </div>
+          </details>
 
-          <div class="palette-section">
-            <span class="palette-group-title">Passives &amp; Controls</span>
+          <details class="palette-section" data-cat="passives" open>
+            <summary class="palette-group-title"><span>Passives &amp; Protection</span><span class="palette-count">6</span></summary>
             <div class="palette-grid ic-visual-grid">
               <button type="button" data-ic-tool="resistor" class="ic-part-card" aria-pressed="false" data-keywords="ohm variable axial 4-band color" title="Variable Axial 4-Band Resistor (1Ω–10MΩ)">
                 <canvas class="ic-part-thumb" data-thumb-kind="resistor" width="112" height="68"></canvas>
@@ -139,6 +166,73 @@
                 <span class="ic-part-name">Potentiometer</span>
                 <span class="ic-part-spec">3-Pin Rotary Dial</span>
               </button>
+              <button type="button" data-ic-tool="capacitor" class="ic-part-card" aria-pressed="false" data-keywords="ceramic disc cap non polarized nf uf rc filter" title="Non-Polarized Ceramic Disc Capacitor (10nF–10µF · Real RC Transient)">
+                <canvas class="ic-part-thumb" data-thumb-kind="capacitor" width="112" height="68"></canvas>
+                <span class="ic-part-name">Ceramic Cap</span>
+                <span class="ic-part-spec">10nF–10µF · Disc</span>
+              </button>
+              <button type="button" data-ic-tool="capacitor_elec" class="ic-part-card" aria-pressed="false" data-keywords="electrolytic polarized capacitor uf can rc timing filter" title="Polarized Electrolytic Capacitor (10µF–1000µF · Real RC Timing + Polarity Check)">
+                <canvas class="ic-part-thumb" data-thumb-kind="capacitor_elec" width="112" height="68"></canvas>
+                <span class="ic-part-name">Electrolytic Cap</span>
+                <span class="ic-part-spec">10–1000µF · +/−</span>
+              </button>
+              <button type="button" data-ic-tool="inductor" class="ic-part-card" aria-pressed="false" data-keywords="coil choke henry mh rl magnetic energy" title="Wirewound Ferrite Inductor Coil (1mH–1H · Real RL Transient)">
+                <canvas class="ic-part-thumb" data-thumb-kind="inductor" width="112" height="68"></canvas>
+                <span class="ic-part-name">Inductor</span>
+                <span class="ic-part-spec">1mH–1H · Coil</span>
+              </button>
+              <button type="button" data-ic-tool="fuse" class="ic-part-card" aria-pressed="false" data-keywords="cartridge glass fuse overcurrent breaker protection safety" title="Glass Cartridge Fuse (50mA–1A · Blows on Overcurrent, Click to Replace)">
+                <canvas class="ic-part-thumb" data-thumb-kind="fuse" width="112" height="68"></canvas>
+                <span class="ic-part-name">Glass Fuse</span>
+                <span class="ic-part-spec">50mA–1A · Reset</span>
+              </button>
+            </div>
+          </details>
+
+          <details class="palette-section" data-cat="semis" open>
+            <summary class="palette-group-title"><span>Diodes &amp; Transistors</span><span class="palette-count">7</span></summary>
+            <div class="palette-grid ic-visual-grid">
+              <button type="button" data-ic-tool="diode" class="ic-part-card" aria-pressed="false" data-keywords="1n4007 rectifier diode forward 0.7v flyback protection" title="1N4007 Rectifier Diode (0.7V Forward Drop · Reverse Blocking)">
+                <canvas class="ic-part-thumb" data-thumb-kind="diode" width="112" height="68"></canvas>
+                <span class="ic-part-name">1N4007 Diode</span>
+                <span class="ic-part-spec">Rectifier · 0.7V</span>
+              </button>
+              <button type="button" data-ic-tool="zener" class="ic-part-card" aria-pressed="false" data-keywords="zener diode breakdown regulator 5.1v reference clamp" title="Zener Voltage Regulator Diode (3.3V–12V Reverse Breakdown)">
+                <canvas class="ic-part-thumb" data-thumb-kind="zener" width="112" height="68"></canvas>
+                <span class="ic-part-name">Zener Diode</span>
+                <span class="ic-part-spec">3.3–12V · Reg</span>
+              </button>
+              <button type="button" data-ic-tool="schottky" class="ic-part-card palette-span-2" aria-pressed="false" data-keywords="1n5819 schottky barrier diode low drop 0.3v fast" title="1N5819 Schottky Barrier Diode (Low 0.30V Forward Drop · Gold Cathode Band)">
+                <canvas class="ic-part-thumb" data-thumb-kind="schottky" width="112" height="68"></canvas>
+                <span class="ic-part-name">Schottky Diode (1N5819)</span>
+                <span class="ic-part-spec">Fast Barrier · Ultra-Low 0.30V Drop</span>
+              </button>
+              <button type="button" data-ic-tool="npn" class="ic-part-card" aria-pressed="false" data-keywords="transistor bjt 2n2222 npn switch amplifier" title="2N2222 NPN TO-92 Transistor (E-B-C)">
+                <canvas class="ic-part-thumb" data-thumb-kind="npn" width="112" height="68"></canvas>
+                <span class="ic-part-name">NPN 2N2222</span>
+                <span class="ic-part-spec">TO-92 · E B C</span>
+              </button>
+              <button type="button" data-ic-tool="pnp" class="ic-part-card" aria-pressed="false" data-keywords="transistor bjt 2n3906 pnp high side switch" title="2N3906 PNP TO-92 Transistor (E-B-C · Complementary High-Side)">
+                <canvas class="ic-part-thumb" data-thumb-kind="pnp" width="112" height="68"></canvas>
+                <span class="ic-part-name">PNP 2N3906</span>
+                <span class="ic-part-spec">TO-92 · E B C</span>
+              </button>
+              <button type="button" data-ic-tool="nmos" class="ic-part-card" aria-pressed="false" data-keywords="mosfet fet irf540 2n7000 n-channel gate drain source power switch" title="IRF540N N-Channel Power MOSFET (G-D-S · Low-Side Switch)">
+                <canvas class="ic-part-thumb" data-thumb-kind="nmos" width="112" height="68"></canvas>
+                <span class="ic-part-name">N-MOSFET</span>
+                <span class="ic-part-spec">IRF540N · G D S</span>
+              </button>
+              <button type="button" data-ic-tool="pmos" class="ic-part-card" aria-pressed="false" data-keywords="mosfet fet irf9540 p-channel high side gate drain source" title="IRF9540N P-Channel Power MOSFET (G-D-S · High-Side Switch)">
+                <canvas class="ic-part-thumb" data-thumb-kind="pmos" width="112" height="68"></canvas>
+                <span class="ic-part-name">P-MOSFET</span>
+                <span class="ic-part-spec">IRF9540N · G D S</span>
+              </button>
+            </div>
+          </details>
+
+          <details class="palette-section" data-cat="switches" open>
+            <summary class="palette-group-title"><span>Switches &amp; Relays</span><span class="palette-count">5</span></summary>
+            <div class="palette-grid ic-visual-grid">
               <button type="button" data-ic-tool="pushbutton" class="ic-part-card" aria-pressed="false" data-keywords="tactile momentary latch switch button" title="4-Pin Tactile Push Button (Momentary or Latched)">
                 <canvas class="ic-part-thumb" data-thumb-kind="pushbutton" width="112" height="68"></canvas>
                 <span class="ic-part-name">Push Button</span>
@@ -149,11 +243,52 @@
                 <span class="ic-part-name">Slide Switch</span>
                 <span class="ic-part-spec">3-Pin SPDT</span>
               </button>
+              <button type="button" data-ic-tool="dip4_bb" class="ic-part-card" aria-pressed="false" data-keywords="dip switch 4 way red breadboard toggle rocker spst" title="4-Way Red Breadboard DIP Switch (Straddles Trough · Click Individual Rockers)">
+                <canvas class="ic-part-thumb" data-thumb-kind="dip4_bb" width="112" height="68"></canvas>
+                <span class="ic-part-name">DIP Switch ×4</span>
+                <span class="ic-part-spec">8-Pin · Breadboard</span>
+              </button>
+              <button type="button" data-ic-tool="tilt" class="ic-part-card" aria-pressed="false" data-keywords="tilt ball switch sw-520d orientation sensor" title="SW-520D Tilt Ball Switch (Click to Tilt OPEN ↔ Upright CLOSED)">
+                <canvas class="ic-part-thumb" data-thumb-kind="tilt" width="112" height="68"></canvas>
+                <span class="ic-part-name">Tilt Switch</span>
+                <span class="ic-part-spec">SW-520D · Ball</span>
+              </button>
+              <button type="button" data-ic-tool="relay" class="ic-part-card palette-span-2" aria-pressed="false" data-keywords="relay spdt 5v coil electromagnetic isolated switch no nc com" title="5V SPDT Sugar-Cube Relay (Isolated Coil switches COM between NC & NO)">
+                <canvas class="ic-part-thumb" data-thumb-kind="relay" width="112" height="68"></canvas>
+                <span class="ic-part-name">5V SPDT Relay</span>
+                <span class="ic-part-spec">Isolated Coil · NC / COM / NO</span>
+              </button>
             </div>
-          </div>
+          </details>
 
-          <div class="palette-section">
-            <span class="palette-group-title">Outputs, Motors &amp; Active</span>
+          <details class="palette-section" data-cat="sensors" open>
+            <summary class="palette-group-title"><span>Sensors (Input)</span><span class="palette-count">4</span></summary>
+            <div class="palette-grid ic-visual-grid">
+              <button type="button" data-ic-tool="ldr" class="ic-part-card" aria-pressed="false" data-keywords="photoresistor ldr light sensor cds brightness night light" title="Photoresistor / LDR (200Ω Bright – 100kΩ Dark · Adjustable Light Slider)">
+                <canvas class="ic-part-thumb" data-thumb-kind="ldr" width="112" height="68"></canvas>
+                <span class="ic-part-name">Photoresistor</span>
+                <span class="ic-part-spec">LDR · 200Ω–100k</span>
+              </button>
+              <button type="button" data-ic-tool="thermistor" class="ic-part-card" aria-pressed="false" data-keywords="thermistor ntc temperature heat sensor thermal 10k" title="NTC 10kΩ Thermistor (−10°C to 100°C · Adjustable Temperature Slider)">
+                <canvas class="ic-part-thumb" data-thumb-kind="thermistor" width="112" height="68"></canvas>
+                <span class="ic-part-name">Thermistor</span>
+                <span class="ic-part-spec">NTC 10k · Temp</span>
+              </button>
+              <button type="button" data-ic-tool="tmp36" class="ic-part-card" aria-pressed="false" data-keywords="tmp36 temperature sensor analog linear to92 celsius" title="TMP36 Precision Analog Temp Sensor (0.50V + 10mV/°C · 0.75V at 25°C)">
+                <canvas class="ic-part-thumb" data-thumb-kind="tmp36" width="112" height="68"></canvas>
+                <span class="ic-part-name">TMP36 Temp</span>
+                <span class="ic-part-spec">Analog · 10mV/°C</span>
+              </button>
+              <button type="button" data-ic-tool="pir" class="ic-part-card" aria-pressed="false" data-keywords="pir hc-sr501 motion infrared detector dome sensor" title="HC-SR501 PIR Motion Sensor (Click White Fresnel Dome to Trigger 3.3V Output)">
+                <canvas class="ic-part-thumb" data-thumb-kind="pir" width="112" height="68"></canvas>
+                <span class="ic-part-name">PIR Motion</span>
+                <span class="ic-part-spec">HC-SR501 · 3.3V</span>
+              </button>
+            </div>
+          </details>
+
+          <details class="palette-section" data-cat="outputs" open>
+            <summary class="palette-group-title"><span>Outputs &amp; Actuators</span><span class="palette-count">9</span></summary>
             <div class="palette-grid ic-visual-grid">
               <button type="button" data-ic-tool="lamp" class="ic-part-card" aria-pressed="false" data-keywords="led diode light indicator 5mm" title="2-Leg 5mm LED (Overcurrent Protected Check)">
                 <canvas class="ic-part-thumb" data-thumb-kind="lamp" width="112" height="68"></canvas>
@@ -165,25 +300,35 @@
                 <span class="ic-part-name">RGB LED</span>
                 <span class="ic-part-spec">4-Leg Common −</span>
               </button>
-              <button type="button" data-ic-tool="motor" class="ic-part-card" aria-pressed="false" data-keywords="dc motor rpm fan rotor actuator spin" title="2D DC Motor with Live Spinning Rotor &amp; RPM Telemetry">
-                <canvas class="ic-part-thumb" data-thumb-kind="motor" width="112" height="68"></canvas>
-                <span class="ic-part-name">DC Motor</span>
-                <span class="ic-part-spec">3–12V · Live RPM</span>
+              <button type="button" data-ic-tool="bulb" class="ic-part-card" aria-pressed="false" data-keywords="incandescent light bulb filament lamp glow" title="Incandescent Light Bulb (24Ω Filament · Warm Glow · Max 12V)">
+                <canvas class="ic-part-thumb" data-thumb-kind="bulb" width="112" height="68"></canvas>
+                <span class="ic-part-name">Light Bulb</span>
+                <span class="ic-part-spec">24Ω · Filament</span>
               </button>
               <button type="button" data-ic-tool="buzzer" class="ic-part-card" aria-pressed="false" data-keywords="piezo speaker sound alarm tone" title="Piezo Buzzer with Acoustic Waves &amp; Optional Sound">
                 <canvas class="ic-part-thumb" data-thumb-kind="buzzer" width="112" height="68"></canvas>
                 <span class="ic-part-name">Piezo Buzzer</span>
                 <span class="ic-part-spec">Acoustic Tone</span>
               </button>
-              <button type="button" data-ic-tool="npn" class="ic-part-card" aria-pressed="false" data-keywords="transistor bjt 2n2222 npn switch amplifier" title="2N2222 NPN TO-92 Transistor (E-B-C)">
-                <canvas class="ic-part-thumb" data-thumb-kind="npn" width="112" height="68"></canvas>
-                <span class="ic-part-name">NPN 2N2222</span>
-                <span class="ic-part-spec">TO-92 · E B C</span>
+              <button type="button" data-ic-tool="motor" class="ic-part-card" aria-pressed="false" data-keywords="dc motor rpm fan rotor actuator spin" title="2D DC Motor with Live Spinning Rotor &amp; RPM Telemetry">
+                <canvas class="ic-part-thumb" data-thumb-kind="motor" width="112" height="68"></canvas>
+                <span class="ic-part-name">DC Motor</span>
+                <span class="ic-part-spec">3–12V · Live RPM</span>
               </button>
-              <button type="button" data-ic-tool="multimeter" class="ic-part-card" aria-pressed="false" data-keywords="dmm voltmeter ammeter ohmmeter measure test" title="Handheld Digital Multimeter (V / mA / Ω)">
-                <canvas class="ic-part-thumb" data-thumb-kind="multimeter" width="112" height="68"></canvas>
-                <span class="ic-part-name">Multimeter</span>
-                <span class="ic-part-spec">V / mA / Ω</span>
+              <button type="button" data-ic-tool="servo" class="ic-part-card" aria-pressed="false" data-keywords="sg90 micro servo motor horn angle actuator pwm" title="SG90 Micro Servo Motor (+5V Power · 0–5V SIG rotates horn 0°–180°)">
+                <canvas class="ic-part-thumb" data-thumb-kind="servo" width="112" height="68"></canvas>
+                <span class="ic-part-name">Micro Servo</span>
+                <span class="ic-part-spec">SG90 · 0°–180°</span>
+              </button>
+              <button type="button" data-ic-tool="vib_motor" class="ic-part-card" aria-pressed="false" data-keywords="vibration coin erm pancake haptic motor 3v" title="3V Coin ERM Vibration Motor (Haptic Actuator · 1.5–5V)">
+                <canvas class="ic-part-thumb" data-thumb-kind="vib_motor" width="112" height="68"></canvas>
+                <span class="ic-part-name">Vibration Motor</span>
+                <span class="ic-part-spec">Coin ERM · 3–5V</span>
+              </button>
+              <button type="button" data-ic-tool="led_bar" class="ic-part-card" aria-pressed="false" data-keywords="led bar graph 8 segment meter vu dip16" title="8-Segment LED Bar Graph (4 Green, 2 Amber, 2 Red · DIP-16 Straddles Trough)">
+                <canvas class="ic-part-thumb" data-thumb-kind="led_bar" width="112" height="68"></canvas>
+                <span class="ic-part-name">8-LED Bar Graph</span>
+                <span class="ic-part-spec">DIP-16 · VU Bar</span>
               </button>
               <button type="button" data-ic-tool="seg7_10" class="ic-part-card palette-span-2" aria-pressed="false" data-keywords="7 segment 10 pin display led 5161as" title="Authentic 10-Pin Common-Cathode 7-Segment LED Display (Top: g,f,COM,a,b · Bottom: e,d,COM,c,dp)">
                 <canvas class="ic-part-thumb" data-thumb-kind="seg7_10" width="112" height="68"></canvas>
@@ -191,10 +336,52 @@
                 <span class="ic-part-spec">Real 5161AS · g f COM a b / e d COM c dp</span>
               </button>
             </div>
-          </div>
+          </details>
 
-          <div class="palette-section">
-            <span class="palette-group-title">74xx Logic DIP ICs (4.0–5.5V)</span>
+          <details class="palette-section" data-cat="instruments" open>
+            <summary class="palette-group-title"><span>Test Instruments</span><span class="palette-count">2</span></summary>
+            <div class="palette-grid ic-visual-grid">
+              <button type="button" data-ic-tool="multimeter" class="ic-part-card" aria-pressed="false" data-keywords="dmm voltmeter ammeter ohmmeter measure test" title="Handheld Digital Multimeter (V / mA / Ω)">
+                <canvas class="ic-part-thumb" data-thumb-kind="multimeter" width="112" height="68"></canvas>
+                <span class="ic-part-name">Multimeter</span>
+                <span class="ic-part-spec">V / mA / Ω</span>
+              </button>
+              <button type="button" data-ic-tool="scope_mini" class="ic-part-card" aria-pressed="false" data-keywords="oscilloscope dso scope waveform trace probe test" title="Mini Benchtop Oscilloscope (Live Scrolling CH1 Phosphor Waveform Trace)">
+                <canvas class="ic-part-thumb" data-thumb-kind="scope_mini" width="112" height="68"></canvas>
+                <span class="ic-part-name">Oscilloscope</span>
+                <span class="ic-part-spec">DSO-Mini · Live</span>
+              </button>
+            </div>
+          </details>
+
+          <details class="palette-section" data-cat="analog" open>
+            <summary class="palette-group-title"><span>Analog, Drivers &amp; Isolators</span><span class="palette-count">4</span></summary>
+            <div class="palette-grid ic-visual-grid">
+              <button type="button" data-ic-tool="ic555" class="ic-part-card" aria-pressed="false" data-keywords="555 ne555 timer oscillator astable monostable pwm blinker dip8" title="NE555P Precision Timer 8-Pin DIP (Straddles Breadboard Trough · Real Astable & Monostable)">
+                <canvas class="ic-part-thumb" data-thumb-kind="ic555" width="112" height="68"></canvas>
+                <span class="ic-part-name">NE555 Timer</span>
+                <span class="ic-part-spec">8-Pin DIP · 4.5–15V</span>
+              </button>
+              <button type="button" data-ic-tool="opamp" class="ic-part-card" aria-pressed="false" data-keywords="lm741 opamp operational amplifier comparator follower inverting dip8" title="LM741 Operational Amplifier 8-Pin DIP (Comparator, Follower & Feedback Amplifiers)">
+                <canvas class="ic-part-thumb" data-thumb-kind="opamp" width="112" height="68"></canvas>
+                <span class="ic-part-name">LM741 Op-Amp</span>
+                <span class="ic-part-spec">8-Pin DIP · Analog</span>
+              </button>
+              <button type="button" data-ic-tool="optocoupler" class="ic-part-card" aria-pressed="false" data-keywords="pc817 optocoupler optoisolator phototransistor galvanic isolation dip4" title="PC817 4-Pin Optical Isolator (Galvanically Isolated IR LED + Phototransistor)">
+                <canvas class="ic-part-thumb" data-thumb-kind="optocoupler" width="112" height="68"></canvas>
+                <span class="ic-part-name">Optocoupler</span>
+                <span class="ic-part-spec">PC817 · 4-Pin DIP</span>
+              </button>
+              <button type="button" data-ic-tool="l293d" class="ic-part-card" aria-pressed="false" data-keywords="l293d h-bridge motor driver dual bidirectional dip16" title="L293D Dual H-Bridge Motor Driver (16-Pin DIP · Drive & Reverse 2 DC Motors)">
+                <canvas class="ic-part-thumb" data-thumb-kind="l293d" width="112" height="68"></canvas>
+                <span class="ic-part-name">L293D H-Bridge</span>
+                <span class="ic-part-spec">16-Pin · Motor Drv</span>
+              </button>
+            </div>
+          </details>
+
+          <details class="palette-section" data-cat="74xx" open>
+            <summary class="palette-group-title"><span>74xx Logic DIP ICs (4.0–5.5V)</span><span class="palette-count">10</span></summary>
             <div class="palette-grid">
               <button type="button" data-ic-tool="7404" class="ic-chip-btn" aria-pressed="false" data-keywords="not inverter hex" title="SN7404N Hex Inverter">7404 <small>NOT</small></button>
               <button type="button" data-ic-tool="7400" class="ic-chip-btn" aria-pressed="false" data-keywords="nand quad" title="SN7400N Quad 2-Input NAND">7400 <small>NAND</small></button>
@@ -207,10 +394,10 @@
               <button type="button" data-ic-tool="7411" class="ic-chip-btn" aria-pressed="false" data-keywords="3-input and" title="SN7411N Triple 3-Input AND">7411 <small>3-AND</small></button>
               <button type="button" data-ic-tool="7427" class="ic-chip-btn" aria-pressed="false" data-keywords="3-input nor" title="SN7427N Triple 3-Input NOR">7427 <small>3-NOR</small></button>
             </div>
-          </div>
+          </details>
 
-          <div class="palette-section">
-            <span class="palette-group-title">74xx MSI &amp; Sequential ICs</span>
+          <details class="palette-section" data-cat="74xx" open>
+            <summary class="palette-group-title"><span>74xx MSI &amp; Sequential ICs</span><span class="palette-count">7</span></summary>
             <div class="palette-grid">
               <button type="button" data-ic-tool="7474" class="ic-chip-btn" aria-pressed="false" data-keywords="flip flop dff sequential" title="SN7474N Dual D Flip-Flop w/ Preset &amp; Clear (14-Pin)">7474 <small>D-FF</small></button>
               <button type="button" data-ic-tool="7475" class="ic-chip-btn" aria-pressed="false" data-keywords="latch 4 bit" title="SN7475N 4-Bit Bistable D-Latch (16-Pin)">7475 <small>Latch</small></button>
@@ -220,7 +407,7 @@
               <button type="button" data-ic-tool="74148" class="ic-chip-btn" aria-pressed="false" data-keywords="priority encoder 8 to 3" title="SN74148N 8-to-3 Priority Encoder (16-Pin)">74148 <small>ENC</small></button>
               <button type="button" data-ic-tool="7493" class="ic-chip-btn palette-span-2" aria-pressed="false" data-keywords="counter 4 bit ripple binary" title="SN7493AN 4-Bit Binary Ripple Counter (14-Pin)">7493 <small>4-Bit Counter</small></button>
             </div>
-          </div>
+          </details>
         </nav>
       </aside>
 
@@ -284,12 +471,12 @@
     </footer>
   </main>
 
-  <script src="../js/electronics-solver.js?v=5"></script>
+  <script src="../js/electronics-solver.js?v=8"></script>
   <script src="../js/electronics-components.js?v=5"></script>
-  <script src="../js/hardware-renderer.js?v=6"></script>
+  <script src="../js/hardware-renderer.js?v=10"></script>
   <script src="../js/schematic-io.js?v=2"></script>
-  <script src="../js/electronics-export.js?v=10"></script>
-  <script src="../js/logic-ic-lab.js?v=30"></script>
+  <script src="../js/electronics-export.js?v=13"></script>
+  <script src="../js/logic-ic-lab.js?v=35"></script>
   <script src="../js/shared-bg.js"></script>
 </body>
 </html>

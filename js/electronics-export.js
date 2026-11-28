@@ -14,7 +14,13 @@
     const VALID_KINDS = new Set([
         'ic', 'battery', 'battery9v', 'psu', 'gnd', 'switch', 'pushbutton', 'spdt',
         'dip4', 'resistor', 'potentiometer', 'lamp', 'rgb_led', 'motor', 'buzzer',
-        'npn', 'multimeter', 'clock', 'probe', 'seg7', 'seg7_10', 'breadboard'
+        'npn', 'multimeter', 'clock', 'probe', 'seg7', 'seg7_10', 'breadboard',
+        'diode', 'zener', 'fuse', 'capacitor', 'capacitor_elec', 'inductor',
+        'pnp', 'nmos', 'reg7805', 'relay', 'ldr', 'thermistor', 'bulb',
+        'ic555', 'opamp',
+        'coin3v', 'reg33', 'schottky', 'pmos', 'optocoupler',
+        'dip4_bb', 'tilt', 'pir', 'tmp36', 'led_bar',
+        'vib_motor', 'servo', 'l293d', 'scope_mini'
     ]);
 
     function validateElectronicsDoc(doc) {
@@ -484,6 +490,173 @@
             }
             const title = comp.kind === 'dip4' ? 'DIP-4' : comp.kind === 'seg7' ? '7-SEG' : comp.kind === 'clock' ? 'CLK 1Hz' : 'PROBE';
             drawText(title, 0, 0, 10);
+        } else if (comp.kind === 'diode' || comp.kind === 'zener') {
+            strokePts(ctx, [{ x: -72, y: 0 }, { x: -14, y: 0 }], 2);
+            strokePts(ctx, [{ x: 14, y: 0 },  { x: 72, y: 0 }],  2);
+            ctx.beginPath();
+            ctx.moveTo(-14, -13); ctx.lineTo(-14, 13); ctx.lineTo(14, 0); ctx.closePath();
+            ctx.fillStyle = '#ffffff'; ctx.fill(); ctx.lineWidth = 2; ctx.stroke();
+            if (comp.kind === 'zener') {
+                strokePts(ctx, [{ x: 8, y: -16 }, { x: 14, y: -13 }, { x: 14, y: 13 }, { x: 20, y: 16 }], 2.4);
+                drawText(`DZ ${(Number(comp.vz) || 5.1).toFixed(1)}V`, 0, -24, 10);
+            } else {
+                strokePts(ctx, [{ x: 14, y: -13 }, { x: 14, y: 13 }], 2.4);
+                drawText(comp.model || '1N4007', 0, -24, 10);
+            }
+        } else if (comp.kind === 'fuse') {
+            strokePts(ctx, [{ x: -72, y: 0 }, { x: -24, y: 0 }], 2);
+            strokePts(ctx, [{ x: 24, y: 0 },  { x: 72, y: 0 }],  2);
+            ctx.fillStyle = '#ffffff'; ctx.fillRect(-24, -10, 48, 20);
+            ctx.lineWidth = 2; ctx.strokeRect(-24, -10, 48, 20);
+            if (!comp.blown) strokePts(ctx, [{ x: -24, y: 0 }, { x: 24, y: 0 }], 1.8);
+            const rTxt = Solver ? Solver.formatCurrentMa(comp.ratedMa || 250) : `${comp.ratedMa || 250} mA`;
+            drawText(`FUSE ${rTxt}`, 0, -20, 9.5);
+        } else if (comp.kind === 'capacitor' || comp.kind === 'capacitor_elec') {
+            strokePts(ctx, [{ x: -18, y: 0 }, { x: -5, y: 0 }], 2);
+            strokePts(ctx, [{ x: 5, y: 0 },   { x: 18, y: 0 }], 2);
+            strokePts(ctx, [{ x: -5, y: -16 }, { x: -5, y: 16 }], 2.4);
+            if (comp.kind === 'capacitor_elec') {
+                ctx.beginPath(); ctx.arc(14, 0, 18, Math.PI * 0.68, Math.PI * 1.32);
+                ctx.lineWidth = 2.4; ctx.stroke();
+                drawText('+', -14, -14, 10);
+            } else {
+                strokePts(ctx, [{ x: 5, y: -16 }, { x: 5, y: 16 }], 2.4);
+            }
+            const cTxt = Solver ? Solver.formatFarads(comp.farads || (comp.kind === 'capacitor_elec' ? 100e-6 : 100e-9)) : 'C';
+            drawText(cTxt, 0, -26, 9.5);
+        } else if (comp.kind === 'inductor') {
+            strokePts(ctx, [{ x: -72, y: 0 }, { x: -24, y: 0 }], 2);
+            strokePts(ctx, [{ x: 24, y: 0 },  { x: 72, y: 0 }],  2);
+            ctx.beginPath();
+            for (let i = 0; i < 4; i++) ctx.arc(-18 + i * 12, 0, 6, Math.PI, 0, false);
+            ctx.lineWidth = 2.2; ctx.stroke();
+            const lTxt = Solver ? Solver.formatHenrys(comp.henrys || 0.1) : '100 mH';
+            drawText(lTxt, 0, -18, 10);
+        } else if (comp.kind === 'pnp') {
+            ctx.beginPath(); ctx.arc(0, -4, 22, 0, Math.PI * 2);
+            ctx.fillStyle = '#ffffff'; ctx.fill(); ctx.lineWidth = 1.8; ctx.stroke();
+            strokePts(ctx, [{ x: -11, y: 4 }, { x: 11, y: 4 }], 3.0);
+            strokePts(ctx, [{ x: 0, y: 4 }, { x: 0, y: 36 }], 2);
+            strokePts(ctx, [{ x: -6, y: 4 }, { x: -18, y: 14 }, { x: -36, y: 36 }], 2);
+            strokePts(ctx, [{ x: 6, y: 4 }, { x: 18, y: 14 }, { x: 36, y: 36 }], 2);
+            ctx.beginPath(); ctx.moveTo(-7, 5); ctx.lineTo(-14, 7); ctx.lineTo(-11, 13); ctx.closePath();
+            ctx.fillStyle = '#000000'; ctx.fill();
+            drawText('2N3906 (PNP)', 0, -34, 9.5);
+        } else if (comp.kind === 'nmos') {
+            ctx.beginPath(); ctx.arc(0, -4, 22, 0, Math.PI * 2);
+            ctx.fillStyle = '#ffffff'; ctx.fill(); ctx.lineWidth = 1.8; ctx.stroke();
+            strokePts(ctx, [{ x: -36, y: 36 }, { x: -36, y: 6 }, { x: -10, y: 6 }], 2);
+            strokePts(ctx, [{ x: -10, y: -10 }, { x: -10, y: 12 }], 2.4);
+            strokePts(ctx, [{ x: -4, y: -10 }, { x: -4, y: 12 }], 2.4);
+            strokePts(ctx, [{ x: 0, y: 36 }, { x: 0, y: -6 }, { x: -4, y: -6 }], 2);
+            strokePts(ctx, [{ x: 36, y: 36 }, { x: 36, y: 6 }, { x: -4, y: 6 }], 2);
+            drawText('IRF540N (NMOS)', 0, -34, 9.5);
+        } else if (comp.kind === 'reg7805') {
+            ctx.fillStyle = '#ffffff'; ctx.fillRect(-46, -24, 92, 40);
+            ctx.lineWidth = 2; ctx.strokeRect(-46, -24, 92, 40);
+            strokePts(ctx, [{ x: -36, y: 16 }, { x: -36, y: 36 }], 2);
+            strokePts(ctx, [{ x: 0, y: 16 },   { x: 0, y: 36 }],   2);
+            strokePts(ctx, [{ x: 36, y: 16 },  { x: 36, y: 36 }],  2);
+            drawText('L7805CV (+5V)', 0, -4, 9.5);
+        } else if (comp.kind === 'relay') {
+            ctx.fillStyle = '#ffffff'; ctx.fillRect(-52, -50, 104, 100);
+            ctx.lineWidth = 2; ctx.strokeRect(-52, -50, 104, 100);
+            strokePts(ctx, [{ x: -36, y: -72 }, { x: -36, y: -50 }], 2);
+            strokePts(ctx, [{ x: 36, y: -72 },  { x: 36, y: -50 }],  2);
+            strokePts(ctx, [{ x: -36, y: 50 },  { x: -36, y: 72 }],  2);
+            strokePts(ctx, [{ x: 0, y: 50 },    { x: 0, y: 72 }],    2);
+            strokePts(ctx, [{ x: 36, y: 50 },   { x: 36, y: 72 }],   2);
+            drawText('5V SPDT RELAY', 0, 0, 9.5);
+        } else if (comp.kind === 'ldr' || comp.kind === 'thermistor') {
+            const px = comp.kind === 'ldr' ? 36 : 18;
+            strokePts(ctx, [{ x: -px, y: 0 }, { x: -16, y: 0 }, { x: -12, y: -8 }, { x: -4, y: 8 }, { x: 4, y: -8 }, { x: 12, y: 8 }, { x: 16, y: 0 }, { x: px, y: 0 }], 2);
+            drawText(comp.kind === 'ldr' ? 'LDR' : 'NTC 10k', 0, -20, 9.5);
+        } else if (comp.kind === 'bulb') {
+            strokePts(ctx, [{ x: -36, y: 0 }, { x: -18, y: 0 }], 2);
+            strokePts(ctx, [{ x: 18, y: 0 },  { x: 36, y: 0 }],  2);
+            ctx.beginPath(); ctx.arc(0, 0, 18, 0, Math.PI * 2);
+            ctx.fillStyle = '#ffffff'; ctx.fill(); ctx.lineWidth = 2; ctx.stroke();
+            strokePts(ctx, [{ x: -12, y: -12 }, { x: 12, y: 12 }], 1.8);
+            strokePts(ctx, [{ x: -12, y: 12 },  { x: 12, y: -12 }], 1.8);
+            drawText('BULB', 0, -28, 9.5);
+        } else if (comp.kind === 'ic555' || comp.kind === 'opamp') {
+            ctx.fillStyle = '#ffffff'; ctx.fillRect(-68, -50, 136, 100);
+            ctx.lineWidth = 2.2; ctx.strokeRect(-68, -50, 136, 100);
+            for (const px of [-54, -18, 18, 54]) {
+                strokePts(ctx, [{ x: px, y: -72 }, { x: px, y: -50 }], 1.8);
+                strokePts(ctx, [{ x: px, y: 50 },  { x: px, y: 72 }],  1.8);
+            }
+            drawText(comp.kind === 'ic555' ? 'NE555P TIMER' : 'LM741 OP-AMP', 0, 0, 10.5);
+        } else if (comp.kind === 'coin3v') {
+            strokePts(ctx, [{ x: -72, y: 0 }, { x: -12, y: 0 }], 2);
+            strokePts(ctx, [{ x: 12, y: 0 },  { x: 72, y: 0 }],  2);
+            strokePts(ctx, [{ x: -12, y: -11 }, { x: -12, y: 11 }], 3.4);
+            strokePts(ctx, [{ x: 12, y: -22 },  { x: 12, y: 22 }],  1.8);
+            drawText('CR2032 3V', 0, -30, 10);
+        } else if (comp.kind === 'reg33') {
+            ctx.fillStyle = '#ffffff'; ctx.fillRect(-44, -24, 88, 36);
+            ctx.lineWidth = 2; ctx.strokeRect(-44, -24, 88, 36);
+            for (const px of [-36, 0, 36]) strokePts(ctx, [{ x: px, y: 12 }, { x: px, y: 36 }], 2);
+            drawText('LD33V +3.3V', 0, -6, 9.5);
+        } else if (comp.kind === 'schottky') {
+            strokePts(ctx, [{ x: -72, y: 0 }, { x: -14, y: 0 }], 2);
+            strokePts(ctx, [{ x: 14, y: 0 },  { x: 72, y: 0 }],  2);
+            ctx.beginPath(); ctx.moveTo(-14, -14); ctx.lineTo(-14, 14); ctx.lineTo(14, 0); ctx.closePath();
+            ctx.fillStyle = '#ffffff'; ctx.fill(); ctx.lineWidth = 2; ctx.stroke();
+            strokePts(ctx, [{ x: 19, y: -9 }, { x: 19, y: -14 }, { x: 14, y: -14 }, { x: 14, y: 14 }, { x: 9, y: 14 }, { x: 9, y: 9 }], 2.2);
+            drawText('1N5819', 0, -24, 9.5);
+        } else if (comp.kind === 'pmos') {
+            ctx.beginPath(); ctx.arc(0, -14, 24, 0, Math.PI * 2);
+            ctx.fillStyle = '#ffffff'; ctx.fill(); ctx.lineWidth = 1.8; ctx.stroke();
+            for (const px of [-36, 0, 36]) strokePts(ctx, [{ x: px, y: 10 }, { x: px, y: 36 }], 2);
+            drawText('P-MOS', 0, -14, 9.5);
+        } else if (comp.kind === 'optocoupler') {
+            ctx.fillStyle = '#ffffff'; ctx.fillRect(-32, -50, 64, 100);
+            ctx.lineWidth = 2; ctx.strokeRect(-32, -50, 64, 100);
+            for (const px of [-18, 18]) {
+                strokePts(ctx, [{ x: px, y: -72 }, { x: px, y: -50 }], 1.8);
+                strokePts(ctx, [{ x: px, y: 50 },  { x: px, y: 72 }],  1.8);
+            }
+            drawText('PC817', 0, 0, 10);
+        } else if (comp.kind === 'dip4_bb') {
+            ctx.fillStyle = '#ffffff'; ctx.fillRect(-68, -48, 136, 96);
+            ctx.lineWidth = 2; ctx.strokeRect(-68, -48, 136, 96);
+            for (const px of [-54, -18, 18, 54]) {
+                strokePts(ctx, [{ x: px, y: -72 }, { x: px, y: -48 }], 1.8);
+                strokePts(ctx, [{ x: px, y: 48 },  { x: px, y: 72 }],  1.8);
+            }
+            drawText('DIP-4 SW', 0, 0, 10);
+        } else if (comp.kind === 'tilt') {
+            strokePts(ctx, [{ x: -18, y: 0 }, { x: -12, y: 0 }], 2);
+            strokePts(ctx, [{ x: 12, y: 0 },  { x: 18, y: 0 }],  2);
+            ctx.fillStyle = '#ffffff'; ctx.fillRect(-12, -10, 24, 20);
+            ctx.lineWidth = 2; ctx.strokeRect(-12, -10, 24, 20);
+            drawText('TILT SW', 0, -22, 9.5);
+        } else if (comp.kind === 'pir' || comp.kind === 'tmp36' || comp.kind === 'servo') {
+            ctx.fillStyle = '#ffffff'; ctx.fillRect(-48, -32, 96, 44);
+            ctx.lineWidth = 2; ctx.strokeRect(-48, -32, 96, 44);
+            for (const px of [-36, 0, 36]) strokePts(ctx, [{ x: px, y: 12 }, { x: px, y: 36 }], 2);
+            drawText(comp.kind === 'pir' ? 'PIR' : (comp.kind === 'tmp36' ? 'TMP36' : 'SERVO'), 0, -10, 10);
+        } else if (comp.kind === 'led_bar' || comp.kind === 'l293d') {
+            ctx.fillStyle = '#ffffff'; ctx.fillRect(-142, -50, 284, 100);
+            ctx.lineWidth = 2.2; ctx.strokeRect(-142, -50, 284, 100);
+            for (const px of [-126, -90, -54, -18, 18, 54, 90, 126]) {
+                strokePts(ctx, [{ x: px, y: -72 }, { x: px, y: -50 }], 1.8);
+                strokePts(ctx, [{ x: px, y: 50 },  { x: px, y: 72 }],  1.8);
+            }
+            drawText(comp.kind === 'l293d' ? 'L293D DUAL H-BRIDGE' : '8-LED BAR GRAPH', 0, 0, 11);
+        } else if (comp.kind === 'vib_motor') {
+            strokePts(ctx, [{ x: -36, y: 0 }, { x: -18, y: 0 }], 2);
+            strokePts(ctx, [{ x: 18, y: 0 },  { x: 36, y: 0 }],  2);
+            ctx.beginPath(); ctx.arc(0, 0, 18, 0, Math.PI * 2);
+            ctx.fillStyle = '#ffffff'; ctx.fill(); ctx.lineWidth = 2; ctx.stroke();
+            drawText('VIB', 0, 0, 9.5);
+        } else if (comp.kind === 'scope_mini') {
+            ctx.fillStyle = '#ffffff'; ctx.fillRect(-84, -40, 168, 84);
+            ctx.lineWidth = 2; ctx.strokeRect(-84, -40, 168, 84);
+            strokePts(ctx, [{ x: -72, y: 44 }, { x: -72, y: 144 }], 2);
+            strokePts(ctx, [{ x: 72, y: 44 },  { x: 72, y: 144 }],  2);
+            drawText('DSO-MINI', 0, 0, 11);
         }
 
         ctx.restore();

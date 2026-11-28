@@ -3028,6 +3028,1908 @@
     }
 
     // =========================================================================
+    // 14. RECTIFIER DIODE (1N4007 — DO-41 AXIAL, 4U PINS ±72, 0)
+    // =========================================================================
+    function drawDiode(ctx, comp, evalData, isSelected) {
+        const st = evalData?.diodeStates?.get(comp.id) || { conducting: false, currentMa: 0, overloaded: false };
+        drawMetallicLead(ctx, [{ x: -72, y: 0 }, { x: -34, y: 0 }], 3.6);
+        drawMetallicLead(ctx, [{ x: 34, y: 0 },  { x: 72, y: 0 }],  3.6);
+
+        withPhysicalShadow(ctx, () => {
+            rRect(ctx, -34, -12, 68, 24, 5);
+            ctx.fillStyle = '#0b0f18';
+            ctx.fill();
+        }, 10, 4, 2, 2);
+
+        rRect(ctx, -34, -12, 68, 24, 5);
+        const bodyG = ctx.createLinearGradient(0, -12, 0, 12);
+        bodyG.addColorStop(0, '#334155');
+        bodyG.addColorStop(0.32, '#1e2430');
+        bodyG.addColorStop(0.85, '#0f141e');
+        bodyG.addColorStop(1, '#080b12');
+        ctx.fillStyle = bodyG;
+        ctx.fill();
+        ctx.strokeStyle = st.overloaded ? '#ef4444' : (st.conducting ? '#34d399' : '#475569');
+        ctx.lineWidth = st.overloaded || st.conducting ? 1.8 : 1.2;
+        ctx.stroke();
+
+        // Crisp matte silver-slate cathode band on right (+72 = cathode)
+        ctx.fillStyle = '#cbd5e1';
+        ctx.fillRect(15, -11.2, 9.5, 22.4);
+
+        ctx.save();
+        ctx.translate(-7, 0.5);
+        if ((((comp.rotation || 0) % 360) + 360) % 360 === 180) ctx.rotate(Math.PI);
+        ctx.font = '800 8px "JetBrains Mono", monospace';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillStyle = '#cbd5e1';
+        ctx.fillText(comp.model || '1N4007', 0, 0);
+        ctx.restore();
+
+        drawMicroTag(ctx, -54, -18, 'A', '#94a3b8');
+        drawMicroTag(ctx,  54, -18, 'K', '#e2e8f0');
+
+        if (st.overloaded) {
+            drawPillBadge(ctx, 0, 26, '🔥 DIODE OVERCURRENT!', 'error');
+        } else {
+            drawPillBadge(ctx, 0, 26, st.conducting ? `1N4007 · ON (${st.currentMa.toFixed(1)} mA)` : '1N4007 · OFF', st.conducting ? 'ok' : 'info');
+        }
+        if (isSelected) drawSelectionFrame(ctx, -78, -20, 156, 40);
+        return true;
+    }
+
+    // =========================================================================
+    // 15. ZENER DIODE (1N4733A — MATTE AMBER GLASS DO-41, 4U PINS ±72, 0)
+    // =========================================================================
+    function drawZener(ctx, comp, evalData, isSelected) {
+        const vz = Number(comp.vz) || 5.1;
+        const st = evalData?.zenerStates?.get(comp.id) || { mode: 'OFF', vReverse: 0, overloaded: false };
+        drawMetallicLead(ctx, [{ x: -72, y: 0 }, { x: -34, y: 0 }], 3.6);
+        drawMetallicLead(ctx, [{ x: 34, y: 0 },  { x: 72, y: 0 }],  3.6);
+
+        withPhysicalShadow(ctx, () => {
+            rRect(ctx, -34, -11, 68, 22, 5);
+            ctx.fillStyle = '#7c2d12';
+            ctx.fill();
+        }, 10, 4, 2, 2);
+
+        rRect(ctx, -34, -11, 68, 22, 5);
+        const bodyG = ctx.createLinearGradient(0, -11, 0, 11);
+        bodyG.addColorStop(0, '#f97316');
+        bodyG.addColorStop(0.45, '#c2410c');
+        bodyG.addColorStop(1, '#7c2d12');
+        ctx.fillStyle = bodyG;
+        ctx.fill();
+        ctx.strokeStyle = st.overloaded ? '#ef4444' : (st.mode === 'ZENER' ? '#fbbf24' : '#fdba74');
+        ctx.lineWidth = st.mode === 'ZENER' || st.overloaded ? 1.8 : 1.15;
+        ctx.stroke();
+
+        // Dark charcoal cathode band on right (+72 = cathode)
+        ctx.fillStyle = '#0f172a';
+        ctx.fillRect(15, -10.2, 9.5, 20.4);
+
+        ctx.save();
+        ctx.translate(-8, 0.5);
+        if ((((comp.rotation || 0) % 360) + 360) % 360 === 180) ctx.rotate(Math.PI);
+        ctx.font = '800 8.5px "JetBrains Mono", monospace';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillStyle = '#fffbeb';
+        ctx.fillText(`${vz.toFixed(1)}V`, 0, 0);
+        ctx.restore();
+
+        const rot180 = ((((comp.rotation || 0) % 360) + 360) % 360) === 180;
+        const uprightTag = (tx, ty, txt, col) => {
+            ctx.save();
+            ctx.translate(tx, ty);
+            if (rot180) ctx.rotate(Math.PI);
+            drawMicroTag(ctx, 0, 0, txt, col);
+            ctx.restore();
+        };
+        uprightTag(-54, -17, 'A', '#94a3b8');
+        uprightTag( 54, -17, 'K', '#fdba74');
+
+        ctx.save();
+        ctx.translate(0, 25);
+        if (rot180) ctx.rotate(Math.PI);
+        if (st.overloaded) {
+            drawPillBadge(ctx, 0, 0, '🔥 ZENER OVERHEAT!', 'error');
+        } else {
+            const tag = st.mode === 'ZENER' ? `ZENER ${vz.toFixed(1)}V · REG` : st.mode === 'FWD' ? `ZENER · FWD` : `ZENER ${vz.toFixed(1)}V`;
+            drawPillBadge(ctx, 0, 0, tag, st.mode === 'ZENER' ? 'ok' : 'info');
+        }
+        ctx.restore();
+        if (isSelected) drawSelectionFrame(ctx, -78, -19, 156, 38);
+        return true;
+    }
+
+    // =========================================================================
+    // 16. GLASS CARTRIDGE FUSE (4U AXIAL PINS ±72, 0)
+    // =========================================================================
+    function drawFuse(ctx, comp, evalData, isSelected, solverMod) {
+        const st = evalData?.fuseStates?.get(comp.id) || { blown: Boolean(comp.blown), ratedMa: Number(comp.ratedMa) || 250, currentMa: 0 };
+        const blown = Boolean(st.blown || comp.blown);
+        drawMetallicLead(ctx, [{ x: -72, y: 0 }, { x: -40, y: 0 }], 3.6);
+        drawMetallicLead(ctx, [{ x: 40, y: 0 },  { x: 72, y: 0 }],  3.6);
+
+        withPhysicalShadow(ctx, () => {
+            rRect(ctx, -40, -12, 80, 24, 4);
+            ctx.fillStyle = '#0f172a';
+            ctx.fill();
+        }, 10, 4, 2, 2);
+
+        // Translucent frosted glass tube center
+        rRect(ctx, -26, -11, 52, 22, 2);
+        ctx.fillStyle = blown ? 'rgba(30, 41, 59, 0.85)' : 'rgba(203, 213, 225, 0.22)';
+        ctx.fill();
+        ctx.strokeStyle = blown ? '#ef4444' : 'rgba(203, 213, 225, 0.55)';
+        ctx.lineWidth = blown ? 1.8 : 1.2;
+        ctx.stroke();
+
+        // Internal filament (intact thin wire vs. visibly snapped & charred when blown!)
+        if (blown) {
+            ctx.save();
+            const scorch = ctx.createRadialGradient(0, 0, 1, 0, 0, 14);
+            scorch.addColorStop(0, 'rgba(15, 23, 42, 0.92)');
+            scorch.addColorStop(0.6, 'rgba(127, 29, 29, 0.45)');
+            scorch.addColorStop(1, 'rgba(0, 0, 0, 0)');
+            ctx.fillStyle = scorch;
+            ctx.fillRect(-24, -10, 48, 20);
+            ctx.strokeStyle = '#94a3b8';
+            ctx.lineWidth = 1.6;
+            ctx.beginPath();
+            ctx.moveTo(-24, 0); ctx.lineTo(-9, -2);
+            ctx.moveTo(9, 2);   ctx.lineTo(24, 0);
+            ctx.stroke();
+            ctx.restore();
+        } else {
+            ctx.strokeStyle = '#e2e8f0';
+            ctx.lineWidth = 1.6;
+            ctx.beginPath();
+            ctx.moveTo(-24, 0);
+            ctx.lineTo(24, 0);
+            ctx.stroke();
+        }
+
+        // Matte brushed-steel end caps
+        for (const cx of [-40, 24]) {
+            rRect(ctx, cx, -12, 16, 24, 3);
+            const capG = ctx.createLinearGradient(0, -12, 0, 12);
+            capG.addColorStop(0, '#cbd5e1');
+            capG.addColorStop(0.5, '#94a3b8');
+            capG.addColorStop(1, '#475569');
+            ctx.fillStyle = capG;
+            ctx.fill();
+            ctx.strokeStyle = '#334155';
+            ctx.lineWidth = 1;
+            ctx.stroke();
+        }
+
+        const rTxt = solverMod ? solverMod.formatCurrentMa(st.ratedMa) : `${st.ratedMa} mA`;
+        if (blown) {
+            drawPillBadge(ctx, 0, 26, `⚡ FUSE BLOWN (${rTxt}) · CLICK`, 'error');
+        } else {
+            drawPillBadge(ctx, 0, 26, `FUSE ${rTxt}`, 'info');
+        }
+        if (isSelected) drawSelectionFrame(ctx, -78, -20, 156, 40);
+        return true;
+    }
+
+    // =========================================================================
+    // 17. CERAMIC DISC CAPACITOR (NON-POLARIZED, 1U PINS ±18, 0)
+    // =========================================================================
+    function drawCeramicCap(ctx, comp, evalData, isSelected, solverMod) {
+        const capF = Number(comp.farads) || 100e-9;
+        const st = evalData?.capStates?.get(comp.id) || { voltage: 0, chargePct: 0 };
+        drawMetallicLead(ctx, [{ x: -12, y: -18 }, { x: -18, y: -8 }, { x: -18, y: 0 }], 3.4);
+        drawMetallicLead(ctx, [{ x: 12, y: -18 },  { x: 18, y: -8 },  { x: 18, y: 0 }],  3.4);
+
+        withPhysicalShadow(ctx, () => {
+            ctx.beginPath();
+            ctx.ellipse(0, -38, 25, 22, 0, 0, Math.PI * 2);
+            ctx.fillStyle = '#9a3412';
+            ctx.fill();
+        }, 12, 5, 2, 2);
+
+        // Matte terracotta ceramic disc
+        ctx.beginPath();
+        ctx.ellipse(0, -38, 25, 22, 0, 0, Math.PI * 2);
+        const discG = ctx.createRadialGradient(-7, -45, 3, 0, -38, 28);
+        discG.addColorStop(0, '#eab384');
+        discG.addColorStop(0.5, '#d97742');
+        discG.addColorStop(1, '#9a4319');
+        ctx.fillStyle = discG;
+        ctx.fill();
+        ctx.strokeStyle = '#7c2d12';
+        ctx.lineWidth = 1.4;
+        ctx.stroke();
+
+        // Crisp printed 3-digit EIA code (e.g. 104)
+        const eia = solverMod ? solverMod.getCapacitorEIA(capF) : '104';
+        ctx.font = '800 12px "JetBrains Mono", monospace';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillStyle = '#1c1917';
+        ctx.fillText(eia, 0, -40);
+        ctx.fillRect(-10, -30, 20, 1.5);
+
+        const cTxt = solverMod ? solverMod.formatFarads(capF) : '100 nF';
+        drawPillBadge(ctx, 0, -72, `${cTxt} · ${st.voltage.toFixed(1)}V`, Math.abs(st.voltage) > 0.2 ? 'ok' : 'info');
+        if (isSelected) drawSelectionFrame(ctx, -32, -66, 64, 72);
+        return true;
+    }
+
+    // =========================================================================
+    // 18. ELECTROLYTIC CAPACITOR (POLARIZED RADIAL CAN, 1U PINS ±18, 0)
+    // =========================================================================
+    function drawElectrolyticCap(ctx, comp, evalData, isSelected, solverMod) {
+        const capF = Number(comp.farads) || 100e-6;
+        const ratedV = Number(comp.ratedV) || 16;
+        const st = evalData?.capStates?.get(comp.id) || { voltage: 0, chargePct: 0, overloaded: false, reversePol: false };
+
+        drawMetallicLead(ctx, [{ x: -12, y: -14 }, { x: -18, y: -6 }, { x: -18, y: 0 }], 3.5);
+        drawMetallicLead(ctx, [{ x: 12, y: -14 },  { x: 18, y: -6 },  { x: 18, y: 0 }],  3.5);
+
+        withPhysicalShadow(ctx, () => {
+            rRect(ctx, -24, -76, 48, 62, 6);
+            ctx.fillStyle = '#0f172a';
+            ctx.fill();
+        }, 14, 6, 3, 2);
+
+        rRect(ctx, -24, -76, 48, 62, 6);
+        const bodyG = ctx.createLinearGradient(-24, 0, 24, 0);
+        bodyG.addColorStop(0, '#1e293b');
+        bodyG.addColorStop(0.28, '#1e3a5f');
+        bodyG.addColorStop(0.7, '#0f2442');
+        bodyG.addColorStop(1, '#0a1628');
+        ctx.fillStyle = bodyG;
+        ctx.fill();
+        ctx.strokeStyle = st.overloaded ? '#ef4444' : '#475569';
+        ctx.lineWidth = st.overloaded ? 2.0 : 1.3;
+        ctx.stroke();
+
+        // Crisp matte light-slate vertical negative polarity stripe on right side
+        ctx.save();
+        rRect(ctx, -24, -76, 48, 62, 6);
+        ctx.clip();
+        ctx.fillStyle = '#cbd5e1';
+        ctx.fillRect(10, -76, 14, 62);
+        ctx.fillStyle = '#0f172a';
+        ctx.font = '900 11px "JetBrains Mono", monospace';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('−', 17, -60);
+        ctx.fillText('−', 17, -42);
+        ctx.fillText('−', 17, -24);
+        ctx.restore();
+
+        // Matte aluminum top vent cap with K-score lines
+        ctx.beginPath();
+        ctx.ellipse(0, -74, 21, 6, 0, 0, Math.PI * 2);
+        ctx.fillStyle = '#94a3b8';
+        ctx.fill();
+        ctx.strokeStyle = '#64748b';
+        ctx.lineWidth = 1;
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(-12, -74); ctx.lineTo(12, -74);
+        ctx.moveTo(0, -78);   ctx.lineTo(0, -70);
+        ctx.stroke();
+
+        // Silkscreen value & rated voltage on left side
+        const cTxt = solverMod ? solverMod.formatFarads(capF) : '100µF';
+        ctx.font = '800 8.5px "JetBrains Mono", monospace';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillStyle = '#e2e8f0';
+        ctx.fillText(cTxt.replace(/\s+/g, ''), -7, -50);
+        ctx.font = '700 8px "JetBrains Mono", monospace';
+        ctx.fillStyle = '#93c5fd';
+        ctx.fillText(`${ratedV}V`, -7, -38);
+
+        // Live subtle charge progress bar at base of can
+        const fillW = Math.round(30 * Math.max(0, Math.min(1, st.chargePct || 0)));
+        ctx.fillStyle = '#090e18';
+        rRect(ctx, -21, -24, 30, 5, 2);
+        ctx.fill();
+        if (fillW > 0) {
+            ctx.fillStyle = st.overloaded ? '#ef4444' : '#38bdf8';
+            rRect(ctx, -21, -24, fillW, 5, 2);
+            ctx.fill();
+        }
+
+        drawMicroTag(ctx, -18, 12, '+', '#f87171');
+        drawMicroTag(ctx,  18, 12, '−', '#94a3b8');
+
+        if (st.reversePol) {
+            drawPillBadge(ctx, 0, -92, '🔥 REVERSE POLARITY!', 'error');
+        } else if (st.overloaded) {
+            drawPillBadge(ctx, 0, -92, `🔥 OVER-V (>${ratedV}V)!`, 'error');
+        } else {
+            drawPillBadge(ctx, 0, -92, `${cTxt} · ${st.voltage.toFixed(1)}V`, Math.abs(st.voltage) > 0.2 ? 'ok' : 'info');
+        }
+        if (isSelected) drawSelectionFrame(ctx, -32, -84, 64, 92);
+        return true;
+    }
+
+    // =========================================================================
+    // 19. WIREWOUND INDUCTOR (COPPER COIL ON FERRITE CORE, 4U PINS ±72, 0)
+    // =========================================================================
+    function drawInductor(ctx, comp, evalData, isSelected, solverMod) {
+        const indH = Number(comp.henrys) || 0.1;
+        const st = evalData?.indStates?.get(comp.id) || { currentMa: 0, overloaded: false };
+        drawMetallicLead(ctx, [{ x: -72, y: 0 }, { x: -38, y: 0 }], 3.6);
+        drawMetallicLead(ctx, [{ x: 38, y: 0 },  { x: 72, y: 0 }],  3.6);
+
+        withPhysicalShadow(ctx, () => {
+            rRect(ctx, -38, -16, 76, 32, 4);
+            ctx.fillStyle = '#0b0f18';
+            ctx.fill();
+        }, 10, 4, 2, 2);
+
+        for (const fx of [-38, 28]) {
+            rRect(ctx, fx, -16, 10, 32, 3);
+            ctx.fillStyle = '#1e293b';
+            ctx.fill();
+            ctx.strokeStyle = '#475569';
+            ctx.lineWidth = 1.2;
+            ctx.stroke();
+        }
+
+        const turns = 7;
+        const startX = -27;
+        const turnW = 54 / turns;
+        for (let i = 0; i < turns; i++) {
+            const tx = startX + i * turnW;
+            rRect(ctx, tx, -13.5, turnW - 0.6, 27, 3);
+            const wg = ctx.createLinearGradient(0, -13.5, 0, 13.5);
+            wg.addColorStop(0, '#f59e0b');
+            wg.addColorStop(0.38, '#b45309');
+            wg.addColorStop(0.85, '#78350f');
+            wg.addColorStop(1, '#451a03');
+            ctx.fillStyle = wg;
+            ctx.fill();
+            ctx.strokeStyle = 'rgba(254, 215, 170, 0.22)';
+            ctx.lineWidth = 0.8;
+            ctx.stroke();
+        }
+
+        const lTxt = solverMod ? solverMod.formatHenrys(indH) : '100 mH';
+        if (st.overloaded) {
+            drawPillBadge(ctx, 0, 29, '🔥 COIL OVERCURRENT!', 'error');
+        } else {
+            drawPillBadge(ctx, 0, 29, `${lTxt} · ${Math.abs(st.currentMa).toFixed(1)} mA`, Math.abs(st.currentMa) > 1 ? 'ok' : 'info');
+        }
+        if (isSelected) drawSelectionFrame(ctx, -78, -22, 156, 44);
+        return true;
+    }
+
+    // =========================================================================
+    // 20. PNP 2N3906 TO-92 TRANSISTOR (1U PINS E:-36, B:0, C:+36 @ y=+36)
+    // =========================================================================
+    function drawPnp(ctx, comp, evalData, isSelected) {
+        const st = evalData?.pnpStates?.get(comp.id) || { mode: 'CUTOFF', corrupted: false, overloaded: false };
+        const conducting = st.mode === 'SATURATED' || st.mode === 'ACTIVE';
+        const fault = Boolean(st.corrupted || st.overloaded);
+
+        drawMetallicLead(ctx, [{ x: -14, y: -2 }, { x: -34, y: 14 }, { x: -36, y: 36 }], 3.5);
+        drawMetallicLead(ctx, [{ x: 0,   y: -2 }, { x: 0,   y: 36 }], 3.5);
+        drawMetallicLead(ctx, [{ x: 14,  y: -2 }, { x: 34,  y: 14 }, { x: 36, y: 36 }], 3.5);
+
+        const traceTo92 = () => {
+            ctx.beginPath();
+            ctx.moveTo(-25, -2);
+            ctx.lineTo(-25, -28);
+            ctx.bezierCurveTo(-25, -50, 25, -50, 25, -28);
+            ctx.lineTo(25, -2);
+            ctx.closePath();
+        };
+
+        withPhysicalShadow(ctx, () => {
+            traceTo92();
+            ctx.fillStyle = '#090d16';
+            ctx.fill();
+        }, 12, 5, 3, 2);
+
+        traceTo92();
+        const epoxyGrad = ctx.createLinearGradient(-25, -48, 25, 0);
+        epoxyGrad.addColorStop(0, '#334155');
+        epoxyGrad.addColorStop(0.3, '#1e2536');
+        epoxyGrad.addColorStop(1, '#090d16');
+        ctx.fillStyle = epoxyGrad;
+        ctx.fill();
+        ctx.strokeStyle = fault ? '#ef4444' : (conducting ? '#38bdf8' : '#475569');
+        ctx.lineWidth = fault || conducting ? 1.8 : 1.3;
+        ctx.stroke();
+
+        rRect(ctx, -20, -32, 40, 26, 3);
+        ctx.fillStyle = '#131a26';
+        ctx.fill();
+        ctx.strokeStyle = 'rgba(56, 189, 248, 0.22)';
+        ctx.lineWidth = 1;
+        ctx.stroke();
+
+        ctx.font = '800 8.8px "JetBrains Mono", monospace';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillStyle = '#e2e8f0';
+        ctx.fillText(comp.model || '2N3906', 0, -23);
+        ctx.font = '700 7.5px "JetBrains Mono", monospace';
+        ctx.fillStyle = conducting ? '#38bdf8' : '#7dd3fc';
+        ctx.fillText('PNP · TO-92', 0, -12.5);
+
+        drawMicroTag(ctx, -36, 49, 'E', '#f8fafc');
+        drawMicroTag(ctx,   0, 49, 'B', '#38bdf8');
+        drawMicroTag(ctx,  36, 49, 'C', '#fdba74');
+
+        if (fault) {
+            drawPillBadge(ctx, 0, -68, '🔥 PNP OVERCURRENT!', 'error');
+        } else {
+            drawPillBadge(ctx, 0, -68, `${comp.model || '2N3906'} · ${conducting ? 'ON' : 'OFF'}`, conducting ? 'ok' : 'info');
+        }
+        if (isSelected) drawSelectionFrame(ctx, -46, -60, 92, 108);
+        return true;
+    }
+
+    // =========================================================================
+    // 21. N-CHANNEL MOSFET (IRF540N — TO-220 PACKAGE, PINS G:-36, D:0, S:+36 @ y=36)
+    // =========================================================================
+    function drawNmos(ctx, comp, evalData, isSelected) {
+        const st = evalData?.nmosStates?.get(comp.id) || { on: false, mode: 'CUTOFF', vgs: 0, idMa: 0, overloaded: false };
+        drawMetallicLead(ctx, [{ x: -36, y: -4 }, { x: -36, y: 36 }], 4.0);
+        drawMetallicLead(ctx, [{ x: 0,   y: -4 }, { x: 0,   y: 36 }], 4.0);
+        drawMetallicLead(ctx, [{ x: 36,  y: -4 }, { x: 36,  y: 36 }], 4.0);
+
+        withPhysicalShadow(ctx, () => {
+            rRect(ctx, -34, -84, 68, 82, 4);
+            ctx.fillStyle = '#0b0f18';
+            ctx.fill();
+        }, 14, 6, 3, 2);
+
+        rRect(ctx, -34, -84, 68, 30, 4);
+        ctx.fillStyle = '#94a3b8';
+        ctx.fill();
+        ctx.strokeStyle = '#475569';
+        ctx.lineWidth = 1.2;
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.arc(0, -69, 9, 0, Math.PI * 2);
+        ctx.fillStyle = '#0f172a';
+        ctx.fill();
+        ctx.strokeStyle = '#64748b';
+        ctx.stroke();
+
+        rRect(ctx, -34, -56, 68, 54, 3);
+        ctx.fillStyle = '#151b26';
+        ctx.fill();
+        ctx.strokeStyle = st.overloaded ? '#ef4444' : (st.on ? '#34d399' : '#475569');
+        ctx.lineWidth = st.on || st.overloaded ? 1.8 : 1.3;
+        ctx.stroke();
+
+        ctx.font = '800 10px "JetBrains Mono", monospace';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillStyle = '#e2e8f0';
+        ctx.fillText(comp.model || 'IRF540N', 0, -37);
+        ctx.font = '700 8px "JetBrains Mono", monospace';
+        ctx.fillStyle = st.on ? '#34d399' : '#94a3b8';
+        ctx.fillText('N-MOSFET', 0, -22);
+        ctx.fillStyle = '#64748b';
+        ctx.fillText(`Vth ${(Number(comp.vth) || 2.0).toFixed(1)}V`, 0, -10);
+
+        drawMicroTag(ctx, -36, 49, 'G', '#c084fc');
+        drawMicroTag(ctx,   0, 49, 'D', '#fbbf24');
+        drawMicroTag(ctx,  36, 49, 'S', '#94a3b8');
+
+        if (st.overloaded) {
+            drawPillBadge(ctx, 0, -100, '🔥 MOSFET OVERCURRENT!', 'error');
+        } else {
+            drawPillBadge(ctx, 0, -100, `NMOS · ${st.on ? 'ON' : 'OFF'} (Vgs ${st.vgs.toFixed(1)}V)`, st.on ? 'ok' : 'info');
+        }
+        if (isSelected) drawSelectionFrame(ctx, -46, -90, 92, 134);
+        return true;
+    }
+
+    // =========================================================================
+    // 22. 7805 +5V LINEAR VOLTAGE REGULATOR (TO-220, IN:-36, GND:0, OUT:+36 @ y=36)
+    // =========================================================================
+    function drawReg7805(ctx, comp, evalData, isSelected) {
+        const st = evalData?.regStates?.get(comp.id) || { active: false, vOut: 0, status: 'OFF', overloaded: false };
+        drawMetallicLead(ctx, [{ x: -36, y: -4 }, { x: -36, y: 36 }], 4.0);
+        drawMetallicLead(ctx, [{ x: 0,   y: -4 }, { x: 0,   y: 36 }], 4.0);
+        drawMetallicLead(ctx, [{ x: 36,  y: -4 }, { x: 36,  y: 36 }], 4.0);
+
+        withPhysicalShadow(ctx, () => {
+            rRect(ctx, -34, -84, 68, 82, 4);
+            ctx.fillStyle = '#0b0f18';
+            ctx.fill();
+        }, 14, 6, 3, 2);
+
+        rRect(ctx, -34, -84, 68, 30, 4);
+        ctx.fillStyle = '#9ca3af';
+        ctx.fill();
+        ctx.strokeStyle = '#4b5563';
+        ctx.lineWidth = 1.2;
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.arc(0, -69, 9, 0, Math.PI * 2);
+        ctx.fillStyle = '#0f172a';
+        ctx.fill();
+        ctx.strokeStyle = '#64748b';
+        ctx.stroke();
+
+        rRect(ctx, -34, -56, 68, 54, 3);
+        ctx.fillStyle = '#131c2b';
+        ctx.fill();
+        ctx.strokeStyle = st.overloaded ? '#ef4444' : (st.active ? '#34d399' : '#475569');
+        ctx.lineWidth = st.active || st.overloaded ? 1.8 : 1.3;
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.arc(23, -46, 3.6, 0, Math.PI * 2);
+        ctx.fillStyle = st.overloaded ? '#ef4444' : (st.active ? '#22c55e' : '#334155');
+        ctx.fill();
+
+        ctx.font = '800 11px "JetBrains Mono", monospace';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillStyle = '#f8fafc';
+        ctx.fillText('L7805CV', 0, -35);
+        ctx.font = '700 8px "JetBrains Mono", monospace';
+        ctx.fillStyle = st.active ? '#34d399' : '#94a3b8';
+        ctx.fillText('+5.0V REG', 0, -19);
+
+        drawMicroTag(ctx, -36, 49, 'IN',  '#f87171');
+        drawMicroTag(ctx,   0, 49, 'GND', '#94a3b8');
+        drawMicroTag(ctx,  36, 49, 'OUT', '#34d399');
+
+        if (st.overloaded) {
+            drawPillBadge(ctx, 0, -100, '🔥 7805 FAULT!', 'error');
+        } else {
+            drawPillBadge(ctx, 0, -100, st.active ? `7805 · ${st.vOut.toFixed(2)} V` : '7805 · OFF', st.active ? 'ok' : 'info');
+        }
+        if (isSelected) drawSelectionFrame(ctx, -46, -90, 92, 134);
+        return true;
+    }
+
+    // =========================================================================
+    // 23. 5V SPDT SUGAR-CUBE RELAY (STRADDLES TROUGH: TOP COIL ±36,-72; BOT NC/COM/NO -36/0/+36,+72)
+    // =========================================================================
+    function drawRelay(ctx, comp, evalData, isSelected) {
+        const st = evalData?.relayStates?.get(comp.id) || { engaged: Boolean(comp._relayOn), vCoil: 0, overloaded: false };
+        const eng = Boolean(st.engaged);
+
+        drawMetallicLead(ctx, [{ x: -36, y: -58 }, { x: -36, y: -72 }], 3.8);
+        drawMetallicLead(ctx, [{ x: 36,  y: -58 }, { x: 36,  y: -72 }], 3.8);
+        drawMetallicLead(ctx, [{ x: -36, y: 58 },  { x: -36, y: 72 }],  3.8);
+        drawMetallicLead(ctx, [{ x: 0,   y: 58 },  { x: 0,   y: 72 }],  3.8);
+        drawMetallicLead(ctx, [{ x: 36,  y: 58 },  { x: 36,  y: 72 }],  3.8);
+
+        withPhysicalShadow(ctx, () => {
+            rRect(ctx, -60, -60, 120, 120, 8);
+            ctx.fillStyle = '#0c4a6e';
+            ctx.fill();
+        }, 16, 7, 3, 2);
+
+        rRect(ctx, -60, -60, 120, 120, 8);
+        const relG = ctx.createLinearGradient(0, -60, 0, 60);
+        relG.addColorStop(0, '#0284c7');
+        relG.addColorStop(0.55, '#0369a1');
+        relG.addColorStop(1, '#075985');
+        ctx.fillStyle = relG;
+        ctx.fill();
+        ctx.strokeStyle = st.overloaded ? '#ef4444' : (eng ? '#fde047' : '#38bdf8');
+        ctx.lineWidth = st.overloaded || eng ? 2.2 : 1.4;
+        ctx.stroke();
+
+        ctx.font = '800 9.5px "JetBrains Mono", monospace';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillStyle = '#f0f9ff';
+        ctx.fillText('SRD-05VDC-SL-C', 0, -44);
+
+        rRect(ctx, -46, -32, 92, 74, 5);
+        ctx.fillStyle = '#0b1322';
+        ctx.fill();
+        ctx.strokeStyle = 'rgba(186, 230, 253, 0.35)';
+        ctx.lineWidth = 1.1;
+        ctx.stroke();
+
+        rRect(ctx, -24, -24, 48, 15, 3);
+        ctx.fillStyle = eng ? '#d97706' : '#78350f';
+        ctx.fill();
+        ctx.strokeStyle = eng ? '#fbbf24' : '#b45309';
+        ctx.lineWidth = 1.2;
+        ctx.stroke();
+        ctx.font = '700 7.5px "JetBrains Mono", monospace';
+        ctx.fillStyle = '#fef3c7';
+        ctx.fillText(eng ? 'COIL ON' : '5V COIL', 0, -16.5);
+
+        const ncPt = { x: -24, y: 8 };
+        const noPt = { x: 24,  y: 8 };
+        const comPt = { x: 0,  y: 31 };
+
+        ctx.strokeStyle = eng ? '#34d399' : '#e2e8f0';
+        ctx.lineWidth = 3.0;
+        ctx.lineCap = 'round';
+        ctx.beginPath();
+        ctx.moveTo(comPt.x, comPt.y);
+        ctx.lineTo(eng ? noPt.x : ncPt.x, eng ? noPt.y : ncPt.y);
+        ctx.stroke();
+
+        for (const [pt, lbl, active] of [[ncPt, 'NC', !eng], [noPt, 'NO', eng], [comPt, 'COM', true]]) {
+            ctx.beginPath();
+            ctx.arc(pt.x, pt.y, 4, 0, Math.PI * 2);
+            ctx.fillStyle = active ? '#34d399' : '#475569';
+            ctx.fill();
+            ctx.strokeStyle = '#f8fafc';
+            ctx.lineWidth = 1.1;
+            ctx.stroke();
+            ctx.font = '700 7.5px "JetBrains Mono", monospace';
+            ctx.fillStyle = active ? '#bbf7d0' : '#94a3b8';
+            ctx.fillText(lbl, pt.x, pt.y + (lbl === 'COM' ? 9 : -9));
+        }
+
+        drawMicroTag(ctx, -36, -84, 'C1', '#bae6fd');
+        drawMicroTag(ctx,  36, -84, 'C2', '#bae6fd');
+        drawMicroTag(ctx, -36,  85, 'NC', '#cbd5e1');
+        drawMicroTag(ctx,   0,  85, 'COM', '#f8fafc');
+        drawMicroTag(ctx,  36,  85, 'NO', '#34d399');
+
+        if (st.overloaded) {
+            drawPillBadge(ctx, 0, -102, '🔥 COIL OVERVOLTAGE!', 'error');
+        } else {
+            drawPillBadge(ctx, 0, -102, eng ? 'RELAY · NO CLOSED' : 'RELAY · NC CLOSED', eng ? 'ok' : 'info');
+        }
+        if (isSelected) drawSelectionFrame(ctx, -66, -78, 132, 156);
+        return true;
+    }
+
+    // =========================================================================
+    // 24. PHOTORESISTOR / LDR (CdS SERPENTINE FACE, 2U PINS ±36, 0)
+    // =========================================================================
+    function drawLdr(ctx, comp, evalData, isSelected, solverMod) {
+        const lightPct = Math.max(0, Math.min(100, Number(comp.lightPct ?? 50)));
+        const st = evalData?.ldrStates?.get(comp.id) || { lightPct, ohms: 4472 };
+        drawMetallicLead(ctx, [{ x: -16, y: -18 }, { x: -36, y: -8 }, { x: -36, y: 0 }], 3.5);
+        drawMetallicLead(ctx, [{ x: 16, y: -18 },  { x: 36, y: -8 },  { x: 36, y: 0 }],  3.5);
+
+        if (lightPct > 15) {
+            ctx.save();
+            const r = 34 + (lightPct / 100) * 18;
+            const g = ctx.createRadialGradient(0, -38, 8, 0, -38, r);
+            g.addColorStop(0, `rgba(250, 204, 21, ${(lightPct / 100) * 0.35})`);
+            g.addColorStop(1, 'rgba(250, 204, 21, 0)');
+            ctx.fillStyle = g;
+            ctx.beginPath();
+            ctx.arc(0, -38, r, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.restore();
+        }
+
+        withPhysicalShadow(ctx, () => {
+            ctx.beginPath();
+            ctx.arc(0, -38, 24, 0, Math.PI * 2);
+            ctx.fillStyle = '#475569';
+            ctx.fill();
+        }, 12, 5, 2, 2);
+
+        ctx.beginPath();
+        ctx.arc(0, -38, 24, 0, Math.PI * 2);
+        ctx.fillStyle = '#f5f0e6';
+        ctx.fill();
+        ctx.strokeStyle = '#94a3b8';
+        ctx.lineWidth = 2.4;
+        ctx.stroke();
+
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(0, -38, 20, 0, Math.PI * 2);
+        ctx.clip();
+        ctx.strokeStyle = '#b45309';
+        ctx.lineWidth = 3.2;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        ctx.beginPath();
+        ctx.moveTo(-18, -50); ctx.lineTo(14, -50);
+        ctx.lineTo(14, -44);  ctx.lineTo(-14, -44);
+        ctx.lineTo(-14, -38); ctx.lineTo(14, -38);
+        ctx.lineTo(14, -32);  ctx.lineTo(-14, -32);
+        ctx.lineTo(-14, -26); ctx.lineTo(18, -26);
+        ctx.stroke();
+        ctx.restore();
+
+        const rTxt = solverMod ? solverMod.formatOhms(st.ohms) : `${Math.round(st.ohms)} Ω`;
+        drawPillBadge(ctx, 0, -76, `☀ ${Math.round(lightPct)}% · ${rTxt}`, lightPct > 60 ? 'ok' : 'info');
+        if (isSelected) drawSelectionFrame(ctx, -44, -68, 88, 76);
+        return true;
+    }
+
+    // =========================================================================
+    // 25. NTC THERMISTOR (10kΩ EPOXY BEAD, 1U PINS ±18, 0)
+    // =========================================================================
+    function drawThermistor(ctx, comp, evalData, isSelected, solverMod) {
+        const tempC = Number(comp.tempC ?? 25);
+        const st = evalData?.thermistorStates?.get(comp.id) || { tempC, ohms: 10000 };
+        drawMetallicLead(ctx, [{ x: -10, y: -18 }, { x: -18, y: -6 }, { x: -18, y: 0 }], 3.4);
+        drawMetallicLead(ctx, [{ x: 10, y: -18 },  { x: 18, y: -6 },  { x: 18, y: 0 }],  3.4);
+
+        withPhysicalShadow(ctx, () => {
+            ctx.beginPath();
+            ctx.ellipse(0, -36, 20, 22, 0, 0, Math.PI * 2);
+            ctx.fillStyle = '#0f172a';
+            ctx.fill();
+        }, 12, 5, 2, 2);
+
+        const hot = tempC >= 55;
+        const cold = tempC <= 5;
+        ctx.beginPath();
+        ctx.ellipse(0, -36, 20, 22, 0, 0, Math.PI * 2);
+        const bg = ctx.createRadialGradient(-6, -42, 3, 0, -36, 24);
+        bg.addColorStop(0, hot ? '#c2410c' : (cold ? '#0284c7' : '#0f766e'));
+        bg.addColorStop(1, hot ? '#7c2d12' : (cold ? '#0c4a6e' : '#134e4a'));
+        ctx.fillStyle = bg;
+        ctx.fill();
+        ctx.strokeStyle = hot ? '#fb923c' : (cold ? '#38bdf8' : '#2dd4bf');
+        ctx.lineWidth = 1.6;
+        ctx.stroke();
+
+        ctx.font = '800 9.5px "JetBrains Mono", monospace';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillStyle = '#f8fafc';
+        ctx.fillText('NTC', 0, -42);
+        ctx.font = '700 8.5px "JetBrains Mono", monospace';
+        ctx.fillStyle = '#ccfbf1';
+        ctx.fillText('10k', 0, -30);
+
+        const rTxt = solverMod ? solverMod.formatOhms(st.ohms) : `${Math.round(st.ohms)} Ω`;
+        drawPillBadge(ctx, 0, -72, `🌡 ${Math.round(tempC)}°C · ${rTxt}`, hot ? 'warn' : 'info');
+        if (isSelected) drawSelectionFrame(ctx, -28, -64, 56, 70);
+        return true;
+    }
+
+    // =========================================================================
+    // 26. INCANDESCENT LIGHT BULB (WARM FILAMENT GLOBE, 2U PINS ±36, 0)
+    // =========================================================================
+    function drawBulb(ctx, comp, evalData, isSelected) {
+        const st = evalData?.bulbStates?.get(comp.id) || { lit: false, brightness: 0, powerW: 0, overloaded: false };
+        const b = st.overloaded ? 0 : Math.max(0, Math.min(1, st.brightness || 0));
+
+        drawMetallicLead(ctx, [{ x: -12, y: -8 }, { x: -36, y: -4 }, { x: -36, y: 0 }], 3.6);
+        drawMetallicLead(ctx, [{ x: 12, y: -8 },  { x: 36, y: -4 },  { x: 36, y: 0 }],  3.6);
+
+        if (b > 0.04) {
+            ctx.save();
+            const rad = 44 + b * 54;
+            const g = ctx.createRadialGradient(0, -56, 4, 0, -56, rad);
+            g.addColorStop(0, `rgba(255, 245, 200, ${0.85 * b})`);
+            g.addColorStop(0.4, `rgba(251, 191, 36, ${0.42 * b})`);
+            g.addColorStop(1, 'rgba(245, 158, 11, 0)');
+            ctx.fillStyle = g;
+            ctx.beginPath();
+            ctx.arc(0, -56, rad, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.restore();
+        }
+
+        withPhysicalShadow(ctx, () => {
+            rRect(ctx, -15, -28, 30, 22, 4);
+            ctx.fillStyle = '#475569';
+            ctx.fill();
+        }, 10, 4, 2, 2);
+
+        rRect(ctx, -15, -28, 30, 22, 4);
+        const baseG = ctx.createLinearGradient(-15, 0, 15, 0);
+        baseG.addColorStop(0, '#92400e');
+        baseG.addColorStop(0.45, '#d97706');
+        baseG.addColorStop(1, '#78350f');
+        ctx.fillStyle = baseG;
+        ctx.fill();
+        ctx.strokeStyle = '#451a03';
+        ctx.lineWidth = 1.2;
+        ctx.stroke();
+        ctx.strokeStyle = 'rgba(255, 243, 199, 0.35)';
+        ctx.lineWidth = 1.1;
+        for (const ty of [-22, -16, -11]) {
+            ctx.beginPath(); ctx.moveTo(-13, ty); ctx.lineTo(13, ty); ctx.stroke();
+        }
+
+        ctx.beginPath();
+        ctx.arc(0, -56, 28, 0, Math.PI * 2);
+        const glassG = ctx.createRadialGradient(-7, -64, 4, 0, -56, 30);
+        if (b > 0.05) {
+            glassG.addColorStop(0, `rgba(255, 251, 235, ${0.45 + 0.5 * b})`);
+            glassG.addColorStop(0.6, `rgba(253, 224, 71, ${0.25 + 0.45 * b})`);
+            glassG.addColorStop(1, `rgba(217, 119, 6, ${0.28 + 0.25 * b})`);
+        } else {
+            glassG.addColorStop(0, 'rgba(226, 232, 240, 0.28)');
+            glassG.addColorStop(1, 'rgba(100, 116, 139, 0.22)');
+        }
+        ctx.fillStyle = glassG;
+        ctx.fill();
+        ctx.strokeStyle = st.overloaded ? '#ef4444' : (b > 0.2 ? '#fde047' : '#94a3b8');
+        ctx.lineWidth = 1.6;
+        ctx.stroke();
+
+        ctx.strokeStyle = '#64748b';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(-6, -28); ctx.lineTo(-10, -54);
+        ctx.moveTo(6, -28);  ctx.lineTo(10, -54);
+        ctx.stroke();
+
+        if (!st.overloaded) {
+            ctx.strokeStyle = b > 0.5 ? '#ffffff' : (b > 0.05 ? '#fb923c' : '#94a3b8');
+            ctx.lineWidth = b > 0.2 ? 2.4 : 1.6;
+            ctx.beginPath();
+            ctx.moveTo(-10, -54);
+            ctx.lineTo(-6, -63); ctx.lineTo(-2, -53); ctx.lineTo(2, -63); ctx.lineTo(6, -53);
+            ctx.lineTo(10, -54);
+            ctx.stroke();
+        } else {
+            ctx.strokeStyle = '#64748b';
+            ctx.lineWidth = 1.6;
+            ctx.beginPath();
+            ctx.moveTo(-10, -54); ctx.lineTo(-5, -59);
+            ctx.moveTo(5, -59);   ctx.lineTo(10, -54);
+            ctx.stroke();
+        }
+
+        if (st.overloaded) {
+            drawPillBadge(ctx, 0, -98, '🔥 BULB BURNED OUT (>12V)!', 'error');
+        } else {
+            drawPillBadge(ctx, 0, -98, st.lit ? `BULB · ${st.powerW.toFixed(2)} W` : 'BULB · OFF', st.lit ? 'ok' : 'info');
+        }
+        if (isSelected) drawSelectionFrame(ctx, -44, -90, 88, 96);
+        return true;
+    }
+
+    // =========================================================================
+    // 27. NE555 PRECISION TIMER — 8-PIN DIP (STRADDLES ROW e & ROW f TROUGH!)
+    // =========================================================================
+    function drawIc555(ctx, comp, evalData, isSelected, showXray = true) {
+        const st = evalData?.ic555States?.get(comp.id) || { powered: false, q: 0, vOut: 0, overloaded: false };
+        const xs = [-54, -18, 18, 54];
+        for (const px of xs) {
+            drawMetallicLead(ctx, [{ x: px, y: -52 }, { x: px, y: -72 }], 4.0);
+            drawMetallicLead(ctx, [{ x: px, y: 52 },  { x: px, y: 72 }],  4.0);
+        }
+
+        withPhysicalShadow(ctx, () => {
+            rRect(ctx, -74, -54, 148, 108, 6);
+            ctx.fillStyle = '#090d16';
+            ctx.fill();
+        }, 16, 7, 3, 2);
+
+        rRect(ctx, -74, -54, 148, 108, 6);
+        ctx.fillStyle = '#141a24';
+        ctx.fill();
+        ctx.strokeStyle = st.overloaded ? '#ef4444' : (st.powered ? '#38bdf8' : '#475569');
+        ctx.lineWidth = st.overloaded || st.powered ? 2.0 : 1.4;
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.arc(-74, 0, 12, -Math.PI / 2, Math.PI / 2, false);
+        ctx.fillStyle = '#090d16';
+        ctx.fill();
+        ctx.strokeStyle = '#334155';
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.arc(-56, 36, 4, 0, Math.PI * 2);
+        ctx.fillStyle = '#94a3b8';
+        ctx.fill();
+
+        ctx.beginPath();
+        ctx.arc(18, 36, 4.5, 0, Math.PI * 2);
+        ctx.fillStyle = st.powered ? (st.q ? '#22c55e' : '#1e293b') : '#1e293b';
+        ctx.fill();
+        ctx.strokeStyle = st.powered && st.q ? '#86efac' : '#475569';
+        ctx.lineWidth = 1.2;
+        ctx.stroke();
+
+        ctx.font = '800 13px "JetBrains Mono", monospace';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillStyle = '#e2e8f0';
+        ctx.fillText('NE555P', 4, -8);
+        ctx.font = '700 8px "JetBrains Mono", monospace';
+        ctx.fillStyle = st.powered ? (st.q ? '#34d399' : '#94a3b8') : '#64748b';
+        ctx.fillText(showXray ? '5k·5k·5k · SR TIMER' : 'PRECISION TIMER', 4, 8);
+
+        const topLbls = ['8 VCC', '7 DIS', '6 THR', '5 CTL'];
+        const botLbls = ['1 GND', '2 TRG', '3 OUT', '4 RST'];
+        ctx.font = '700 7.2px "JetBrains Mono", monospace';
+        for (let i = 0; i < 4; i++) {
+            ctx.fillStyle = i === 0 ? '#fca5a5' : '#94a3b8';
+            ctx.fillText(topLbls[i], xs[i], -42);
+            ctx.fillStyle = i === 0 ? '#93c5fd' : (i === 2 && st.powered && st.q ? '#4ade80' : '#94a3b8');
+            ctx.fillText(botLbls[i], xs[i], 44);
+        }
+
+        if (st.overloaded) {
+            drawPillBadge(ctx, 0, -90, '🔥 NE555 POWER FAULT!', 'error');
+        } else {
+            drawPillBadge(ctx, 0, -90, st.powered ? `NE555 · OUT ${st.q ? 'HIGH' : 'LOW'} (${st.vOut.toFixed(1)}V)` : 'NE555 · UNPOWERED', st.powered && st.q ? 'ok' : 'info');
+        }
+        if (isSelected) drawSelectionFrame(ctx, -80, -78, 160, 156);
+        return true;
+    }
+
+    // =========================================================================
+    // 28. LM741 OPERATIONAL AMPLIFIER — 8-PIN DIP (STRADDLES ROW e & ROW f!)
+    // =========================================================================
+    function drawOpAmp(ctx, comp, evalData, isSelected, showXray = true) {
+        const st = evalData?.opampStates?.get(comp.id) || { powered: false, mode: 'LINEAR', vOut: 0 };
+        const xs = [-54, -18, 18, 54];
+        for (const px of xs) {
+            drawMetallicLead(ctx, [{ x: px, y: -52 }, { x: px, y: -72 }], 4.0);
+            drawMetallicLead(ctx, [{ x: px, y: 52 },  { x: px, y: 72 }],  4.0);
+        }
+
+        withPhysicalShadow(ctx, () => {
+            rRect(ctx, -74, -54, 148, 108, 6);
+            ctx.fillStyle = '#090d16';
+            ctx.fill();
+        }, 16, 7, 3, 2);
+
+        rRect(ctx, -74, -54, 148, 108, 6);
+        ctx.fillStyle = '#141a24';
+        ctx.fill();
+        ctx.strokeStyle = st.powered ? '#a78bfa' : '#475569';
+        ctx.lineWidth = st.powered ? 2.0 : 1.4;
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.arc(-74, 0, 12, -Math.PI / 2, Math.PI / 2, false);
+        ctx.fillStyle = '#090d16';
+        ctx.fill();
+        ctx.strokeStyle = '#334155';
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.arc(-56, 36, 4, 0, Math.PI * 2);
+        ctx.fillStyle = '#94a3b8';
+        ctx.fill();
+
+        if (showXray) {
+            ctx.save();
+            ctx.strokeStyle = st.powered ? 'rgba(167, 139, 250, 0.55)' : 'rgba(148, 163, 184, 0.28)';
+            ctx.lineWidth = 1.6;
+            ctx.beginPath();
+            ctx.moveTo(-22, -20);
+            ctx.lineTo(-22, 20);
+            ctx.lineTo(24, 0);
+            ctx.closePath();
+            ctx.stroke();
+            ctx.font = '800 10px "JetBrains Mono", monospace';
+            ctx.fillStyle = 'rgba(226, 232, 240, 0.65)';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('−', -14, -7);
+            ctx.fillText('+', -14, 8);
+            ctx.restore();
+        }
+
+        ctx.font = '800 11.5px "JetBrains Mono", monospace';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillStyle = '#e2e8f0';
+        ctx.fillText('LM741', 42, -8);
+        ctx.font = '700 7.5px "JetBrains Mono", monospace';
+        ctx.fillStyle = '#c4b5fd';
+        ctx.fillText('OP-AMP', 42, 6);
+
+        const topLbls = ['8 NC', '7 V+', '6 OUT', '5 OF2'];
+        const botLbls = ['1 OF1', '2 IN−', '3 IN+', '4 V−'];
+        ctx.font = '700 7.2px "JetBrains Mono", monospace';
+        for (let i = 0; i < 4; i++) {
+            ctx.fillStyle = i === 1 ? '#fca5a5' : (i === 2 ? '#c4b5fd' : '#94a3b8');
+            ctx.fillText(topLbls[i], xs[i], -42);
+            ctx.fillStyle = i === 3 ? '#93c5fd' : '#94a3b8';
+            ctx.fillText(botLbls[i], xs[i], 44);
+        }
+
+        drawPillBadge(ctx, 0, -90, st.powered ? `LM741 · OUT ${st.vOut.toFixed(2)}V` : 'LM741 · UNPOWERED', st.powered ? 'ok' : 'info');
+        if (isSelected) drawSelectionFrame(ctx, -80, -78, 160, 156);
+        return true;
+    }
+
+    // =========================================================================
+    // 13Q. CR2032 3V COIN CELL IN PCB HOLDER (Pins: neg -72,0 | pos +72,0)
+    // =========================================================================
+    function drawCoin3V(ctx, comp, evalData, isSelected) {
+        const st = evalData?.sourceStates?.get(comp.id);
+        drawMetallicLead(ctx, [{ x: -72, y: 0 }, { x: -46, y: 0 }], 3.8);
+        drawMetallicLead(ctx, [{ x: 72, y: 0 },  { x: 46, y: 0 }], 3.8);
+
+        withPhysicalShadow(ctx, () => {
+            ctx.beginPath();
+            ctx.arc(0, 0, 48, 0, Math.PI * 2);
+            ctx.fillStyle = '#1e293b';
+            ctx.fill();
+            rRect(ctx, -54, -14, 108, 28, 5);
+            ctx.fill();
+        }, 10, 4, 3, 1.5);
+        ctx.strokeStyle = '#334155';
+        ctx.lineWidth = 1.6;
+        ctx.beginPath();
+        ctx.arc(0, 0, 48, 0, Math.PI * 2);
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.arc(0, 0, 40, 0, Math.PI * 2);
+        ctx.fillStyle = '#94a3b8';
+        ctx.fill();
+        ctx.strokeStyle = '#475569';
+        ctx.lineWidth = 1.6;
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.arc(0, 0, 34, 0, Math.PI * 2);
+        ctx.fillStyle = '#adb8c7';
+        ctx.fill();
+        ctx.strokeStyle = '#64748b';
+        ctx.lineWidth = 1.0;
+        ctx.stroke();
+
+        rRect(ctx, 26, -12, 24, 24, 4);
+        ctx.fillStyle = '#64748b';
+        ctx.fill();
+        ctx.strokeStyle = '#334155';
+        ctx.lineWidth = 1.2;
+        ctx.stroke();
+
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillStyle = '#0f172a';
+        ctx.font = '900 11px "JetBrains Mono", monospace';
+        ctx.fillText('CR2032', 0, -10);
+        ctx.font = '800 9.5px "JetBrains Mono", monospace';
+        ctx.fillText('3V LITHIUM', 0, 4);
+        ctx.font = '900 13px "JetBrains Mono", monospace';
+        ctx.fillText('+', 0, 19);
+
+        ctx.fillStyle = '#94a3b8';
+        ctx.font = '900 11px "JetBrains Mono", monospace';
+        ctx.fillText('−', -58, -14);
+        ctx.fillStyle = '#f87171';
+        ctx.fillText('+', 58, -14);
+
+        if (st?.shorted) drawPillBadge(ctx, 0, -64, '⚡ SHORT!', 'error');
+        if (isSelected) drawSelectionFrame(ctx, -78, -56, 156, 112);
+        return true;
+    }
+
+    // =========================================================================
+    // 13S. LD33V +3.3V TO-220 REGULATOR (Pins: in -36,36 | gnd 0,36 | out +36,36)
+    // =========================================================================
+    function drawReg33(ctx, comp, evalData, isSelected) {
+        const st = evalData?.regStates?.get(comp.id);
+        for (const px of [-36, 0, 36]) {
+            drawMetallicLead(ctx, [{ x: px, y: 2 }, { x: px, y: 36 }], 3.5);
+        }
+
+        withPhysicalShadow(ctx, () => {
+            rRect(ctx, -44, -58, 88, 30, 4);
+            ctx.fillStyle = '#8b98a9';
+            ctx.fill();
+        }, 8, 4, 3, 1.5);
+        ctx.strokeStyle = '#334155';
+        ctx.lineWidth = 1.4;
+        rRect(ctx, -44, -58, 88, 30, 4);
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.arc(0, -44, 7.5, 0, Math.PI * 2);
+        ctx.fillStyle = '#0f172a';
+        ctx.fill();
+        ctx.strokeStyle = '#475569';
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+
+        withPhysicalShadow(ctx, () => {
+            rRect(ctx, -44, -30, 88, 36, 4);
+            ctx.fillStyle = '#1e2532';
+            ctx.fill();
+        }, 8, 4, 3, 1.5);
+        ctx.fillStyle = '#0d9488';
+        ctx.fillRect(-43, -29, 86, 5);
+        ctx.strokeStyle = st?.overloaded ? '#ef4444' : '#334155';
+        ctx.lineWidth = st?.overloaded ? 2.2 : 1.5;
+        rRect(ctx, -44, -30, 88, 36, 4);
+        ctx.stroke();
+
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillStyle = '#f1f5f9';
+        ctx.font = '900 10.5px "JetBrains Mono", monospace';
+        ctx.fillText('LD33V', 0, -14);
+        ctx.fillStyle = '#5eead4';
+        ctx.font = '800 8.5px "JetBrains Mono", monospace';
+        ctx.fillText('I    G    O', 0, -2);
+
+        if (st?.overloaded) {
+            drawPillBadge(ctx, 0, -72, '⚡ FAULT', 'error');
+        } else if (st?.active) {
+            drawPillBadge(ctx, 0, -72, `${st.vOut.toFixed(2)}V`, 'ok');
+        }
+        if (isSelected) drawSelectionFrame(ctx, -52, -64, 104, 108);
+        return true;
+    }
+
+    // =========================================================================
+    // 13T. 1N5819 SCHOTTKY DIODE (Pins: anode -72,0 | cathode +72,0)
+    // =========================================================================
+    function drawSchottky(ctx, comp, evalData, isSelected) {
+        const st = evalData?.diodeStates?.get(comp.id);
+        drawMetallicLead(ctx, [{ x: -72, y: 0 }, { x: -34, y: 0 }], 3.5);
+        drawMetallicLead(ctx, [{ x: 72, y: 0 },  { x: 34, y: 0 }], 3.5);
+
+        withPhysicalShadow(ctx, () => {
+            rRect(ctx, -34, -14, 68, 28, 6);
+            ctx.fillStyle = '#181e28';
+            ctx.fill();
+        }, 8, 4, 2.5, 1.4);
+
+        ctx.fillStyle = '#eab308';
+        ctx.fillRect(16, -13, 10, 26);
+
+        ctx.strokeStyle = st?.overloaded ? '#ef4444' : (st?.conducting ? '#facc15' : '#334155');
+        ctx.lineWidth = (st?.overloaded || st?.conducting) ? 2.0 : 1.5;
+        rRect(ctx, -34, -14, 68, 28, 6);
+        ctx.stroke();
+
+        ctx.save();
+        if (((comp.rot || 0) % 360 + 360) % 360 === 180) ctx.rotate(Math.PI);
+        ctx.fillStyle = '#e2e8f0';
+        ctx.font = '800 8.5px "JetBrains Mono", monospace';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('1N5819', -6, 0.5);
+        ctx.restore();
+
+        if (st?.overloaded) drawPillBadge(ctx, 0, -28, '⚡ >1A!', 'error');
+        if (isSelected) drawSelectionFrame(ctx, -78, -22, 156, 44);
+        return true;
+    }
+
+    // =========================================================================
+    // 13U. IRF9540N P-CHANNEL MOSFET (Pins: g -36,36 | d 0,36 | s +36,36)
+    // =========================================================================
+    function drawPmos(ctx, comp, evalData, isSelected) {
+        const st = evalData?.pmosStates?.get(comp.id);
+        for (const px of [-36, 0, 36]) {
+            drawMetallicLead(ctx, [{ x: px, y: 2 }, { x: px, y: 36 }], 3.5);
+        }
+
+        withPhysicalShadow(ctx, () => {
+            rRect(ctx, -44, -58, 88, 30, 4);
+            ctx.fillStyle = '#8b98a9';
+            ctx.fill();
+        }, 8, 4, 3, 1.5);
+        ctx.strokeStyle = '#334155';
+        ctx.lineWidth = 1.4;
+        rRect(ctx, -44, -58, 88, 30, 4);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.arc(0, -44, 7.5, 0, Math.PI * 2);
+        ctx.fillStyle = '#0f172a';
+        ctx.fill();
+
+        withPhysicalShadow(ctx, () => {
+            rRect(ctx, -44, -30, 88, 36, 4);
+            ctx.fillStyle = '#1d2230';
+            ctx.fill();
+        }, 8, 4, 3, 1.5);
+        ctx.fillStyle = '#7c3aed';
+        ctx.fillRect(-43, -29, 86, 5);
+        ctx.strokeStyle = st?.overloaded ? '#ef4444' : (st?.on ? '#a78bfa' : '#334155');
+        ctx.lineWidth = (st?.overloaded || st?.on) ? 2.0 : 1.5;
+        rRect(ctx, -44, -30, 88, 36, 4);
+        ctx.stroke();
+
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillStyle = '#f1f5f9';
+        ctx.font = '900 9.5px "JetBrains Mono", monospace';
+        ctx.fillText('IRF9540N', 0, -14);
+        ctx.fillStyle = '#c4b5fd';
+        ctx.font = '800 8.5px "JetBrains Mono", monospace';
+        ctx.fillText('G    D    S', 0, -2);
+
+        if (st?.on) {
+            ctx.beginPath();
+            ctx.arc(34, -14, 3.5, 0, Math.PI * 2);
+            ctx.fillStyle = '#a78bfa';
+            ctx.fill();
+        }
+        if (isSelected) drawSelectionFrame(ctx, -52, -64, 104, 108);
+        return true;
+    }
+
+    // =========================================================================
+    // 13V. PC817 4-PIN DIP OPTOCOUPLER (Straddles trough: x=±18, y=±72)
+    // =========================================================================
+    function drawOptocoupler(ctx, comp, evalData, isSelected) {
+        const st = evalData?.optocouplerStates?.get(comp.id);
+        for (const px of [-18, 18]) {
+            drawMetallicLead(ctx, [{ x: px, y: -44 }, { x: px, y: -72 }], 3.8);
+            drawMetallicLead(ctx, [{ x: px, y: 44 },  { x: px, y: 72 }],  3.8);
+        }
+
+        withPhysicalShadow(ctx, () => {
+            rRect(ctx, -34, -48, 68, 96, 6);
+            ctx.fillStyle = '#1b2230';
+            ctx.fill();
+        }, 10, 4, 3, 1.5);
+        ctx.strokeStyle = st?.overloaded ? '#ef4444' : (st?.conducting ? '#38bdf8' : '#334155');
+        ctx.lineWidth = (st?.overloaded || st?.conducting) ? 2.0 : 1.5;
+        rRect(ctx, -34, -48, 68, 96, 6);
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.arc(-20, -34, 3.2, 0, Math.PI * 2);
+        ctx.fillStyle = '#cbd5e1';
+        ctx.fill();
+
+        ctx.save();
+        ctx.setLineDash([4, 3]);
+        ctx.beginPath();
+        ctx.moveTo(-26, 0);
+        ctx.lineTo(26, 0);
+        ctx.strokeStyle = st?.ledOn ? '#f59e0b' : 'rgba(148, 163, 184, 0.35)';
+        ctx.lineWidth = 1.4;
+        ctx.stroke();
+        ctx.restore();
+
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillStyle = '#f1f5f9';
+        ctx.font = '900 10.5px "JetBrains Mono", monospace';
+        ctx.fillText('PC817', 0, -14);
+        ctx.fillStyle = st?.conducting ? '#38bdf8' : '#94a3b8';
+        ctx.font = '800 8px "JetBrains Mono", monospace';
+        ctx.fillText(st?.conducting ? 'OPTO ON' : 'ISOLATOR', 0, 14);
+
+        ctx.fillStyle = '#94a3b8';
+        ctx.font = '800 7.5px "JetBrains Mono", monospace';
+        ctx.fillText('A+', -18, -38);
+        ctx.fillText('K−', 18, -38);
+        ctx.fillText('C', -18, 38);
+        ctx.fillText('E', 18, 38);
+
+        if (st?.overloaded) drawPillBadge(ctx, 0, -88, '⚡ >50mA!', 'error');
+        if (isSelected) drawSelectionFrame(ctx, -42, -78, 84, 156);
+        return true;
+    }
+
+    // =========================================================================
+    // 13W. PASSIVE 4-WAY RED BREADBOARD DIP SWITCH (Straddles trough: x=±54,±18, y=±72)
+    // =========================================================================
+    function drawDip4BB(ctx, comp, evalData, isSelected) {
+        const bits = Array.isArray(comp.bits) ? comp.bits : [0, 0, 0, 0];
+        const xs = [-54, -18, 18, 54];
+        for (const px of xs) {
+            drawMetallicLead(ctx, [{ x: px, y: -44 }, { x: px, y: -72 }], 3.6);
+            drawMetallicLead(ctx, [{ x: px, y: 44 },  { x: px, y: 72 }],  3.6);
+        }
+
+        withPhysicalShadow(ctx, () => {
+            rRect(ctx, -74, -48, 148, 96, 6);
+            ctx.fillStyle = '#b91c1c';
+            ctx.fill();
+        }, 10, 4, 3, 1.6);
+        ctx.strokeStyle = '#7f1d1d';
+        ctx.lineWidth = 2.0;
+        rRect(ctx, -74, -48, 148, 96, 6);
+        ctx.stroke();
+
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'middle';
+        ctx.fillStyle = '#fef2f2';
+        ctx.font = '900 9px "JetBrains Mono", monospace';
+        ctx.fillText('ON ▲', -64, -36);
+        ctx.textAlign = 'right';
+        ctx.fillStyle = 'rgba(254, 242, 242, 0.8)';
+        ctx.fillText('DIP-4', 64, -36);
+
+        ctx.textAlign = 'center';
+        for (let i = 0; i < 4; i++) {
+            const sx = xs[i];
+            const isOn = Boolean(bits[i]);
+            rRect(ctx, sx - 10, -24, 20, 48, 3);
+            ctx.fillStyle = '#290d0d';
+            ctx.fill();
+            ctx.strokeStyle = '#7f1d1d';
+            ctx.lineWidth = 1.0;
+            ctx.stroke();
+
+            const ky = isOn ? -22 : 2;
+            rRect(ctx, sx - 8, ky, 16, 20, 2.5);
+            ctx.fillStyle = isOn ? '#f8fafc' : '#cbd5e1';
+            ctx.fill();
+            ctx.strokeStyle = '#475569';
+            ctx.lineWidth = 1.0;
+            ctx.stroke();
+
+            ctx.fillStyle = isOn ? '#16a34a' : '#64748b';
+            ctx.fillRect(sx - 5, ky + 8.5, 10, 3);
+
+            ctx.fillStyle = '#fef2f2';
+            ctx.font = '800 9px "JetBrains Mono", monospace';
+            ctx.fillText(String(i + 1), sx, 36);
+        }
+
+        if (isSelected) drawSelectionFrame(ctx, -82, -78, 164, 156);
+        return true;
+    }
+
+    // =========================================================================
+    // 13X. SW-520D TILT BALL SWITCH (Pins: a -18,0 | b +18,0)
+    // =========================================================================
+    function drawTiltSwitch(ctx, comp, evalData, isSelected) {
+        const tilted = Boolean(comp.tilted);
+        drawMetallicLead(ctx, [{ x: -18, y: -14 }, { x: -18, y: 0 }], 3.4);
+        drawMetallicLead(ctx, [{ x: 18, y: -14 },  { x: 18, y: 0 }],  3.4);
+
+        ctx.save();
+        ctx.translate(0, -34);
+        if (tilted) ctx.rotate(0.42);
+
+        withPhysicalShadow(ctx, () => {
+            rRect(ctx, -28, -16, 56, 32, 10);
+            ctx.fillStyle = '#b48a3e';
+            ctx.fill();
+        }, 8, 4, 2.5, 1.4);
+        ctx.strokeStyle = '#785a20';
+        ctx.lineWidth = 1.6;
+        rRect(ctx, -28, -16, 56, 32, 10);
+        ctx.stroke();
+
+        rRect(ctx, -18, -9, 36, 18, 7);
+        ctx.fillStyle = '#1e293b';
+        ctx.fill();
+        ctx.beginPath();
+        ctx.arc(tilted ? 9 : -8, 0, 5.5, 0, Math.PI * 2);
+        ctx.fillStyle = tilted ? '#94a3b8' : '#34d399';
+        ctx.fill();
+        ctx.restore();
+
+        drawPillBadge(ctx, 0, -64, tilted ? 'TILT OPEN' : 'CLOSED', tilted ? 'warn' : 'ok');
+        if (isSelected) drawSelectionFrame(ctx, -38, -74, 76, 82);
+        return true;
+    }
+
+    // =========================================================================
+    // 13Y. HC-SR501 PIR MOTION SENSOR (Pins: vcc -36,36 | out 0,36 | gnd +36,36)
+    // =========================================================================
+    function drawPirSensor(ctx, comp, evalData, isSelected) {
+        const st = evalData?.pirStates?.get(comp.id);
+        const motion = Boolean(comp.motion);
+        for (const px of [-36, 0, 36]) {
+            drawMetallicLead(ctx, [{ x: px, y: 2 }, { x: px, y: 36 }], 3.5);
+        }
+
+        withPhysicalShadow(ctx, () => {
+            rRect(ctx, -56, -86, 112, 92, 7);
+            ctx.fillStyle = '#115e59';
+            ctx.fill();
+        }, 10, 4, 3, 1.6);
+        ctx.strokeStyle = st?.overloaded ? '#ef4444' : (motion && st?.powered ? '#f59e0b' : '#0f766e');
+        ctx.lineWidth = (st?.overloaded || (motion && st?.powered)) ? 2.2 : 1.6;
+        rRect(ctx, -56, -86, 112, 92, 7);
+        ctx.stroke();
+
+        for (const [mx, my] of [[-46, -76], [46, -76], [-46, -4], [46, -4]]) {
+            ctx.beginPath();
+            ctx.arc(mx, my, 4, 0, Math.PI * 2);
+            ctx.fillStyle = '#0f172a';
+            ctx.fill();
+            ctx.strokeStyle = '#ca8a04';
+            ctx.lineWidth = 1.2;
+            ctx.stroke();
+        }
+
+        ctx.beginPath();
+        ctx.arc(0, -42, 34, 0, Math.PI * 2);
+        ctx.fillStyle = motion && st?.powered ? '#fef3c7' : '#e2e8f0';
+        ctx.fill();
+        ctx.strokeStyle = '#94a3b8';
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+
+        ctx.strokeStyle = 'rgba(100, 116, 139, 0.42)';
+        ctx.lineWidth = 1.0;
+        for (const r of [11, 22, 31]) {
+            ctx.beginPath();
+            ctx.arc(0, -42, r, 0, Math.PI * 2);
+            ctx.stroke();
+        }
+        for (let i = 0; i < 8; i++) {
+            const a = (i * Math.PI) / 4;
+            ctx.beginPath();
+            ctx.moveTo(Math.cos(a) * 11, -42 + Math.sin(a) * 11);
+            ctx.lineTo(Math.cos(a) * 33, -42 + Math.sin(a) * 33);
+            ctx.stroke();
+        }
+
+        if (motion) {
+            ctx.strokeStyle = st?.powered ? '#f59e0b' : '#94a3b8';
+            ctx.lineWidth = 2.0;
+            for (const r of [42, 50]) {
+                ctx.beginPath();
+                ctx.arc(0, -42, r, -Math.PI * 0.78, -Math.PI * 0.22);
+                ctx.stroke();
+            }
+        }
+
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillStyle = '#ccfbf1';
+        ctx.font = '800 8px "JetBrains Mono", monospace';
+        ctx.fillText('VCC   OUT   GND', 0, -2);
+
+        if (st?.overloaded) drawPillBadge(ctx, 0, -104, '⚡ FAULT', 'error');
+        else if (motion) drawPillBadge(ctx, 0, -104, st?.powered ? 'MOTION 3.3V' : 'MOTION (NO PWR)', st?.powered ? 'warn' : 'neutral');
+        if (isSelected) drawSelectionFrame(ctx, -64, -96, 128, 140);
+        return true;
+    }
+
+    // =========================================================================
+    // 13AA. TMP36 ANALOG TEMPERATURE SENSOR (Pins: vcc -36,36 | vout 0,36 | gnd +36,36)
+    // =========================================================================
+    function drawTmp36(ctx, comp, evalData, isSelected) {
+        const st = evalData?.tmp36States?.get(comp.id);
+        const tempC = Math.max(-40, Math.min(125, Number(comp.tempC ?? 25)));
+        const vOut = st?.powered ? st.vOut : (0.5 + 0.01 * tempC);
+
+        for (const px of [-36, 0, 36]) {
+            drawMetallicLead(ctx, [{ x: px, y: -2 }, { x: px, y: 36 }], 3.4);
+        }
+
+        withPhysicalShadow(ctx, () => {
+            ctx.beginPath();
+            ctx.moveTo(-40, 2);
+            ctx.lineTo(-40, -18);
+            ctx.arc(0, -18, 40, Math.PI, 0, false);
+            ctx.lineTo(40, 2);
+            ctx.closePath();
+            ctx.fillStyle = '#1e2430';
+            ctx.fill();
+        }, 8, 4, 3, 1.5);
+        ctx.strokeStyle = st?.overloaded ? '#ef4444' : '#475569';
+        ctx.lineWidth = st?.overloaded ? 2.2 : 1.5;
+        ctx.stroke();
+
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillStyle = '#f1f5f9';
+        ctx.font = '900 10.5px "JetBrains Mono", monospace';
+        ctx.fillText('TMP36', 0, -28);
+        ctx.fillStyle = '#94a3b8';
+        ctx.font = '800 7.5px "JetBrains Mono", monospace';
+        ctx.fillText('+V   OUT   GND', 0, -8);
+
+        if (st?.overloaded) {
+            drawPillBadge(ctx, 0, -70, '⚡ >5.5V!', 'error');
+        } else {
+            drawPillBadge(ctx, 0, -70, `${Math.round(tempC)}°C · ${vOut.toFixed(2)}V`, st?.powered ? 'ok' : 'neutral');
+        }
+        if (isSelected) drawSelectionFrame(ctx, -48, -64, 96, 108);
+        return true;
+    }
+
+    // =========================================================================
+    // 13AB. 8-SEGMENT LED BAR GRAPH (DIP-16 straddling trough: x=-126..+126, y=±72)
+    // =========================================================================
+    function drawLedBar(ctx, comp, evalData, isSelected) {
+        const st = evalData?.ledBarStates?.get(comp.id);
+        const xs = [-126, -90, -54, -18, 18, 54, 90, 126];
+        for (const px of xs) {
+            drawMetallicLead(ctx, [{ x: px, y: -46 }, { x: px, y: -72 }], 3.5);
+            drawMetallicLead(ctx, [{ x: px, y: 46 },  { x: px, y: 72 }],  3.5);
+        }
+
+        withPhysicalShadow(ctx, () => {
+            rRect(ctx, -148, -50, 296, 100, 7);
+            ctx.fillStyle = '#1b2230';
+            ctx.fill();
+        }, 12, 5, 3.5, 1.8);
+        ctx.strokeStyle = st?.overloaded ? '#ef4444' : '#334155';
+        ctx.lineWidth = st?.overloaded ? 2.2 : 1.6;
+        rRect(ctx, -148, -50, 296, 100, 7);
+        ctx.stroke();
+
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.font = '800 8px "JetBrains Mono", monospace';
+        ctx.fillStyle = '#94a3b8';
+        ctx.fillText('+ ANODE (A0–A7)', 0, -39);
+        ctx.fillText('− CATHODE (K0–K7)', 0, 40);
+
+        const palette = [
+            { off: '#163526', on: '#22c55e', glow: 'rgba(34, 197, 94, 0.45)' },
+            { off: '#163526', on: '#22c55e', glow: 'rgba(34, 197, 94, 0.45)' },
+            { off: '#163526', on: '#22c55e', glow: 'rgba(34, 197, 94, 0.45)' },
+            { off: '#163526', on: '#22c55e', glow: 'rgba(34, 197, 94, 0.45)' },
+            { off: '#3a2b12', on: '#f59e0b', glow: 'rgba(245, 158, 11, 0.45)' },
+            { off: '#3a2b12', on: '#f59e0b', glow: 'rgba(245, 158, 11, 0.45)' },
+            { off: '#3b171b', on: '#ef4444', glow: 'rgba(239, 68, 68, 0.48)' },
+            { off: '#3b171b', on: '#ef4444', glow: 'rgba(239, 68, 68, 0.48)' }
+        ];
+        for (let i = 0; i < 8; i++) {
+            const sx = xs[i];
+            const seg = st?.segments?.[i];
+            const lit = Boolean(seg?.lit);
+            const br = seg?.brightness || 0;
+            const col = palette[i];
+
+            if (lit && br > 0.05) {
+                ctx.save();
+                ctx.shadowColor = col.glow;
+                ctx.shadowBlur = 14 * br;
+                rRect(ctx, sx - 11, -28, 22, 56, 3);
+                ctx.fillStyle = col.on;
+                ctx.fill();
+                ctx.restore();
+            } else {
+                rRect(ctx, sx - 11, -28, 22, 56, 3);
+                ctx.fillStyle = seg?.overloaded ? '#7f1d1d' : col.off;
+                ctx.fill();
+            }
+            ctx.strokeStyle = '#0f172a';
+            ctx.lineWidth = 1.2;
+            rRect(ctx, sx - 11, -28, 22, 56, 3);
+            ctx.stroke();
+        }
+
+        if (st?.overloaded) drawPillBadge(ctx, 0, -88, '⚡ >35mA!', 'error');
+        if (isSelected) drawSelectionFrame(ctx, -156, -78, 312, 156);
+        return true;
+    }
+
+    // =========================================================================
+    // 13AC. COIN ERM VIBRATION MOTOR (Pins: neg -36,0 | pos +36,0)
+    // =========================================================================
+    function drawVibMotor(ctx, comp, evalData, isSelected) {
+        const st = evalData?.vibMotorStates?.get(comp.id);
+        const vib = Boolean(st?.vibrating);
+        const phase = Number(comp._vibPhase || 0);
+        const jx = vib ? Math.sin(phase * 2.5) * 2.4 * (st.intensity || 0.7) : 0;
+        const jy = vib ? Math.cos(phase * 3.1) * 1.8 * (st.intensity || 0.7) : 0;
+
+        ctx.save();
+        ctx.lineCap = 'round';
+        ctx.beginPath(); ctx.moveTo(-36, 0); ctx.lineTo(-14, -22);
+        ctx.strokeStyle = '#334155'; ctx.lineWidth = 4.2; ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(36, 0); ctx.lineTo(14, -22);
+        ctx.strokeStyle = '#dc2626'; ctx.lineWidth = 4.2; ctx.stroke();
+        ctx.restore();
+        drawMetallicLead(ctx, [{ x: -36, y: -4 }, { x: -36, y: 0 }], 3.5);
+        drawMetallicLead(ctx, [{ x: 36, y: -4 },  { x: 36, y: 0 }],  3.5);
+
+        ctx.save();
+        ctx.translate(jx, -56 + jy);
+        withPhysicalShadow(ctx, () => {
+            ctx.beginPath();
+            ctx.arc(0, 0, 38, 0, Math.PI * 2);
+            ctx.fillStyle = '#94a3b8';
+            ctx.fill();
+        }, 10, 4, 3, 1.5);
+        ctx.strokeStyle = st?.overloaded ? '#ef4444' : '#475569';
+        ctx.lineWidth = st?.overloaded ? 2.2 : 1.8;
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.arc(0, 0, 30, 0, Math.PI * 2);
+        ctx.fillStyle = '#a8b4c4';
+        ctx.fill();
+        ctx.strokeStyle = '#64748b';
+        ctx.lineWidth = 1.0;
+        ctx.stroke();
+
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillStyle = '#0f172a';
+        ctx.font = '900 9.5px "JetBrains Mono", monospace';
+        ctx.fillText('ERM 3V', 0, -5);
+        ctx.font = '800 8px "JetBrains Mono", monospace';
+        ctx.fillText(vib ? 'BUZZ!' : 'VIBRATE', 0, 8);
+
+        if (vib) {
+            ctx.strokeStyle = '#38bdf8';
+            ctx.lineWidth = 2.0;
+            for (const r of [44, 51]) {
+                ctx.beginPath(); ctx.arc(0, 0, r, -0.55, 0.55); ctx.stroke();
+                ctx.beginPath(); ctx.arc(0, 0, r, Math.PI - 0.55, Math.PI + 0.55); ctx.stroke();
+            }
+        }
+        ctx.restore();
+
+        if (st?.overloaded) drawPillBadge(ctx, 0, -108, '⚡ >6V!', 'error');
+        if (isSelected) drawSelectionFrame(ctx, -56, -102, 112, 110);
+        return true;
+    }
+
+    // =========================================================================
+    // 13AD. SG90 MICRO SERVO MOTOR (Pins: gnd -36,36 | vcc 0,36 | sig +36,36)
+    // =========================================================================
+    function drawServo(ctx, comp, evalData, isSelected) {
+        const st = evalData?.servoStates?.get(comp.id);
+        const angleDeg = st ? st.angleDeg : Number(comp._servoAngle ?? comp.angleDeg ?? 90);
+
+        const wireCols = ['#78350f', '#dc2626', '#ea580c'];
+        const pxs = [-36, 0, 36];
+        for (let i = 0; i < 3; i++) {
+            ctx.beginPath();
+            ctx.moveTo(pxs[i], -6);
+            ctx.lineTo(pxs[i], 30);
+            ctx.strokeStyle = wireCols[i];
+            ctx.lineWidth = 4.6;
+            ctx.stroke();
+            drawMetallicLead(ctx, [{ x: pxs[i], y: 26 }, { x: pxs[i], y: 36 }], 3.4);
+        }
+
+        withPhysicalShadow(ctx, () => {
+            rRect(ctx, -84, -56, 168, 22, 4);
+            ctx.fillStyle = '#1d4ed8';
+            ctx.fill();
+            rRect(ctx, -62, -92, 124, 92, 7);
+            ctx.fillStyle = '#2563eb';
+            ctx.fill();
+        }, 12, 5, 3.5, 1.8);
+        ctx.strokeStyle = st?.overloaded ? '#ef4444' : '#1e3a8a';
+        ctx.lineWidth = st?.overloaded ? 2.2 : 1.8;
+        rRect(ctx, -62, -92, 124, 92, 7);
+        ctx.stroke();
+
+        for (const ex of [-74, 74]) {
+            ctx.beginPath();
+            ctx.arc(ex, -45, 4.5, 0, Math.PI * 2);
+            ctx.fillStyle = '#0f172a';
+            ctx.fill();
+        }
+
+        rRect(ctx, -50, -34, 100, 26, 3);
+        ctx.fillStyle = '#f8fafc';
+        ctx.fill();
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillStyle = '#1e3a8a';
+        ctx.font = '900 9.5px "JetBrains Mono", monospace';
+        ctx.fillText('SG90 MICRO SERVO', 0, -24);
+        ctx.fillStyle = '#475569';
+        ctx.font = '800 7.5px "JetBrains Mono", monospace';
+        ctx.fillText('GND   +5V   SIG', 0, -13);
+
+        const hubX = -14, hubY = -64;
+        ctx.beginPath();
+        ctx.arc(hubX, hubY, 20, 0, Math.PI * 2);
+        ctx.fillStyle = '#1e40af';
+        ctx.fill();
+
+        ctx.save();
+        ctx.translate(hubX, hubY);
+        const rad = ((angleDeg - 90) * Math.PI) / 180;
+        ctx.rotate(rad);
+        ctx.beginPath();
+        ctx.moveTo(-11, 0);
+        ctx.lineTo(-5.5, -56);
+        ctx.arc(0, -56, 5.5, Math.PI, 0, false);
+        ctx.lineTo(11, 0);
+        ctx.arc(0, 0, 11, 0, Math.PI, false);
+        ctx.closePath();
+        ctx.fillStyle = '#f1f5f9';
+        ctx.fill();
+        ctx.strokeStyle = '#64748b';
+        ctx.lineWidth = 1.4;
+        ctx.stroke();
+
+        for (const hy of [-22, -33, -44, -54]) {
+            ctx.beginPath();
+            ctx.arc(0, hy, 2.0, 0, Math.PI * 2);
+            ctx.fillStyle = '#475569';
+            ctx.fill();
+        }
+        ctx.beginPath();
+        ctx.arc(0, 0, 4.5, 0, Math.PI * 2);
+        ctx.fillStyle = '#94a3b8';
+        ctx.fill();
+        ctx.restore();
+
+        if (st?.overloaded) drawPillBadge(ctx, 0, -132, '⚡ >6.5V!', 'error');
+        else drawPillBadge(ctx, 26, -64, `${Math.round(angleDeg)}°`, st?.powered ? 'ok' : 'neutral');
+        if (isSelected) drawSelectionFrame(ctx, -90, -130, 180, 174);
+        return true;
+    }
+
+    // =========================================================================
+    // 13AE. L293D DUAL H-BRIDGE MOTOR DRIVER (DIP-16 straddling trough: x=-126..+126, y=±72)
+    // =========================================================================
+    function drawL293D(ctx, comp, evalData, isSelected) {
+        const st = evalData?.l293dStates?.get(comp.id);
+        const xs = [-126, -90, -54, -18, 18, 54, 90, 126];
+        for (const px of xs) {
+            drawMetallicLead(ctx, [{ x: px, y: -46 }, { x: px, y: -72 }], 3.6);
+            drawMetallicLead(ctx, [{ x: px, y: 46 },  { x: px, y: 72 }],  3.6);
+        }
+
+        withPhysicalShadow(ctx, () => {
+            rRect(ctx, -148, -50, 296, 100, 7);
+            ctx.fillStyle = '#181e2a';
+            ctx.fill();
+        }, 12, 5, 3.5, 1.8);
+        ctx.strokeStyle = st?.overloaded ? '#ef4444' : (st?.powered ? '#38bdf8' : '#334155');
+        ctx.lineWidth = (st?.overloaded || st?.powered) ? 2.0 : 1.6;
+        rRect(ctx, -148, -50, 296, 100, 7);
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.arc(-148, 0, 14, -Math.PI / 2, Math.PI / 2);
+        ctx.fillStyle = '#0f172a';
+        ctx.fill();
+        ctx.beginPath();
+        ctx.arc(-126, 30, 3.5, 0, Math.PI * 2);
+        ctx.fillStyle = '#94a3b8';
+        ctx.fill();
+
+        ctx.fillStyle = 'rgba(180, 138, 62, 0.16)';
+        ctx.fillRect(-34, -49, 68, 98);
+
+        const botLbl = ['EN12', 'IN1', 'OUT1', 'GND', 'GND', 'OUT2', 'IN2', 'VCC2'];
+        const topLbl = ['VCC1', 'IN4', 'OUT4', 'GND', 'GND', 'OUT3', 'IN3', 'EN34'];
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.font = '800 7.5px "JetBrains Mono", monospace';
+        for (let i = 0; i < 8; i++) {
+            ctx.fillStyle = (i === 3 || i === 4) ? '#d6a45c' : '#94a3b8';
+            ctx.fillText(botLbl[i], xs[i], 38);
+            ctx.fillText(topLbl[i], xs[i], -38);
+        }
+
+        ctx.fillStyle = '#f1f5f9';
+        ctx.font = '900 14px "JetBrains Mono", monospace';
+        ctx.fillText('L293D', 0, -6);
+        ctx.fillStyle = st?.powered ? '#38bdf8' : '#64748b';
+        ctx.font = '800 8.5px "JetBrains Mono", monospace';
+        ctx.fillText(st?.powered ? `DUAL H-BRIDGE · Vm ${st.vVcc2.toFixed(1)}V` : 'DUAL H-BRIDGE DRIVER', 0, 12);
+
+        if (st?.powered) {
+            const dots = [
+                { x: -54, y: 24, v: st.outs[0] },
+                { x: 54,  y: 24, v: st.outs[1] },
+                { x: 54,  y: -24, v: st.outs[2] },
+                { x: -54, y: -24, v: st.outs[3] }
+            ];
+            for (const d of dots) {
+                ctx.beginPath();
+                ctx.arc(d.x, d.y, 3.2, 0, Math.PI * 2);
+                ctx.fillStyle = d.v === 1 ? '#22c55e' : (d.v === 0 ? '#3b82f6' : '#334155');
+                ctx.fill();
+            }
+        }
+
+        if (st?.overloaded) drawPillBadge(ctx, 0, -88, '⚡ OVERVOLTAGE!', 'error');
+        if (isSelected) drawSelectionFrame(ctx, -156, -78, 312, 156);
+        return true;
+    }
+
+    // =========================================================================
+    // 13AF. MINI BENCH OSCILLOSCOPE (Pins: neg -72,144 | pos +72,144)
+    // =========================================================================
+    function drawScopeMini(ctx, comp, evalData, isSelected) {
+        const st = evalData?.scopeStates?.get(comp.id);
+        const samples = st?.samples || comp._wave || [];
+        const vDiv = Number(comp.vDiv) || 2.0;
+        const vNow = st ? st.voltage : 0;
+        const vpp = st ? st.vpp : 0;
+
+        const w = 344, h = 236;
+        const top = -112;
+
+        drawMetallicLead(ctx, [{ x: -72, y: top + h - 4 }, { x: -72, y: 144 }], 5.0);
+        drawMetallicLead(ctx, [{ x: 72, y: top + h - 4 },  { x: 72, y: 144 }], 5.0);
+
+        withPhysicalShadow(ctx, () => {
+            rRect(ctx, -w / 2, top, w, h, 12);
+            ctx.fillStyle = '#1e2534';
+            ctx.fill();
+        }, 14, 6, 4, 2);
+        ctx.strokeStyle = '#3b4a62';
+        ctx.lineWidth = 2.0;
+        rRect(ctx, -w / 2, top, w, h, 12);
+        ctx.stroke();
+
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'middle';
+        ctx.fillStyle = '#94a3b8';
+        ctx.font = '900 10px "JetBrains Mono", monospace';
+        ctx.fillText('DSO-MINI · CH1 SCOPE', -w / 2 + 16, top + 18);
+        ctx.textAlign = 'right';
+        ctx.fillStyle = '#38bdf8';
+        ctx.font = '800 10px "JetBrains Mono", monospace';
+        ctx.fillText(`${vDiv.toFixed(1)}V/div  ${vNow >= 0 ? '+' : ''}${vNow.toFixed(2)}V`, w / 2 - 16, top + 18);
+
+        const sx = -w / 2 + 16, sy = top + 32, sw = w - 32, sh = 148;
+        rRect(ctx, sx, sy, sw, sh, 6);
+        ctx.fillStyle = '#07131c';
+        ctx.fill();
+        ctx.strokeStyle = '#1e3a5f';
+        ctx.lineWidth = 1.6;
+        ctx.stroke();
+
+        ctx.save();
+        ctx.beginPath();
+        rRect(ctx, sx + 1, sy + 1, sw - 2, sh - 2, 5);
+        ctx.clip();
+
+        ctx.strokeStyle = 'rgba(56, 189, 248, 0.14)';
+        ctx.lineWidth = 1.0;
+        for (let c = 1; c < 8; c++) {
+            const gx = sx + (c / 8) * sw;
+            ctx.beginPath(); ctx.moveTo(gx, sy); ctx.lineTo(gx, sy + sh); ctx.stroke();
+        }
+        for (let r = 1; r < 4; r++) {
+            const gy = sy + (r / 4) * sh;
+            ctx.beginPath(); ctx.moveTo(sx, gy); ctx.lineTo(sx + sw, gy); ctx.stroke();
+        }
+
+        const zeroY = sy + sh * 0.78;
+        ctx.strokeStyle = 'rgba(148, 163, 184, 0.35)';
+        ctx.setLineDash([4, 4]);
+        ctx.beginPath(); ctx.moveTo(sx, zeroY); ctx.lineTo(sx + sw, zeroY); ctx.stroke();
+        ctx.setLineDash([]);
+
+        const pxPerDiv = sh / 4;
+        if (samples.length >= 2) {
+            ctx.beginPath();
+            for (let i = 0; i < samples.length; i++) {
+                const px = sx + (i / Math.max(1, samples.length - 1)) * sw;
+                const py = Math.max(sy + 4, Math.min(sy + sh - 4, zeroY - (samples[i] / vDiv) * pxPerDiv));
+                if (i === 0) ctx.moveTo(px, py);
+                else ctx.lineTo(px, py);
+            }
+            ctx.strokeStyle = '#38bdf8';
+            ctx.lineWidth = 2.4;
+            ctx.lineJoin = 'round';
+            ctx.stroke();
+        } else {
+            ctx.beginPath();
+            ctx.moveTo(sx, zeroY);
+            ctx.lineTo(sx + sw, zeroY);
+            ctx.strokeStyle = 'rgba(56, 189, 248, 0.5)';
+            ctx.lineWidth = 1.8;
+            ctx.stroke();
+        }
+
+        ctx.textAlign = 'left';
+        ctx.fillStyle = '#7dd3fc';
+        ctx.font = '800 9px "JetBrains Mono", monospace';
+        ctx.fillText(`Vpp: ${vpp.toFixed(2)}V`, sx + 8, sy + 12);
+        ctx.textAlign = 'right';
+        ctx.fillStyle = st?.connected ? '#34d399' : '#64748b';
+        ctx.fillText(st?.connected ? '● RUN' : '○ NO PROBE', sx + sw - 8, sy + 12);
+        ctx.restore();
+
+        ctx.fillStyle = '#0f172a';
+        rRect(ctx, -84, top + h - 38, 24, 34, 5); ctx.fill();
+        ctx.fillStyle = '#b91c1c';
+        rRect(ctx, 60, top + h - 38, 24, 34, 5); ctx.fill();
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillStyle = '#cbd5e1';
+        ctx.font = '900 9px "JetBrains Mono", monospace';
+        ctx.fillText('GND', -72, top + h - 20);
+        ctx.fillStyle = '#fef2f2';
+        ctx.fillText('CH1', 72, top + h - 20);
+
+        if (isSelected) drawSelectionFrame(ctx, -w / 2 - 10, top - 10, w + 20, h + 44);
+        return true;
+    }
+
+    // =========================================================================
     // 14. CREATIVE PURE-WHITE TECHNICAL SCHEMATICS FOR COMPONENT PALETTE CARDS
     // =========================================================================
     // Renders crisp, architectural white-ink IEEE/IEC electrical schematics directly
@@ -3051,7 +4953,36 @@
         npn:             'Q1',
         multimeter:      'DMM',
         seg7_10:         'DS1',
-        seg7:            'DS1'
+        seg7:            'DS1',
+        diode:           'D1',
+        zener:           'DZ1',
+        fuse:            'F1',
+        capacitor:       'C1',
+        capacitor_elec:  'C2',
+        inductor:        'L1',
+        pnp:             'Q2',
+        nmos:            'M1',
+        reg7805:         'U1',
+        relay:           'K1',
+        ldr:             'LDR',
+        thermistor:      'NTC',
+        bulb:            'LP1',
+        ic555:           'U555',
+        opamp:           'U741',
+        coin3v:          'BT3V',
+        reg33:           'U33',
+        schottky:        'DS1',
+        pmos:            'M2',
+        optocoupler:     'OK1',
+        dip4_bb:         'SW4',
+        tilt:            'SWT',
+        pir:             'PIR',
+        tmp36:           'TMP',
+        led_bar:         'BAR8',
+        vib_motor:       'VM1',
+        servo:           'SRV',
+        l293d:           'U293',
+        scope_mini:      'DSO'
     };
 
     function drawIEEESymbolPreview(canvas, kind) {
@@ -3315,6 +5246,260 @@
             ctx.font = '800 17px "JetBrains Mono", monospace';
             ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
             ctx.fillStyle = W_PRIMARY; ctx.fillText('8.', 1, 1);
+        } else if (kind === 'diode') {
+            line([[-36, 0], [-10, 0]], W_MED, 1.5);
+            line([[10, 0],  [36, 0]],  W_MED, 1.5);
+            ctx.beginPath(); ctx.moveTo(-10, -11); ctx.lineTo(-10, 11); ctx.lineTo(10, 0); ctx.closePath();
+            ctx.fillStyle = W_WASH; ctx.fill(); ctx.strokeStyle = W_PRIMARY; ctx.lineWidth = 1.9; ctx.stroke();
+            line([[10, -11], [10, 11]], W_PRIMARY, 2.3);
+            pad(-36, 0); pad(36, 0);
+        } else if (kind === 'zener') {
+            line([[-36, 0], [-10, 0]], W_MED, 1.5);
+            line([[10, 0],  [36, 0]],  W_MED, 1.5);
+            ctx.beginPath(); ctx.moveTo(-10, -11); ctx.lineTo(-10, 11); ctx.lineTo(10, 0); ctx.closePath();
+            ctx.fillStyle = W_WASH; ctx.fill(); ctx.strokeStyle = W_PRIMARY; ctx.lineWidth = 1.9; ctx.stroke();
+            line([[5, -13], [10, -10], [10, 10], [15, 13]], W_PRIMARY, 2.2);
+            pad(-36, 0); pad(36, 0);
+        } else if (kind === 'fuse') {
+            line([[-36, 0], [-18, 0]], W_MED, 1.5);
+            line([[18, 0],  [36, 0]],  W_MED, 1.5);
+            rRect(ctx, -18, -8, 36, 16, 3);
+            ctx.fillStyle = W_WASH; ctx.fill(); ctx.strokeStyle = W_PRIMARY; ctx.lineWidth = 1.7; ctx.stroke();
+            line([[-18, 0], [18, 0]], W_PRIMARY, 1.5);
+            pad(-36, 0); pad(36, 0);
+        } else if (kind === 'capacitor') {
+            line([[-36, 0], [-5, 0]], W_MED, 1.5);
+            line([[5, 0],   [36, 0]], W_MED, 1.5);
+            line([[-5, -14], [-5, 14]], W_PRIMARY, 2.3);
+            line([[5, -14],  [5, 14]],  W_PRIMARY, 2.3);
+            pad(-36, 0); pad(36, 0);
+        } else if (kind === 'capacitor_elec') {
+            line([[-36, 0], [-5, 0]], W_MED, 1.5);
+            line([[5, 0],   [36, 0]], W_MED, 1.5);
+            line([[-5, -14], [-5, 14]], W_PRIMARY, 2.3);
+            ctx.beginPath(); ctx.arc(13, 0, 16, Math.PI * 0.68, Math.PI * 1.32);
+            ctx.strokeStyle = W_PRIMARY; ctx.lineWidth = 2.2; ctx.stroke();
+            ctx.font = '800 10px "JetBrains Mono", monospace';
+            ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+            ctx.fillStyle = W_PRIMARY; ctx.fillText('+', -14, -12);
+            pad(-36, 0); pad(36, 0);
+        } else if (kind === 'inductor') {
+            line([[-36, 3], [-24, 3]], W_MED, 1.5);
+            line([[24, 3],  [36, 3]],  W_MED, 1.5);
+            ctx.strokeStyle = W_PRIMARY; ctx.lineWidth = 2.0;
+            ctx.beginPath();
+            for (let i = 0; i < 4; i++) {
+                ctx.arc(-18 + i * 12, 3, 6, Math.PI, 0, false);
+            }
+            ctx.stroke();
+            pad(-36, 3); pad(36, 3);
+        } else if (kind === 'pnp') {
+            ctx.beginPath(); ctx.arc(2, 0, 17, 0, Math.PI * 2);
+            ctx.fillStyle = W_WASH; ctx.fill(); ctx.strokeStyle = W_SUBTLE; ctx.lineWidth = 1.3; ctx.stroke();
+            line([[-32, 0], [-6, 0]], W_MED, 1.6);
+            line([[-6, -10.5], [-6, 10.5]], W_PRIMARY, 2.6);
+            line([[-6, -4.5], [13, -16], [13, -22]], W_PRIMARY, 1.7);
+            line([[-6, 4.5],  [13, 16],  [13, 22]],  W_PRIMARY, 1.7);
+            ctx.beginPath();
+            ctx.moveTo(-4, -5.5); ctx.lineTo(3.5, -13); ctx.lineTo(6.5, -7.5); ctx.closePath();
+            ctx.fillStyle = W_PRIMARY; ctx.fill();
+            pad(-32, 0); pad(13, -22); pad(13, 22);
+        } else if (kind === 'nmos') {
+            line([[-32, 6], [-10, 6], [-10, -10]], W_MED, 1.6);
+            line([[-5, -11], [-5, -5]], W_PRIMARY, 2.3);
+            line([[-5, -2.5], [-5, 2.5]], W_PRIMARY, 2.3);
+            line([[-5, 5], [-5, 11]], W_PRIMARY, 2.3);
+            line([[-5, -8], [14, -8], [14, -20]], W_PRIMARY, 1.7);
+            line([[-5, 0], [14, 0], [14, 20]], W_PRIMARY, 1.7);
+            line([[-5, 8], [14, 8]], W_PRIMARY, 1.7);
+            ctx.beginPath(); ctx.moveTo(-4, 0); ctx.lineTo(3, -3.5); ctx.lineTo(3, 3.5); ctx.closePath();
+            ctx.fillStyle = W_PRIMARY; ctx.fill();
+            pad(-32, 6); pad(14, -20); pad(14, 20);
+        } else if (kind === 'reg7805') {
+            rRect(ctx, -20, -13, 40, 26, 3);
+            ctx.fillStyle = W_WASH; ctx.fill(); ctx.strokeStyle = W_PRIMARY; ctx.lineWidth = 1.7; ctx.stroke();
+            line([[-34, 0], [-20, 0]], W_MED, 1.5);
+            line([[20, 0], [34, 0]], W_MED, 1.5);
+            line([[0, 13], [0, 22]], W_MED, 1.5);
+            ctx.font = '800 9.5px "JetBrains Mono", monospace';
+            ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+            ctx.fillStyle = W_PRIMARY; ctx.fillText('7805', 0, 0.5);
+            pad(-34, 0); pad(34, 0); pad(0, 22);
+        } else if (kind === 'relay') {
+            rRect(ctx, -28, -11, 14, 22, 2);
+            ctx.fillStyle = W_WASH; ctx.fill(); ctx.strokeStyle = W_PRIMARY; ctx.lineWidth = 1.6; ctx.stroke();
+            line([[-28, -11], [-14, 11]], W_MED, 1.2);
+            ctx.save(); ctx.setLineDash([2, 2]); line([[-12, 0], [4, 0]], W_SUBTLE, 1.2); ctx.restore();
+            line([[4, 0], [22, -10]], W_PRIMARY, 2.0);
+            line([[22, -10], [34, -10]], W_MED, 1.4);
+            line([[22, 10],  [34, 10]],  W_MED, 1.4);
+            pad(4, 0, true); pad(34, -10); pad(34, 10);
+        } else if (kind === 'ldr') {
+            ctx.beginPath(); ctx.arc(0, 3, 16, 0, Math.PI * 2);
+            ctx.fillStyle = W_WASH; ctx.fill(); ctx.strokeStyle = W_SUBTLE; ctx.lineWidth = 1.3; ctx.stroke();
+            line([[-34, 3], [-14, 3]], W_MED, 1.5);
+            line([[14, 3],  [34, 3]],  W_MED, 1.5);
+            line([[-14, 3], [-10, -3], [-4, 9], [2, -3], [8, 9], [14, 3]], W_PRIMARY, 1.8);
+            line([[-12, -18], [-4, -10]], W_MED, 1.4);
+            line([[-2, -20], [6, -12]], W_MED, 1.4);
+            pad(-34, 3); pad(34, 3);
+        } else if (kind === 'thermistor') {
+            line([[-36, 0], [-20, 0]], W_MED, 1.5);
+            line([[20, 0],  [36, 0]],  W_MED, 1.5);
+            rRect(ctx, -20, -7, 40, 14, 2);
+            ctx.fillStyle = W_WASH; ctx.fill(); ctx.strokeStyle = W_PRIMARY; ctx.lineWidth = 1.7; ctx.stroke();
+            line([[-18, 13], [-10, 13], [14, -13]], W_PRIMARY, 1.7);
+            pad(-36, 0); pad(36, 0);
+        } else if (kind === 'bulb') {
+            line([[-36, 0], [-16, 0]], W_MED, 1.5);
+            line([[16, 0],  [36, 0]],  W_MED, 1.5);
+            ctx.beginPath(); ctx.arc(0, 0, 16, 0, Math.PI * 2);
+            ctx.fillStyle = W_WASH; ctx.fill(); ctx.strokeStyle = W_PRIMARY; ctx.lineWidth = 1.9; ctx.stroke();
+            line([[-11, -11], [11, 11]], W_PRIMARY, 1.6);
+            line([[-11, 11], [11, -11]], W_PRIMARY, 1.6);
+            pad(-36, 0); pad(36, 0);
+        } else if (kind === 'ic555') {
+            rRect(ctx, -24, -15, 48, 30, 3);
+            ctx.fillStyle = W_WASH; ctx.fill(); ctx.strokeStyle = W_PRIMARY; ctx.lineWidth = 1.7; ctx.stroke();
+            for (const px of [-15, -5, 5, 15]) {
+                line([[px, -15], [px, -22]], W_MED, 1.3);
+                line([[px, 15],  [px, 22]],  W_MED, 1.3);
+            }
+            ctx.font = '800 11px "JetBrains Mono", monospace';
+            ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+            ctx.fillStyle = W_PRIMARY; ctx.fillText('555', 0, 0.5);
+        } else if (kind === 'opamp') {
+            line([[-34, -8], [-16, -8]], W_MED, 1.5);
+            line([[-34, 8],  [-16, 8]],  W_MED, 1.5);
+            line([[18, 0],   [34, 0]],   W_MED, 1.5);
+            ctx.beginPath(); ctx.moveTo(-16, -16); ctx.lineTo(-16, 16); ctx.lineTo(18, 0); ctx.closePath();
+            ctx.fillStyle = W_WASH; ctx.fill(); ctx.strokeStyle = W_PRIMARY; ctx.lineWidth = 1.9; ctx.stroke();
+            ctx.font = '800 9px "JetBrains Mono", monospace';
+            ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+            ctx.fillStyle = W_PRIMARY; ctx.fillText('−', -10, -6.5); ctx.fillText('+', -10, 7.5);
+            pad(-34, -8); pad(-34, 8); pad(34, 0);
+        } else if (kind === 'coin3v') {
+            line([[-34, 0], [-14, 0]], W_MED, 1.5);
+            line([[14, 0], [34, 0]], W_MED, 1.5);
+            ctx.beginPath(); ctx.arc(0, 0, 14, 0, Math.PI * 2);
+            ctx.fillStyle = W_WASH; ctx.fill(); ctx.strokeStyle = W_PRIMARY; ctx.lineWidth = 1.8; ctx.stroke();
+            ctx.font = '800 9.5px "JetBrains Mono", monospace';
+            ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+            ctx.fillStyle = W_PRIMARY; ctx.fillText('3V', 0, 0.5);
+            pad(-34, 0); pad(34, 0);
+        } else if (kind === 'reg33') {
+            rRect(ctx, -20, -13, 40, 26, 3);
+            ctx.fillStyle = W_WASH; ctx.fill(); ctx.strokeStyle = W_PRIMARY; ctx.lineWidth = 1.7; ctx.stroke();
+            line([[-34, 0], [-20, 0]], W_MED, 1.5);
+            line([[20, 0], [34, 0]], W_MED, 1.5);
+            line([[0, 13], [0, 22]], W_MED, 1.5);
+            ctx.font = '800 9.5px "JetBrains Mono", monospace';
+            ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+            ctx.fillStyle = W_PRIMARY; ctx.fillText('3.3V', 0, 0.5);
+            pad(-34, 0); pad(34, 0); pad(0, 22);
+        } else if (kind === 'schottky') {
+            line([[-36, 0], [-10, 0]], W_MED, 1.5);
+            line([[10, 0],  [36, 0]],  W_MED, 1.5);
+            ctx.beginPath(); ctx.moveTo(-10, -11); ctx.lineTo(-10, 11); ctx.lineTo(10, 0); ctx.closePath();
+            ctx.fillStyle = W_WASH; ctx.fill(); ctx.strokeStyle = W_PRIMARY; ctx.lineWidth = 1.9; ctx.stroke();
+            line([[14, -7], [14, -11], [10, -11], [10, 11], [6, 11], [6, 7]], W_PRIMARY, 2.0);
+            pad(-36, 0); pad(36, 0);
+        } else if (kind === 'pmos') {
+            line([[-32, 6], [-10, 6], [-10, -10]], W_MED, 1.6);
+            line([[-5, -11], [-5, -5]], W_PRIMARY, 2.3);
+            line([[-5, -2.5], [-5, 2.5]], W_PRIMARY, 2.3);
+            line([[-5, 5], [-5, 11]], W_PRIMARY, 2.3);
+            line([[-5, -8], [14, -8], [14, -20]], W_PRIMARY, 1.7);
+            line([[-5, 0], [14, 0], [14, 20]], W_PRIMARY, 1.7);
+            line([[-5, 8], [14, 8]], W_PRIMARY, 1.7);
+            ctx.beginPath(); ctx.moveTo(4, 0); ctx.lineTo(-3, -3.5); ctx.lineTo(-3, 3.5); ctx.closePath();
+            ctx.fillStyle = W_PRIMARY; ctx.fill();
+            pad(-32, 6); pad(14, -20); pad(14, 20);
+        } else if (kind === 'optocoupler') {
+            rRect(ctx, -28, -16, 56, 32, 3);
+            ctx.fillStyle = W_WASH; ctx.fill(); ctx.strokeStyle = W_MED; ctx.lineWidth = 1.3; ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(-18, -7); ctx.lineTo(-18, 7); ctx.lineTo(-7, 0); ctx.closePath();
+            ctx.strokeStyle = W_PRIMARY; ctx.lineWidth = 1.6; ctx.stroke();
+            line([[-7, -7], [-7, 7]], W_PRIMARY, 1.8);
+            line([[-2, -3], [4, -3]], W_MED, 1.2);
+            line([[-2, 3], [4, 3]], W_MED, 1.2);
+            line([[10, -8], [10, 8]], W_PRIMARY, 2.2);
+            line([[10, -4], [20, -10]], W_PRIMARY, 1.6);
+            line([[10, 4], [20, 10]], W_PRIMARY, 1.6);
+        } else if (kind === 'dip4_bb') {
+            rRect(ctx, -30, -17, 60, 34, 3);
+            ctx.fillStyle = W_WASH; ctx.fill(); ctx.strokeStyle = W_PRIMARY; ctx.lineWidth = 1.5; ctx.stroke();
+            for (let i = 0; i < 4; i++) {
+                const x = -18 + i * 12;
+                line([[x, -11], [x, 11]], W_MED, 1.5);
+                ctx.fillStyle = W_PRIMARY;
+                ctx.fillRect(x - 3, i % 2 === 0 ? -9 : 1, 6, 8);
+            }
+        } else if (kind === 'tilt') {
+            line([[-34, 4], [-14, 4]], W_MED, 1.5);
+            line([[14, 4],  [34, 4]],  W_MED, 1.5);
+            rRect(ctx, -14, -8, 28, 20, 8);
+            ctx.fillStyle = W_WASH; ctx.fill(); ctx.strokeStyle = W_PRIMARY; ctx.lineWidth = 1.7; ctx.stroke();
+            ctx.beginPath(); ctx.arc(-4, 2, 4, 0, Math.PI * 2);
+            ctx.fillStyle = W_PRIMARY; ctx.fill();
+            pad(-34, 4); pad(34, 4);
+        } else if (kind === 'pir') {
+            ctx.beginPath(); ctx.arc(0, 6, 15, Math.PI, 0, false); ctx.closePath();
+            ctx.fillStyle = W_WASH; ctx.fill(); ctx.strokeStyle = W_PRIMARY; ctx.lineWidth = 1.8; ctx.stroke();
+            for (const r of [19, 24]) {
+                ctx.beginPath(); ctx.arc(0, 6, r, -Math.PI * 0.78, -Math.PI * 0.22);
+                ctx.strokeStyle = W_MED; ctx.lineWidth = 1.3; ctx.stroke();
+            }
+            line([[-12, 6], [-12, 18]], W_MED, 1.4);
+            line([[0, 6], [0, 18]], W_MED, 1.4);
+            line([[12, 6], [12, 18]], W_MED, 1.4);
+        } else if (kind === 'tmp36') {
+            ctx.beginPath(); ctx.arc(0, 2, 14, Math.PI, 0, false); ctx.closePath();
+            ctx.fillStyle = W_WASH; ctx.fill(); ctx.strokeStyle = W_PRIMARY; ctx.lineWidth = 1.7; ctx.stroke();
+            line([[-10, 2], [-10, 18]], W_MED, 1.4);
+            line([[0, 2], [0, 18]], W_MED, 1.4);
+            line([[10, 2], [10, 18]], W_MED, 1.4);
+            ctx.font = '800 8px "JetBrains Mono", monospace';
+            ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+            ctx.fillStyle = W_PRIMARY; ctx.fillText('°C', 0, -4);
+        } else if (kind === 'led_bar') {
+            rRect(ctx, -34, -14, 68, 28, 3);
+            ctx.fillStyle = W_WASH; ctx.fill(); ctx.strokeStyle = W_PRIMARY; ctx.lineWidth = 1.6; ctx.stroke();
+            for (let i = 0; i < 8; i++) {
+                ctx.fillStyle = i < 5 ? W_PRIMARY : W_SUBTLE;
+                ctx.fillRect(-28 + i * 7.5, -8, 4.5, 16);
+            }
+        } else if (kind === 'vib_motor') {
+            ctx.beginPath(); ctx.arc(0, 0, 13, 0, Math.PI * 2);
+            ctx.fillStyle = W_WASH; ctx.fill(); ctx.strokeStyle = W_PRIMARY; ctx.lineWidth = 1.8; ctx.stroke();
+            for (const r of [18, 23]) {
+                ctx.beginPath(); ctx.arc(0, 0, r, -0.5, 0.5); ctx.strokeStyle = W_MED; ctx.lineWidth = 1.3; ctx.stroke();
+                ctx.beginPath(); ctx.arc(0, 0, r, Math.PI - 0.5, Math.PI + 0.5); ctx.stroke();
+            }
+            ctx.font = '800 10px "JetBrains Mono", monospace';
+            ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+            ctx.fillStyle = W_PRIMARY; ctx.fillText('V', 0, 0.5);
+        } else if (kind === 'servo') {
+            rRect(ctx, -26, -12, 34, 24, 3);
+            ctx.fillStyle = W_WASH; ctx.fill(); ctx.strokeStyle = W_PRIMARY; ctx.lineWidth = 1.7; ctx.stroke();
+            ctx.beginPath(); ctx.arc(10, 0, 6, 0, Math.PI * 2); ctx.strokeStyle = W_PRIMARY; ctx.stroke();
+            line([[10, 0], [26, -14]], W_PRIMARY, 2.4);
+            pad(26, -14, true);
+        } else if (kind === 'l293d') {
+            rRect(ctx, -30, -14, 60, 28, 3);
+            ctx.fillStyle = W_WASH; ctx.fill(); ctx.strokeStyle = W_PRIMARY; ctx.lineWidth = 1.7; ctx.stroke();
+            for (let i = 0; i < 6; i++) {
+                const px = -22 + i * 8.8;
+                line([[px, -14], [px, -20]], W_MED, 1.2);
+                line([[px, 14],  [px, 20]],  W_MED, 1.2);
+            }
+            ctx.font = '800 9.5px "JetBrains Mono", monospace';
+            ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+            ctx.fillStyle = W_PRIMARY; ctx.fillText('L293D', 0, 0.5);
+        } else if (kind === 'scope_mini') {
+            rRect(ctx, -30, -16, 60, 32, 3.5);
+            ctx.fillStyle = W_WASH; ctx.fill(); ctx.strokeStyle = W_PRIMARY; ctx.lineWidth = 1.7; ctx.stroke();
+            line([[-24, 4], [-16, 4], [-16, -7], [-6, -7], [-6, 4], [4, 4], [4, -7], [14, -7], [14, 4], [24, 4]], W_PRIMARY, 1.8);
         } else {
             rRect(ctx, -22, -14, 44, 28, 3);
             ctx.fillStyle = W_WASH; ctx.fill();
@@ -3343,6 +5528,35 @@
         drawMotor,
         drawNpn,
         drawSeg7TenPin,
+        drawDiode,
+        drawZener,
+        drawFuse,
+        drawCeramicCap,
+        drawElectrolyticCap,
+        drawInductor,
+        drawPnp,
+        drawNmos,
+        drawReg7805,
+        drawRelay,
+        drawLdr,
+        drawThermistor,
+        drawBulb,
+        drawIc555,
+        drawOpAmp,
+        drawCoin3V,
+        drawReg33,
+        drawSchottky,
+        drawPmos,
+        drawOptocoupler,
+        drawDip4BB,
+        drawTiltSwitch,
+        drawPirSensor,
+        drawTmp36,
+        drawLedBar,
+        drawVibMotor,
+        drawServo,
+        drawL293D,
+        drawScopeMini,
         drawIEEESymbolPreview,
         drawPillBadge,
         drawMetallicLead
